@@ -1,3 +1,5 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <!--
  Copyright (c) 2021, 2022  IBM Corporation and Carnegie Mellon University
 
@@ -19,12 +21,27 @@
  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  SOFTWARE.
 -->
+<package format="3">
+  <name>track_people_msgs</name>
+  <version>2.0.0</version>
+  <description>The track_people_msgs package</description>
+  <maintainer email="tisihara@jp.ibm.com">Tatsuya Ishihara</maintainer>
+  <license>MIT</license>
 
-<launch>
-  <param name="track_people_py/detection_threshold" value="0.25" />
-  <param name="track_people_py/minimum_detection_size_threshold" value="50" />
+  <buildtool_depend>ament_cmake</buildtool_depend>
 
-  <param name="track_people_py/detect_config_file" value="$(find-pkg-share track_people_py)/scripts/yolov4.cfg" />
-  <param name="track_people_py/detect_weight_file" value="$(find-pkg-share track_people_py)/scripts/yolov4.weights" />
-  <param name="track_people_py/detect_label_file" value="$(find-pkg-share track_people_py)/scripts/coco.names" />
-</launch>
+  <depend>rosidl_default_generators</depend>
+  <depend>rosidl_default_runtime</depend>
+  <depend>sensor_msgs</depend>
+  <depend>std_msgs</depend>
+  <depend>geometry_msgs</depend>
+
+  <member_of_group>rosidl_interface_packages</member_of_group>
+
+  <test_depend>ament_lint_auto</test_depend>
+  <test_depend>ament_lint_common</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

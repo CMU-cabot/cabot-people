@@ -19,6 +19,7 @@
 # SOFTWARE.
 
 std_msgs/Header header
-string camera_id
-geometry_msgs/Pose pose
-track_people_py/TrackedBox[] tracked_boxes
+uint32 track_id
+std_msgs/ColorRGBA color
+track_people_msgs/BoundingBox box
+geometry_msgs/Point center3d

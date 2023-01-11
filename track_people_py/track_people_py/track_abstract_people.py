@@ -1,6 +1,4 @@
-#!/usr/bin/env python3
-
-# Copyright (c) 2021  IBM Corporation
+# Copyright (c) 2021, 2022  IBM Corporation and Carnegie Mellon University
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -21,31 +19,25 @@
 # SOFTWARE.
 
 from abc import ABCMeta, abstractmethod
-from collections import deque
-import time
 
-from geometry_msgs.msg import PoseStamped
 from matplotlib import pyplot as plt
-from message_filters import ApproximateTimeSynchronizer
-import message_filters
 import numpy as np
 import rclpy
 import rclpy.node
 from rclpy.duration import Duration
-#from scipy.spatial.transform import Rotation as R
-from sensor_msgs.msg import Image, CameraInfo
 from std_msgs.msg import ColorRGBA
-import tf2_ros
-from track_people_py.msg import BoundingBox, TrackedBox, TrackedBoxes
 from visualization_msgs.msg import Marker, MarkerArray
-from diagnostic_updater import Updater, DiagnosticTask, HeaderlessTopicDiagnostic, FrequencyStatusParam
-from diagnostic_msgs.msg import DiagnosticStatus
+from diagnostic_updater import Updater
+from diagnostic_updater import HeaderlessTopicDiagnostic
+from diagnostic_updater import FrequencyStatusParam
+
+from track_people_msgs.msg import TrackedBox
+from track_people_msgs.msg import TrackedBoxes
 
 
 class AbsTrackPeople(rclpy.node.Node):
     __metaclass__ = ABCMeta
-    
-    
+
     def __init__(self, device, minimum_valid_track_duration):
         super().__init__('track_people_py')
         # settings for visualization
@@ -54,31 +46,29 @@ class AbsTrackPeople(rclpy.node.Node):
 
         # make sure only one camera is processed
         self.processing_detected_boxes = False
-        
+
         # start initialization
-        
         self.minimum_valid_track_duration = minimum_valid_track_duration
-        
+
         self.device = device
         self.detected_boxes_sub = self.create_subscription(TrackedBoxes, '/people/detected_boxes', self.detected_boxes_cb, 10)
         self.tracked_boxes_pub = self.create_publisher(TrackedBoxes, '/people/tracked_boxes', 10)
         self.visualization_marker_array_pub = self.create_publisher(MarkerArray, '/people/tracking_visualization', 10)
-        
+
         self.frame_id = 0
         self.prev_detect_time_sec = 0
-    
+
         self.updater = Updater(self)
 
         target_fps = self.declare_parameter('target_fps', 0.0).value
         diagnostic_name = self.declare_parameter('diagnostic_name', "PeopleTrack").value
         self.htd = HeaderlessTopicDiagnostic(diagnostic_name, self.updater,
-                                             FrequencyStatusParam({'min':target_fps, 'max':target_fps}, 0.2, 2))
+                                             FrequencyStatusParam({'min': target_fps, 'max': target_fps}, 0.2, 2))
 
     @abstractmethod
     def detected_boxes_cb(self, detected_boxes_msg):
         pass
-    
-    
+
     def preprocess_msg(self, detected_boxes_msg):
         detect_results = []
         center_bird_eye_global_list = []
@@ -86,8 +76,7 @@ class AbsTrackPeople(rclpy.node.Node):
             detect_results.append([bbox.box.xmin, bbox.box.ymin, bbox.box.xmax, bbox.box.ymax])
             center_bird_eye_global_list.append([bbox.center3d.x, bbox.center3d.y, bbox.center3d.z])
         return np.array(detect_results), center_bird_eye_global_list
-    
-    
+
     def pub_result(self, detected_boxes_msg, id_list, color_list, tracked_duration):
         self.htd.tick()
         # publish tracked boxes message
@@ -108,8 +97,7 @@ class AbsTrackPeople(rclpy.node.Node):
         self.tracked_boxes_pub.publish(tracked_boxes_msg)
 
         self.get_logger().info("camera ID = " + detected_boxes_msg.camera_id + ", number of tracked people = " + str(len(tracked_boxes_msg.tracked_boxes)))
-    
-    
+
     def vis_result(self, detected_boxes_msg, id_list, color_list, tracked_duration):
         # publish visualization marker array for rviz
         marker_array = MarkerArray()
@@ -137,7 +125,7 @@ class AbsTrackPeople(rclpy.node.Node):
             marker.color.a = 1.0
             marker_array.markers.append(marker)
         self.visualization_marker_array_pub.publish(marker_array)
-        
+
         # visualize by 2D plot in global map
         if self.vis_global:
             plt_x = []
@@ -149,7 +137,7 @@ class AbsTrackPeople(rclpy.node.Node):
                 plt_x.append(bbox.x)
                 plt_y.append(bbox.y)
                 plt_color.append(np.array(color_list[idx_bbox]))
-            
+
             plt.figure(2)
             plt.cla()
             ax = plt.gca()
@@ -159,8 +147,8 @@ class AbsTrackPeople(rclpy.node.Node):
             ax.set_xlabel('y')
             ax.set_ylabel('x')
             plt.scatter(plt_x, plt_y, c=plt_color)
-            plt.scatter([-detected_boxes_msg_msg.pose.position.y], [detected_boxes_msg_msg.pose.position.x], c=[np.array([1.0, 0.0, 0.0])], marker='+')
-            ax.set_xlim([-detected_boxes_msg_msg.pose.position.y-20,-detected_boxes_msg_msg.pose.position.y+20])
-            ax.set_ylim([detected_boxes_msg_msg.pose.position.x-20,detected_boxes_msg_msg.pose.position.x+20])
+            plt.scatter([-detected_boxes_msg.pose.position.y], [detected_boxes_msg.pose.position.x], c=[np.array([1.0, 0.0, 0.0])], marker='+')
+            ax.set_xlim([-detected_boxes_msg.pose.position.y-20, -detected_boxes_msg.pose.position.y+20])
+            ax.set_ylim([detected_boxes_msg.pose.position.x-20, detected_boxes_msg.pose.position.x+20])
             plt.draw()
             plt.pause(0.00000000001)

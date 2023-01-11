@@ -22,51 +22,6 @@
  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  SOFTWARE.
 -->
-<!-- <package format="2">
-  <name>track_people_cpp</name>
-  <version>1.0.0</version>
-  <description>The track_people_cpp package</description>
-  <maintainer email="daisukes@cmu.edu">Daisuke Sato</maintainer>
-  <license>MIT</license>
-
-  <buildtool_depend>catkin</buildtool_depend>
-  
-  <build_depend>roscpp</build_depend>
-  <build_depend>nodelet</build_depend>
-  <build_depend>tf2_ros</build_depend>
-  <build_depend>sensor_msgs</build_depend>
-  <build_depend>std_msgs</build_depend>
-  <build_depend>track_people_py</build_depend>
-  <build_depend>cv_bridge</build_depend>
-  <build_depend>diagnostic_updater</build_depend>
-  <build_depend>obstacle_detector</build_depend>
-
-  
-  <build_export_depend>roscpp</build_export_depend>
-  <build_export_depend>tf2_ros</build_export_depend>
-  <build_export_depend>nodelet</build_export_depend>
-  <build_export_depend>sensor_msgs</build_export_depend>
-  <build_export_depend>std_msgs</build_export_depend>
-  <build_export_depend>track_people_py</build_export_depend>
-  <build_export_depend>cv_bridge</build_export_depend>
-  <build_export_depend>diagnostic_updater</build_export_depend>
-  <build_export_depend>obstacle_detector</build_export_depend>
-  
-  <exec_depend>roscpp</exec_depend>
-  <exec_depend>nodelet</exec_depend>
-  <exec_depend>tf2_ros</exec_depend>
-  <exec_depend>sensor_msgs</exec_depend>
-  <exec_depend>std_msgs</exec_depend>
-  <exec_depend>track_people_py</exec_depend>
-  <exec_depend>cv_bridge</exec_depend>
-  <exec_depend>diagnostic_updater</exec_depend>
-  <exec_depend>obstacle_detector</exec_depend>
-
-  <export>
-    <nodelet plugin="${prefix}/nodelet.xml" />
-  </export>
-</package> -->
-
 <package format="3">
   <name>track_people_cpp</name>
   <version>2.0.0</version>
@@ -79,9 +34,10 @@
   <depend>tf2_ros</depend>
   <depend>sensor_msgs</depend>
   <depend>std_msgs</depend>
-  <depend>track_people_py</depend>
+  <depend>track_people_msgs</depend>
   <depend>cv_bridge</depend>
   <depend>diagnostic_updater</depend>
+  <depend>cabot_common</depend>
 
   <buildtool_depend>ament_cmake_ros</buildtool_depend>
 
