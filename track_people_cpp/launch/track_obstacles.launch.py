@@ -21,12 +21,17 @@
 from launch.logging import launch_config
 
 from launch import LaunchDescription
+from launch.actions import LogInfo
 from launch.actions import SetEnvironmentVariable
 from launch.actions import RegisterEventHandler
 from launch.event_handlers import OnShutdown
 from launch_ros.actions import Node
 
-from cabot_common.launch import AppendLogDirPrefix
+try:
+    from cabot_common.launch import AppendLogDirPrefix
+    workaround = False
+except ImportError:
+    workaround = True
 
 
 def generate_launch_description():
@@ -34,7 +39,7 @@ def generate_launch_description():
         # save all log file in the directory where the launch.log file is saved
         SetEnvironmentVariable('ROS_LOG_DIR', launch_config.log_dir),
         # append prefix name to the log directory for convenience
-        RegisterEventHandler(OnShutdown(on_shutdown=[AppendLogDirPrefix("track_people_cpp-track_obstacles")])),
+        LogInfo(msg=["no cabot_common"]) if workaround else RegisterEventHandler(OnShutdown(on_shutdown=[AppendLogDirPrefix("track_people_cpp-detect_darknet")])),
 
         Node(
             package='track_people_cpp',

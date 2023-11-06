@@ -21,6 +21,7 @@
 from launch.logging import launch_config
 
 from launch import LaunchDescription
+from launch.actions import LogInfo
 from launch.actions import DeclareLaunchArgument
 from launch.actions import SetEnvironmentVariable
 from launch.actions import RegisterEventHandler
@@ -36,7 +37,11 @@ from launch_ros.actions import SetParameter
 from launch_ros.descriptions import ComposableNode
 
 from ament_index_python.packages import get_package_share_directory
-from cabot_common.launch import AppendLogDirPrefix
+try:
+    from cabot_common.launch import AppendLogDirPrefix
+    workaround = False
+except ImportError:
+    workaround = True
 
 
 def generate_launch_description():
@@ -63,7 +68,7 @@ def generate_launch_description():
         # save all log file in the directory where the launch.log file is saved
         SetEnvironmentVariable('ROS_LOG_DIR', launch_config.log_dir),
         # append prefix name to the log directory for convenience
-        RegisterEventHandler(OnShutdown(on_shutdown=[AppendLogDirPrefix("track_people_cpp-detect_darknet")])),
+        LogInfo(msg=["no cabot_common"]) if workaround else RegisterEventHandler(OnShutdown(on_shutdown=[AppendLogDirPrefix("track_people_cpp-detect_darknet")])),
 
         DeclareLaunchArgument('map_frame', default_value='map'),
         DeclareLaunchArgument('namespace', default_value='camera'),
