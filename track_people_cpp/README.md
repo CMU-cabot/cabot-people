@@ -1,4 +1,4 @@
-# track_people_cpp package (ROS1)
+# track_people_cpp package
 
 detect and track people (cpp implementation) for improved performance
 

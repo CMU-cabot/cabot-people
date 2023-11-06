@@ -1,4 +1,4 @@
-# cabot_people package (ROS1)
+# cabot_people package
 
 launch file and script for launching people tracking nodes
 

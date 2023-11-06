@@ -1,4 +1,4 @@
-# track_people_py package (ROS1)
+# track_people_py package
 
 detect and track people
 
