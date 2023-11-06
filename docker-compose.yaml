@@ -4,4 +4,15 @@ services:
   ros2:
     image: cmucal/cabot_people:ros2-latest
     volumes:
-      - ./:/home/developer/people_ws/src/cabot-people
+      - /dev:/dev
+      - ./cabot_common:/home/developer/people_ws/src/cabot_common
+      - ./cabot_people:/home/developer/people_ws/src/cabot_people
+      - ./track_people_cpp:/home/developer/people_ws/src/track_people_cpp
+      - ./track_people_msgs:/home/developer/people_ws/src/track_people_msgs
+      - ./track_people_py:/home/developer/people_ws/src/track_people_py
+    environment:
+      - NVIDIA_DRIVER_CAPABILITIES=compute,graphics,utility,video,display
+      - NVIDIA_VISIBLE_DEVICES=all
+    privileged: true
+    devices:
+      - /dev/dri
