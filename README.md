@@ -8,10 +8,10 @@
 |[track_people_py](../track_people_py)|detect and track people|
 
 
-## Docker environment for development build
+## Docker environment for development build (using prebuild image)
 
 ```
-docker compose build
+docker compose build ros2
 docker compose run --rm ros2 colcon build
 ```
 

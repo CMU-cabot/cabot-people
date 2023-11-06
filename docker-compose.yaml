@@ -2,7 +2,6 @@ version: "2.3"
 
 services:
   ros2:
-    build:
-      context: ./
+    image: cmucal/cabot_people:ros2-latest
     volumes:
-      - ./:/home/developer/ros2_ws/src/cabot-drivers
+      - ./:/home/developer/people_ws/src/cabot-people
