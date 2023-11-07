@@ -10,7 +10,7 @@ services:
       - CABOT_REALSENSE_SERIAL=${CABOT_REALSENSE_SERIAL_1}
     command:
       - "/launch.sh"
-      - "-r"
+      - "-a"
       - "-t"
       - "0"
       - "-D"
@@ -24,7 +24,7 @@ services:
       - CABOT_REALSENSE_SERIAL=${CABOT_REALSENSE_SERIAL_2}
     command:
       - "/launch.sh"
-      - "-r"
+      - "-a"
       - "-t"
       - "0"
       - "-D"
@@ -38,7 +38,7 @@ services:
       - CABOT_REALSENSE_SERIAL=${CABOT_REALSENSE_SERIAL_3}
     command:
       - "/launch.sh"
-      - "-r"
+      - "-a"
       - "-t"
       - "0"
       - "-D"

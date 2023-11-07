@@ -7,4 +7,5 @@ COPY track_people_msgs src/track_people_msgs
 COPY track_people_cpp src/track_people_cpp
 COPY cabot_people src/cabot_people
 
-RUN /ros_entrypoint.sh colcon build
+RUN /ros_entrypoint.sh colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release
+
