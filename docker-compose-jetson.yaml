@@ -4,6 +4,7 @@ services:
   ros2:
     build:
       context: ./
+      dockerfile: Dockerfile.jetson
     volumes:
       - /dev:/dev
       - ./cabot_common:/home/developer/people_ws/src/cabot_common
