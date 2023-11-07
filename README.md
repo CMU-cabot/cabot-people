@@ -15,32 +15,47 @@
 ./setup-model.sh
 ```
 
-## Docker environment for development build (using prebuild image)
+## Test
 
-- make sure you have a PC with a NVIDIA GPU
-- docker and nvidia-docker is installed and configured
+### Docker environment
 
-```
-docker compose build ros2
-docker compose run --rm ros2 bash
-colcon build
-```
-
-### Test
-
-- connect a realsense to your PC
-- run the following script after the build
+- assume you have docker (Nvidia docker) and docker-compose
+- make sure you have a PC with a NVIDIA GPU, or a Jeston (Xavier, Orin, Xavier NX)
+- run one of the following script to build
 
 ```
-/launch.sh -r -t 0 -D -K
+docker-compose -f docker-compose-test-rs3.yaml build         # PC
+docker-compose -f docker-compose-jetson-test-rs3.yaml build  # Jetson
 ```
+
+### Bringup Realsense(s) and detection and tracking
+
+- connect realsense(s) to your PC
+- edit `.env` file to specify Relasense serial numbers (required if you use multiple)
+```
+CABOT_REALSENSE_SERIAL_1=
+CABOT_REALSENSE_SERIAL_2=
+CABOT_REALSENSE_SERIAL_3=
+```
+- run one of the following script after the build
+
+```
+docker-compose -f docker-compose-test-rs3.yaml up rs1 track                   # 1 Realsense on PC
+docker-compose -f docker-compose-test-rs3.yaml up rs1 rs2 track               # 2 Realsenses on PC
+docker-compose -f docker-compose-test-rs3.yaml up                             # 3 Realsenses on PC
+docker-compose -f docker-compose-jetson-test-rs3.yaml up rs1 track            # 1 Realsense on Jetson
+docker-compose -f docker-compose-jetson-test-rs3.yaml up rs1 rs2 track        # 2 Realsenses on Jetson
+docker-compose -f docker-compose-jetson-test-rs3.yaml up                      # 3 Realsenses on Jetson
+```
+
+### Check `/people` topic
 
 - check if `/people` topic is published and recognize someone in front of the camera
+- check if `/people` topic is published at 10-15 hz per camera, if you have two cameras it publishes at 20-30 hz.
 
 ```
-docker exec -it $(docker ps -f name=cabot-people-ros2 -q) bash
-source install/setup.bash
-ros2 topic echo /people
+docker exec -it $(docker ps -f name=cabot-people_rs1 -q) bash -c "source install/setup.bash && ros2 topic echo /people"
+docker exec -it $(docker ps -f name=cabot-people_rs1 -q) bash -c "source install/setup.bash && ros2 topic hz /people"
 ```
 
 # License
