@@ -13,19 +13,19 @@
 
 ```
 ./setup-model.sh
+./setup-dependency.sh
 ```
 
 ## Test
 
 ### Docker environment
 
-- assume you have docker (Nvidia docker) and docker-compose
+- assume you have docker (Nvidia docker) and docker compose
 - make sure you have a PC with a NVIDIA GPU, or a Jeston (Xavier, Orin, Xavier NX)
 - run one of the following script to build
 
 ```
-docker-compose -f docker-compose-test-rs3.yaml build         # PC
-docker-compose -f docker-compose-jetson-test-rs3.yaml build  # Jetson
+./build-docker.sh
 ```
 
 ### Bringup Realsense(s) and detection and tracking
@@ -40,12 +40,12 @@ CABOT_REALSENSE_SERIAL_3=
 - run one of the following script after the build
 
 ```
-docker-compose -f docker-compose-test-rs3.yaml up rs1 track                   # 1 Realsense on PC
-docker-compose -f docker-compose-test-rs3.yaml up rs1 rs2 track               # 2 Realsenses on PC
-docker-compose -f docker-compose-test-rs3.yaml up                             # 3 Realsenses on PC
-docker-compose -f docker-compose-jetson-test-rs3.yaml up rs1 track            # 1 Realsense on Jetson
-docker-compose -f docker-compose-jetson-test-rs3.yaml up rs1 rs2 track        # 2 Realsenses on Jetson
-docker-compose -f docker-compose-jetson-test-rs3.yaml up                      # 3 Realsenses on Jetson
+docker compose -f docker-compose-test-rs3.yaml up rs1 track                   # 1 Realsense on PC
+docker compose -f docker-compose-test-rs3.yaml up rs1 rs2 track               # 2 Realsenses on PC
+docker compose -f docker-compose-test-rs3.yaml up                             # 3 Realsenses on PC
+docker compose -f docker-compose-jetson-test-rs3.yaml up rs1 track            # 1 Realsense on Jetson
+docker compose -f docker-compose-jetson-test-rs3.yaml up rs1 rs2 track        # 2 Realsenses on Jetson
+docker compose -f docker-compose-jetson-test-rs3.yaml up                      # 3 Realsenses on Jetson
 ```
 
 ### Check `/people` topic
@@ -54,8 +54,8 @@ docker-compose -f docker-compose-jetson-test-rs3.yaml up                      # 
 - check if `/people` topic is published at 10-15 hz per camera, if you have two cameras it publishes at 20-30 hz.
 
 ```
-docker exec -it $(docker ps -f name=cabot-people_rs1 -q) bash -c "source install/setup.bash && ros2 topic echo /people"
-docker exec -it $(docker ps -f name=cabot-people_rs1 -q) bash -c "source install/setup.bash && ros2 topic hz /people"
+docker exec -it $(docker ps -f name=cabot-people-rs1 -q) bash -c "source install/setup.bash && ros2 topic echo /people"
+docker exec -it $(docker ps -f name=cabot-people-rs1 -q) bash -c "source install/setup.bash && ros2 topic hz /people"
 ```
 
 # License

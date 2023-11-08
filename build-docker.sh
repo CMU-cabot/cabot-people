@@ -51,6 +51,7 @@ function help {
     echo "-t <time_zone>        set time zone (default=$time_zone, your local time zone)"
     echo "-d                    debug without BUILDKIT"
     echo "-y                    no confirmation"
+    echo "-w                    build only workspace"
 }
 
 arch=$(uname -m)
@@ -71,6 +72,8 @@ build_dir=$scriptdir/docker
 common_dir=$scriptdir/cabot-common/docker
 option="--progress=auto"
 confirmation=1
+build_image=1
+build_workspace=1
 
 export DOCKER_BUILDKIT=1
 export DEBUG_FLAG="--cmake-args -DCMAKE_BUILD_TYPE=RelWithDebInfo"
@@ -78,7 +81,7 @@ export UNDERLAY_MIXINS="rel-with-deb-info"
 export OVERLAY_MIXINS="rel-with-deb-info"
 debug_ros2="--build-arg DEBUG_FLAG"
 
-while getopts "hqnt:c:u:dy" arg; do
+while getopts "hqnt:c:u:dyw" arg; do
     case $arg in
 	h)
 	    help
@@ -98,6 +101,9 @@ while getopts "hqnt:c:u:dy" arg; do
 	    ;;
 	y)
 	    confirmation=0
+	    ;;
+	w)
+	    build_image=0
 	    ;;
     esac
 done
@@ -265,7 +271,7 @@ function build_x86_64 {
 	return 1
     fi
 
-    prebuild $image_tag $image_tag $build_dir/mesa image_tag
+    prebuild $image_tag $image_tag $common_dir/mesa image_tag
     if [ $? -ne 0 ]; then
 	red "failed to build $image_tag"
 	return 1
@@ -283,12 +289,12 @@ function build_x86_64 {
 	return 1
     fi
 
-    docker compose -f docker-compose-rs3.yaml build \
+    docker compose -f docker-compose-test-rs3.yaml build \
 		   --build-arg FROM_IMAGE=$image \
 		   --build-arg UID=$UID \
 		   --build-arg TZ=$time_zone \
 		   $option \
-		   people-rs1 people-rs2 people-rs3
+		   rs1 rs2 rs3 track
 }
 
 function build_aarch64 {
@@ -347,11 +353,11 @@ function build_aarch64 {
 		   people-jetson
 }
 
-function build_people_ws {
+function build_x86_64_ws {
     docker compose run --rm people /launch.sh build
 }
 
-function build_l4t_ws {
+function build_aarch64_ws {
     docker compose -f docker-compose-jetson.yaml run --rm people-jetson /launch.sh build
 }
 
@@ -359,10 +365,16 @@ function build_l4t_ws {
 blue "Targets: $targets"
 check_to_proceed
 for target in $targets; do
-    blue "# Building $target"
-    eval "build_$target"
-    if [[ $? -ne 0 ]]; then
-	red "failed to build $target"
-	break
+    if [[ $build_image -eq 1 ]]; then
+	blue "# Building $target"
+	eval "build_${target}"
+	if [[ $? -ne 0 ]]; then
+	    red "failed to build $target"
+	    break
+	fi
+    fi
+    if [[ $build_workspace -eq 1 ]]; then
+	blue "# Building $target workspace"
+	eval "build_${target}_ws"
     fi
 done

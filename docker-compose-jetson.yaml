@@ -1,30 +1,33 @@
+# Copyright (c) 2020, 2023  Carnegie Mellon University, IBM Corporation, and others
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
 version: "2.3"
 
 services:
-  ros2:
+  people-jetson:
+    extends:
+      file: docker-compose-base.yaml
+      service: people
     build:
-      context: ./
+      context: ./docker/people
       dockerfile: Dockerfile.jetson
-    volumes:
-      - /dev:/dev
-      - ./cabot_common:/home/developer/people_ws/src/cabot_common
-      - ./cabot_people:/home/developer/people_ws/src/cabot_people
-      - ./track_people_cpp:/home/developer/people_ws/src/track_people_cpp
-      - ./track_people_msgs:/home/developer/people_ws/src/track_people_msgs
-      - ./track_people_py:/home/developer/people_ws/src/track_people_py
-# if DDS use shared memory
-      - /dev/shm:/dev/shm
     environment:
-      - NVIDIA_DRIVER_CAPABILITIES=compute,graphics,utility,video,display
-      - NVIDIA_VISIBLE_DEVICES=all
       - CABOT_GAZEBO=0
       - CABOT_USE_REALSENSE=1
-      - CABOT_CAMERA_RGB_FPS=30
-      - CABOT_CAMERA_DEPTH_FPS=15
-      - CABOT_CAMERA_RESOLUTION=848
-      - CABOT_DETECT_VERSION=3
-      - RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
-    privileged: true
-    network_mode: host
-    devices:
-      - /dev/dri

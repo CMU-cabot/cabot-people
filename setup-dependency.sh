@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright (c) 2021  IBM Corporation
+# Copyright (c) 2023  Carnegie Mellon University
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -20,21 +20,60 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-ulimit -S -c 0
+function blue {
+    echo -en "\033[36m"  ## blue
+    echo $@
+    echo -en "\033[0m"  ## reset color
+}
 
-args=("$@")
+function help {
+    echo "Usage: $0 <option>"
+    echo ""
+    echo "-h                    show this help"
+    echo "-c                    clean (rm -rf) dependency repositories"
+}
 
-WS=$HOME/people_ws
+clean=0
 
-if [ "$1" == "build" ]; then
-    cd $WS
-    colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release
-    exit $?
-else
-    echo "Skip building workscape"
+while getopts "hc" arg; do
+    case $arg in
+	h)
+	    help
+	    exit
+	    ;;
+	c)
+	    clean=1
+	    ;;
+    esac
+done
+
+
+if [[ $clean -eq 1 ]]; then
+    find * -name ".git" | while read -r line; do
+	echo "rm -rf $(dirname $line)"
+	rm -rf $(dirname $line)
+    done
+    exit
 fi
 
-source install/setup.bash
+declare -A visited
 
-cd $WS/src/cabot_people/script
-exec ./cabot_people.sh ${args[@]}
+while true; do
+    files=$(find . -name "dependency.repos")
+
+    flag=0
+    for line in ${files[@]}; do
+	if [[ -z ${visited[$line]} ]]; then
+	    flag=1
+	    visited[$line]=1
+	    
+	    pushd $(dirname $line)
+	    blue "vcs import < $(basename $line)"
+	    vcs import < $(basename $line)
+	    popd
+	fi
+    done
+    if [[ $flag -eq 0 ]]; then
+	break
+    fi
+done

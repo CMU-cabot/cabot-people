@@ -1,29 +1,10 @@
 version: "2.3"
 
 services:
-  ros2:
-    build:
-      context: ./
-    volumes:
-      - /dev:/dev
-      - ./cabot_common:/home/developer/people_ws/src/cabot_common
-      - ./cabot_people:/home/developer/people_ws/src/cabot_people
-      - ./track_people_cpp:/home/developer/people_ws/src/track_people_cpp
-      - ./track_people_msgs:/home/developer/people_ws/src/track_people_msgs
-      - ./track_people_py:/home/developer/people_ws/src/track_people_py
-# if DDS use shared memory
-      - /dev/shm:/dev/shm
+  people:
+    extends:
+      file: docker-compose-base.yaml
+      service: people
     environment:
-      - NVIDIA_DRIVER_CAPABILITIES=compute,graphics,utility,video,display
-      - NVIDIA_VISIBLE_DEVICES=all
       - CABOT_GAZEBO=0
       - CABOT_USE_REALSENSE=1
-      - CABOT_CAMERA_RGB_FPS=30
-      - CABOT_CAMERA_DEPTH_FPS=15
-      - CABOT_CAMERA_RESOLUTION=848
-      - CABOT_DETECT_VERSION=3
-      - RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
-    privileged: true
-    network_mode: host
-    devices:
-      - /dev/dri
