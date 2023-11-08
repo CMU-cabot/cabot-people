@@ -8,3 +8,28 @@ repositories:
     type: git
     url: https://github.com/osrf/docker_images.git
     version: 7f78d698d677a9800356b171ab99c4d76f0c18bd
+
+  docker/humble-custom/people:
+    # not distributed
+    type: git
+    url: https://github.com/wg-perception/people.git
+    version: ros2
+  docker/humble-custom/gazebo_ros_pkgs:
+    # customized for pacakge path resolving
+    type: git
+    url: https://github.com/CMU-cabot/gazebo_ros_pkgs
+    version: humble-dev
+  docker/humble-custom/realsense_gazebo_plugin:
+    # bugfix for plugin namespace
+    type: git
+    url: https://github.com/cmu-cabot/realsense_gazebo_plugin.git
+    version: humble-devel
+  docker/humble-custom/geometry2:
+    # suppress spam warning messages
+    type: git
+    url: https://github.com/cmu-cabot/geometry2
+    version: humble-dev
+  docker/humble-custom/realsense_ros:
+    type: git
+    url: https://github.com/IntelRealSense/realsense-ros.git
+    version: 4.51.1

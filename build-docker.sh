@@ -254,7 +254,7 @@ function build_x86_64 {
     blue "## build $base_name-$ROS2_DISTRO-desktop"
     build_ros_base_image $image_tag $image_tag $ROS2_UBUNTU_DISTRO $ROS2_DISTRO desktop image_tag
 
-    prebuild $image_tag $base_name $common_dir/${ROS2_DISTRO}-custom image_tag
+    prebuild $image_tag $base_name $build_dir/${ROS2_DISTRO}-custom image_tag
     if [ $? -ne 0 ]; then
 	return 1
     fi

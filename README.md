@@ -7,28 +7,26 @@
 |[track_people_msg](../track_people_msg)|msgs for track_people packages|
 |[track_people_py](../track_people_py)|detect and track people|
 
-## Prepare yolov4 model
+## Test
 
-- run the script to download yolov4 model
+### Preparation
+
+- run the script to download yolov4 model and dependencies
 
 ```
 ./setup-model.sh
 ./setup-dependency.sh
 ```
 
-## Test
-
-### Docker environment
-
 - assume you have docker (Nvidia docker) and docker compose
 - make sure you have a PC with a NVIDIA GPU, or a Jeston (Xavier, Orin, Xavier NX)
-- run one of the following script to build
+- run the script to build image and workspaces
 
 ```
 ./build-docker.sh
 ```
 
-### Bringup Realsense(s) and detection and tracking
+### Bringup Realsense(s), detection, and tracking
 
 - connect realsense(s) to your PC
 - edit `.env` file to specify Relasense serial numbers (required if you use multiple)
