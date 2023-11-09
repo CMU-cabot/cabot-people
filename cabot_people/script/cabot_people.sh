@@ -80,7 +80,6 @@ command=''
 commandpost='&'
 
 : ${CABOT_GAZEBO:=0}
-: ${CABOT_SITE:=}
 : ${CABOT_USE_REALSENSE:=0}
 : ${CABOT_SHOW_PEOPLE_RVIZ:=0}
 : ${CABOT_REALSENSE_SERIAL:=}
@@ -95,7 +94,6 @@ if [[ $CABOT_HEADLESS -eq 1 ]]; then
 fi
 
 gazebo=$CABOT_GAZEBO
-site=$CABOT_SITE
 show_rviz=$CABOT_SHOW_PEOPLE_RVIZ
 realsense_camera=$CABOT_USE_REALSENSE
 serial_no=$CABOT_REALSENSE_SERIAL
@@ -109,7 +107,6 @@ resolution=$CABOT_CAMERA_RESOLUTION
 
 opencv_dnn_ver=$CABOT_DETECT_VERSION
 
-queue_detector=0
 check_required=0
 publish_tf=0
 publish_sim_people=0
@@ -127,7 +124,7 @@ function usage {
     echo "Usage"
     echo "    run this script after running cabot.sh in another terminal"
     echo "ex)"
-    echo $0 "-T <site_package>"
+    echo $0 "-r -D -K"
     echo ""
     echo "-h                       show this help"
     echo "-d                       debug"
@@ -137,8 +134,6 @@ function usage {
     echo "-w <world file>          specify a world file"
     echo "-s                       specify its on simulation (gazebo)"
     echo "-r                       launch realsense camera"
-    echo "-q                       use queue detector"
-    echo "-T <site package>        packge name for the robot site (only for queue)"
     echo "-p                       publish simulation people instead of detected people from camera"
     echo "-K                       use people tracker"
     echo "-D                       use people detector"
@@ -158,7 +153,7 @@ function usage {
     exit
 }
 
-while getopts "hdm:n:w:srqVT:Ct:pWv:N:f:KDF:P:S:R:Oa" arg; do
+while getopts "hdm:n:w:srVCt:pWv:N:f:KDF:P:S:R:Oa" arg; do
     case $arg in
     h)
         usage
@@ -184,14 +179,8 @@ while getopts "hdm:n:w:srqVT:Ct:pWv:N:f:KDF:P:S:R:Oa" arg; do
     r)
         realsense_camera=1
         ;;
-    q)
-        queue_detector=1
-        ;;
     V)
         show_rviz=1
-        ;;
-    T)
-        site=$OPTARG
         ;;
     C)
         check_required=1
@@ -284,28 +273,6 @@ if [ $check_required -eq 1 ]; then
         snore 2
     done
 fi
-
-# load site package
-if [ $queue_detector -eq 1 ]; then
-   if [ "$site" != "" ]; then
-       sitedir=`ros2 pkg prefix $site`/share/$site
-       source $sitedir/config/config.sh
-       if [ "$map" == "" ] && [ "$world" == "" ]; then
-           echo "Please check config/config.sh in site package ($sitedir) to set map and world"
-           exit
-       fi
-   else
-       if [ "$map" == "" ]; then
-           echo "-T <site> or -m <map> should be specified"
-           exit
-       fi
-       if [ $gazebo -eq 1 ] && [ "$world" == "" ]; then
-           echo "-T <site> or -w <world> should be specified"
-           exit
-       fi
-   fi
-fi
-
 
 ## debug output
 echo "Use Realsense : $realsense_camera"
@@ -441,30 +408,6 @@ if [ $tracking -eq 1 ]; then
     echo $com
     eval $com
     pids+=($!)
-fi
-
-### launch queue detect
-if [ $queue_detector -eq 1 ]; then
-    if [ "$sitedir" == "" ]; then
-        echo "-T <site> should be specified for queue detect"
-        exit
-    fi
-    if [ $gazebo -eq 1 ]; then
-        queue_det_config_file=$sitedir/queue/gazebo/detector/config.yaml
-    else
-        queue_det_config_file=$sitedir/queue/detector/config.yaml
-    fi
-
-    if [ $queue_det_config_file != "" ]; then
-        launch_file="queue_people_py detect_queue_people.launch.py"
-        echo "launch $launch_file"
-        eval "$command ros2 launch $launch_file \
-                       queue_annotation_list_file:=$queue_det_config_file \
-                       $commandpost"
-        pids+=($!)
-    else
-        echo "Invalid site is specified. There is no queue config file."
-    fi
 fi
 
 ### obstacle detect/track
