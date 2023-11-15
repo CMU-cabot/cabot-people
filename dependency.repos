@@ -33,3 +33,13 @@ repositories:
     type: git
     url: https://github.com/IntelRealSense/realsense-ros.git
     version: 4.51.1
+
+  docker/jetson-humble-custom/people:
+    # not distributed
+    type: git
+    url: https://github.com/wg-perception/people.git
+    version: ros2
+  docker/jetson-humble-custom/realsense_ros:
+    type: git
+    url: https://github.com/IntelRealSense/realsense-ros.git
+    version: 4.51.1
