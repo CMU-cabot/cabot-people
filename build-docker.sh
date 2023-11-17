@@ -69,7 +69,7 @@ pwd=$(pwd)
 scriptdir=$(dirname $0)
 cd $scriptdir
 scriptdir=$(pwd)
-prefix=$(basename $scriptdir)_
+prefix=$(basename $scriptdir)
 
 build_dir=$scriptdir/docker
 common_dir=$scriptdir/cabot-common/docker
@@ -193,7 +193,7 @@ function build_ros_base_image {
     echo ""
     IMAGE_TAG=$IMAGE_TAG_PREFIX-$ROS_DISTRO
     blue "## build $IMAGE_TAG"
-    pushd $build_dir/docker_images/ros/$ROS_DISTRO/ubuntu/$UBUNTU_DISTRO/ros-core/
+    pushd $common_dir/docker_images/ros/$ROS_DISTRO/ubuntu/$UBUNTU_DISTRO/ros-core/
 
     sed s=FROM.*=FROM\ $FROM_IMAGE= Dockerfile > Dockerfile.temp && \
         docker build -f Dockerfile.temp -t $IMAGE_TAG $option .
@@ -207,7 +207,7 @@ function build_ros_base_image {
     FROM_IMAGE=$IMAGE_TAG
     IMAGE_TAG=$IMAGE_TAG_PREFIX-$ROS_DISTRO-base
     blue "## build $IMAGE_TAG"
-    pushd $build_dir/docker_images/ros/$ROS_DISTRO/ubuntu/$UBUNTU_DISTRO/ros-base/
+    pushd $common_dir/docker_images/ros/$ROS_DISTRO/ubuntu/$UBUNTU_DISTRO/ros-base/
     sed s=FROM.*=FROM\ $FROM_IMAGE= Dockerfile > Dockerfile.temp && \
         docker build -f Dockerfile.temp -t $IMAGE_TAG $option .
     if [ $? -ne 0 ]; then
@@ -223,7 +223,7 @@ function build_ros_base_image {
     echo ""
     IMAGE_TAG=$IMAGE_TAG_PREFIX-$ROS_DISTRO-desktop
     blue "## build $IMAGE_TAG"
-    pushd $build_dir/docker_images/ros/$ROS_DISTRO/ubuntu/$UBUNTU_DISTRO/desktop/
+    pushd $common_dir/docker_images/ros/$ROS_DISTRO/ubuntu/$UBUNTU_DISTRO/desktop/
     sed s=FROM.*=FROM\ $FROM_IMAGE= Dockerfile > Dockerfile.temp && \
         docker build -f Dockerfile.temp -t $IMAGE_TAG $option .
     if [ $? -ne 0 ]; then
@@ -268,7 +268,7 @@ function prebuild_x86_64 {
     blue "## build $base_name-$ROS2_DISTRO-desktop"
     build_ros_base_image $image_tag $image_tag $ROS2_UBUNTU_DISTRO $ROS2_DISTRO desktop image_tag
 
-    prebuild $image_tag $base_name $build_dir/${ROS2_DISTRO}-custom image_tag
+    prebuild $image_tag $base_name $common_dir/${ROS2_DISTRO}-custom image_tag
     if [ $? -ne 0 ]; then
 	return 1
     fi
@@ -348,7 +348,7 @@ function prebuild_aarch64 {
     echo ""
     local name3=${prefix}_l4t-realsense-opencv-humble-base
     blue "# build ${prefix}_l4t-realsense-opencv-humble-base"
-    pushd $build_dir/jetson-humble-base-src
+    pushd $common_dir/jetson-humble-base-src
     docker build -t $name3 \
 	   --build-arg FROM_IMAGE=$name2 \
 	   $option \
