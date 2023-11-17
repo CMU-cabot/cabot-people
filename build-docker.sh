@@ -111,7 +111,7 @@ while getopts "hqnt:c:u:dypP:iw" arg; do
         ;;
     P)
         prebuild=1
-        prefix=${OPTARG}_
+        prefix=${OPTARG}
         ;;
     i)
         build_image=1
@@ -257,8 +257,8 @@ function prebuild_x86_64 {
     blue "- UBUNTU_DISTRO=$ROS2_UBUNTU_DISTRO"
     blue "- ROS_DISTRO=$ROS2_DISTRO"
 
-    cuda_base=nvidia/cuda:$CUDAV-cudnn$CUDNNV-devel-ubuntu$ROS2_UBUNTUV
-    base_name=${prefix}_$ROS2_UBUNTU_DISTRO-cuda$CUDAV-cudnn$CUDNNV-devel
+    cuda_base=nvidia/cuda:${CUDAV}-cudnn${CUDNNV}-devel-ubuntu${ROS2_UBUNTUV}
+    base_name=${prefix}__${ROS2_UBUNTU_DISTRO}-cuda${CUDAV}-cudnn${CUDNNV}-devel
     prebuild $cuda_base $base_name $build_dir/realsense image_tag
     if [ $? -ne 0 ]; then
 	return 1
@@ -292,8 +292,8 @@ function prebuild_x86_64 {
     fi
 }
 
-function prebuild_x86_64 {
-    local image=${prefix}_jammy-cuda11.7.1-cudnn8-devel-realsense-humble-custom-opencv-open3d-mesa
+function build_x86_64 {
+    local image=${prefix}__${ROS2_UBUNTU_DISTRO}-cuda${CUDAV}-cudnn${CUDNNV}-devel-realsense-humble-custom-opencv-open3d-mesa
     docker compose build \
 		   --build-arg FROM_IMAGE=$image \
 		   --build-arg UID=$UID \
