@@ -9,10 +9,6 @@ services:
       - XAUTHORITY=/tmp/.docker.xauth
       - NVIDIA_DRIVER_CAPABILITIES=compute,graphics,utility,video,display
       - NVIDIA_VISIBLE_DEVICES=all
-      - ROS_IP=${ROS_IP:-127.0.0.1}
-      - GAZEBO_IP=${ROS_IP:-127.0.0.1}
-      - ROS_MASTER_URI=http://${MASTER_IP:-127.0.0.1}:11311
-      - GAZEBO_MASTER_URI=http://${MASTER_IP:-127.0.0.1}:11345
       - OMP_NUM_THREADS=1
       - ROS_LOG_DIR
 # CaBot
@@ -36,7 +32,6 @@ services:
       - /sys/devices:/sys/devices
       - /tmp/.X11-unix:/tmp/.X11-unix:rw
       - /tmp/.docker.xauth:/tmp/.docker.xauth
-      - ./docker/home:/home/developer
     privileged: true
     devices:
       - /dev/dri
@@ -47,7 +42,14 @@ services:
     stop_signal: SIGINT
     stop_grace_period: 30s
 
-  people:
+  people-nuc-base:
+    extends:
+      service: people-base
+    build:
+      context: ./docker/people
+      dockerfile: Dockerfile.nuc
+
+  people-all-base:
     extends:
       service: people-base
     volumes:
@@ -64,10 +66,9 @@ services:
       # - "-p"                                # people topic is simulation groundtruth
       - "-D"                                # detection
       - "-K"                                # tracking
-      - "-q"                                # queue
       - "-O"                                # obstacle
 
-  people-detection:
+  people-detection-base:
     extends:
       service: people
     command:
@@ -77,4 +78,16 @@ services:
       # - "-p"                                # people topic is simulation groundtruth
       - "-D"                                # detection
       - "-a"                                # no resetrs individually
+
+  people:
+    extends:
+      service: people-all-base
+    volumes:
+      - ./docker/home:/home/developer
+
+  people-detection:
+    extends:
+      service: people-detection-base
+    volumes:
+      - ./docker/home:/home/developer
 

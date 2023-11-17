@@ -51,7 +51,10 @@ function help {
     echo "-t <time_zone>        set time zone (default=$time_zone, your local time zone)"
     echo "-d                    debug without BUILDKIT"
     echo "-y                    no confirmation"
-    echo "-w                    build only workspace"
+    echo "-p                    prebuild images"
+    echo "-P <prefix>           prebuild with prefix"
+    echo "-i                    build images"
+    echo "-w                    build workspace"
 }
 
 arch=$(uname -m)
@@ -72,8 +75,9 @@ build_dir=$scriptdir/docker
 common_dir=$scriptdir/cabot-common/docker
 option="--progress=auto"
 confirmation=1
-build_image=1
-build_workspace=1
+prebuild=0
+build_image=0
+build_workspace=0
 
 export DOCKER_BUILDKIT=1
 export DEBUG_FLAG="--cmake-args -DCMAKE_BUILD_TYPE=RelWithDebInfo"
@@ -81,7 +85,7 @@ export UNDERLAY_MIXINS="rel-with-deb-info"
 export OVERLAY_MIXINS="rel-with-deb-info"
 debug_ros2="--build-arg DEBUG_FLAG"
 
-while getopts "hqnt:c:u:dyw" arg; do
+while getopts "hqnt:c:u:dypP:iw" arg; do
     case $arg in
 	h)
 	    help
@@ -102,8 +106,18 @@ while getopts "hqnt:c:u:dyw" arg; do
 	y)
 	    confirmation=0
 	    ;;
+    p)
+        prebuild=1
+        ;;
+    P)
+        prebuild=1
+        prefix=${OPTARG}_
+        ;;
+    i)
+        build_image=1
+        ;;
 	w)
-	    build_image=0
+	    build_workspace=1
 	    ;;
     esac
 done
@@ -236,7 +250,7 @@ function prebuild {
 	   . && popd
 }
 
-function build_x86_64 {
+function prebuild_x86_64 {
     blue "- CUDAV=$CUDAV"
     blue "- CUDNNV=$CUDNNV"
     blue "- UBUNTUV=$ROS2_UBUNTUV"
@@ -276,7 +290,9 @@ function build_x86_64 {
 	red "failed to build $image_tag"
 	return 1
     fi
+}
 
+function prebuild_x86_64 {
     local image=${prefix}_jammy-cuda11.7.1-cudnn8-devel-realsense-humble-custom-opencv-open3d-mesa
     docker compose build \
 		   --build-arg FROM_IMAGE=$image \
@@ -297,7 +313,7 @@ function build_x86_64 {
 		   rs1 rs2 rs3 track
 }
 
-function build_aarch64 {
+function prebuild_aarch64 {
     export DOCKER_BUILDKIT=0
     L4T_IMAGE="nvcr.io/nvidia/l4t-base:r35.1.0"
 
@@ -370,7 +386,9 @@ function build_aarch64 {
 	exit 1
     fi
     popd
-    
+}
+
+function build_aarch64 {
     local image=${prefix}_l4t-realsense-opencv-humble-custom-open3d
     export DOCKER_BUILDKIT=0
     docker compose -f docker-compose-jetson.yaml build \
@@ -404,16 +422,24 @@ function build_aarch64_ws {
 blue "Targets: $targets"
 check_to_proceed
 for target in $targets; do
+    if [[ $prebuild -eq 1 ]]; then
+        blue "# Building prebuild $target"
+        eval "prebuild_${target}"
+        if [[ $? -ne 0 ]]; then
+            red "failed to prebuild $target"
+            break
+        fi
+    fi
     if [[ $build_image -eq 1 ]]; then
-	blue "# Building $target"
-	eval "build_${target}"
-	if [[ $? -ne 0 ]]; then
-	    red "failed to build $target"
-	    break
-	fi
+        blue "# Building $target"
+        eval "build_${target}"
+        if [[ $? -ne 0 ]]; then
+            red "failed to build $target"
+            break
+        fi
     fi
     if [[ $build_workspace -eq 1 ]]; then
-	blue "# Building $target workspace"
-	eval "build_${target}_ws"
+        blue "# Building $target workspace"
+        eval "build_${target}_ws"
     fi
 done
