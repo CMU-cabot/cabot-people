@@ -50,6 +50,7 @@ def generate_launch_description():
     depth_unit_meter = LaunchConfiguration('depth_unit_meter')
     target_fps = LaunchConfiguration('target_fps')
     publish_simulator_people = LaunchConfiguration('publish_simulator_people')
+    publish_detect_image = LaunchConfiguration('publish_detect_image')
 
     # ToDo: workaround https://github.com/CMU-cabot/cabot/issues/86
     jetpack5_workaround = LaunchConfiguration('jetpack5_workaround')
@@ -75,6 +76,7 @@ def generate_launch_description():
         DeclareLaunchArgument('use_composite', default_value='false'),
         DeclareLaunchArgument('target_container', default_value=''),
         DeclareLaunchArgument('publish_simulator_people', default_value='false'),
+        DeclareLaunchArgument('publish_detect_image', default_value='false'),
 
         DeclareLaunchArgument('jetpack5_workaround', default_value='false'),
 
@@ -88,6 +90,7 @@ def generate_launch_description():
         SetParameter(name='depth_unit_meter', value=depth_unit_meter),
         SetParameter(name='target_fps', value=target_fps),
         SetParameter(name='publish_simulator_people', value=publish_simulator_people),
+        SetParameter(name='publish_detect_image', value=publish_detect_image),
         SetParameter(name='detection_threshold', value=0.25),
         SetParameter(name='minimum_detection_size_threshold', value=50.0),
         SetParameter(name='detect_config_file', value=yolov4_cfg),
