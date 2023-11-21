@@ -85,7 +85,7 @@ export UNDERLAY_MIXINS="rel-with-deb-info"
 export OVERLAY_MIXINS="rel-with-deb-info"
 debug_ros2="--build-arg DEBUG_FLAG"
 
-while getopts "hqnt:c:u:dypP:iw" arg; do
+while getopts "hqno:t:c:u:dypP:iw" arg; do
     case $arg in
 	h)
 	    help
@@ -97,6 +97,9 @@ while getopts "hqnt:c:u:dypP:iw" arg; do
 	n)
 	    option="--no-cache $option"
 	    ;;
+    o)
+        option=$OPTARG
+        ;;
 	t)
 	    time_zone=$OPTARG
 	    ;;
