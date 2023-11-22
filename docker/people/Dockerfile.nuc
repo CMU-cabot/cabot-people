@@ -19,7 +19,7 @@
 # SOFTWARE.
 
 ARG PREFIX
-ARG FROM_IMAGE=${PREFIX}__jammy-cuda11.7.1-cudnn8-devel-realsense-humble-custom-opencv-open3d-mesa
+ARG FROM_IMAGE=${PREFIX}__jammy-humble-custom-mesa
 FROM $FROM_IMAGE
 
 ARG ROS_DISTRO=noetic \
