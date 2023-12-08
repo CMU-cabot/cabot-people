@@ -20,7 +20,7 @@ scriptdir=`pwd`
 cd $scriptdir/../
 
 # reset realsense
-docker compose -f docker-compose-test-rs3.yaml run rs1 sudo /resetrs.sh
+docker compose -f docker-compose-test-rs3.yaml run --rm rs1 sudo /resetrs.sh
 
 # launch detection and tracking, and check if it output any ERROR logs
 (timeout 20s docker compose -f docker-compose-test-rs3.yaml up rs1 track 2>&1) | while IFS= read -r line
@@ -32,3 +32,5 @@ do
 	exit 1
     fi
 done
+
+docker compose -f docker-compose-test-rs3.yaml down 2>&1
