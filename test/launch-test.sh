@@ -4,7 +4,7 @@
 trap ctrl_c INT QUIT TERM
 
 function ctrl_c() {
-    docker compose down > /dev/null 2>&1
+    docker compose -f docker-compose-test-rs3.yaml down > /dev/null 2>&1
     exit
 }
 function red {
@@ -28,7 +28,7 @@ do
     echo "$line"  # Optional: Echoes the output of the command
     if [[ "$line" == *"ERROR"* ]]; then
         echo "Error detected, aborting the command."
-        pkill -P $$  # Kills the process group, effectively stopping the command
+	docker compose -f docker-compose-test-rs3.yaml down 2>&1
 	exit 1
     fi
 done
