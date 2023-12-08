@@ -18,11 +18,13 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+import os
 from launch.logging import launch_config
 
 from launch import LaunchDescription
 from launch.actions import LogInfo
 from launch.actions import DeclareLaunchArgument
+from launch.actions import OpaqueFunction
 from launch.actions import SetEnvironmentVariable
 from launch.actions import RegisterEventHandler
 from launch.conditions import IfCondition
@@ -42,6 +44,12 @@ try:
     workaround = False
 except ImportError:
     workaround = True
+
+
+def check_file_existence(context, file_subst):
+    file_path = file_subst.perform(context)
+    if not os.path.exists(file_path):
+        raise RuntimeError(f"File does not exist: {file_path} - please run ./setup-model.sh to download model files and build workspace again")
 
 
 def generate_launch_description():
@@ -99,6 +107,10 @@ def generate_launch_description():
         SetParameter(name='detect_config_file', value=yolov4_cfg),
         SetParameter(name='detect_weight_file', value=yolov4_weights),
         SetParameter(name='detect_label_file', value=coco_names),
+
+        OpaqueFunction(function=check_file_existence, args=[yolov4_cfg]),
+        OpaqueFunction(function=check_file_existence, args=[yolov4_weights]),
+        OpaqueFunction(function=check_file_existence, args=[coco_names]),
 
         SetEnvironmentVariable(name='LD_PRELOAD', value='/usr/local/lib/libOpen3D.so', condition=IfCondition(jetpack5_workaround)),
         Node(
