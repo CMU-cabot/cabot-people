@@ -46,6 +46,12 @@ docker compose -f docker-compose-jetson-test-rs3.yaml up rs1 rs2 track        # 
 docker compose -f docker-compose-jetson-test-rs3.yaml up                      # 3 Realsenses on Jetson
 ```
 
+```
+docker compose -f docker-compose-test-rs3-framos.yaml up rs1-framos track-framos                   # 1 FRAMOS on PC
+docker compose -f docker-compose-test-rs3-framos.yaml up rs1-framos rs2-framos track-framos        # 2 FRAMOSes on PC
+docker compose -f docker-compose-test-rs3-framos.yaml up                                           # 3 FRAMOSes on PC
+```
+
 ### Check `/people` topic
 
 - check if `/people` topic is published and recognize someone in front of the camera

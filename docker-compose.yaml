@@ -8,3 +8,11 @@ services:
     environment:
       - CABOT_GAZEBO=0
       - CABOT_USE_REALSENSE=1
+
+  people-framos:
+    extends:
+      file: docker-compose-base.yaml
+      service: people-framos
+    environment:
+      - CABOT_GAZEBO=0
+      - CABOT_USE_REALSENSE=1

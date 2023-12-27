@@ -1,0 +1,57 @@
+version: "2.3"
+
+services:
+  rs1-framos:
+    extends:
+      file: docker-compose.yaml
+      service: people-framos
+    environment:
+      - CABOT_CAMERA_NAME=rs1
+      - CABOT_REALSENSE_SERIAL=${CABOT_REALSENSE_SERIAL_1}
+    command:
+      - "/launch.sh"
+      - "-a"
+      - "-t"
+      - "0"
+      - "-D"
+      - "-c 2"
+
+  rs2-framos:
+    extends:
+      file: docker-compose.yaml
+      service: people-framos
+    environment:
+      - CABOT_CAMERA_NAME=rs2
+      - CABOT_REALSENSE_SERIAL=${CABOT_REALSENSE_SERIAL_2}
+    command:
+      - "/launch.sh"
+      - "-a"
+      - "-t"
+      - "0"
+      - "-D"
+      - "-c 2"
+
+  rs3-framos:
+    extends:
+      file: docker-compose.yaml
+      service: people-framos
+    environment:
+      - CABOT_CAMERA_NAME=rs3
+      - CABOT_REALSENSE_SERIAL=${CABOT_REALSENSE_SERIAL_3}
+    command:
+      - "/launch.sh"
+      - "-a"
+      - "-t"
+      - "0"
+      - "-D"
+      - "-c 2"
+
+  track-framos:
+    extends:
+      file: docker-compose.yaml
+      service: people-framos
+    environment:
+      - CABOT_USE_REALSENSE=0
+    command:
+      - "/launch.sh"
+      - "-K"
