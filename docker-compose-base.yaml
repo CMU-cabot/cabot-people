@@ -97,13 +97,6 @@ services:
     volumes:
       - ./docker/home:/home/developer
 
-  people-framos:
-    extends:
-      service: people
-    build:
-      context: ./docker/people
-      dockerfile: Dockerfile.framos
-
   people-detection:
     extends:
       service: people-detection-base

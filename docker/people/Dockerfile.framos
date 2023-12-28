@@ -23,29 +23,19 @@ ARG FROM_IMAGE=${PREFIX}__jammy-cuda11.7.1-cudnn8-devel-realsense-humble-custom-
 
 FROM $FROM_IMAGE AS cache
 
-ENV FRAMOS_WS=/opt/framos_ws
+ENV PEOPLE_CUSTOM_WS=/opt/people_custom_ws
 
-RUN mkdir -p $FRAMOS_WS/src && \
-	cp -r /usr/src/librealsense2/wrappers/ros2 $FRAMOS_WS/src/realsense-ros
+RUN mkdir -p $PEOPLE_CUSTOM_WS/src && \
+	cp -r /usr/src/librealsense2/wrappers/ros2 $PEOPLE_CUSTOM_WS/src/realsense-ros
 
-WORKDIR $FRAMOS_WS
+WORKDIR $PEOPLE_CUSTOM_WS
 
-# copy package.xml files with parent directories for cache
-RUN find . -name "src" -type d \
-      -mindepth 1 -maxdepth 2 -printf '%P\n' \
-      | xargs -I % mkdir -p /tmp/opt/% && \
-    find . -name "package.xml" \
-      | xargs cp --parents -t /tmp/opt && \
-    find . -name "COLCON_IGNORE" \
-      | xargs cp --parents -t /tmp/opt || true
-
-RUN apt update && rosdep update && rosdep install -q -y \
-	--from-paths src \
-	--ignore-src && \
+RUN apt update && rosdep update && \
+	rosdep install --from-paths src --ignore-src --rosdistro=${ROS_DISTRO} -r -y && \
 	apt purge -y ros-$ROS_DISTRO-librealsense2
 
 RUN . /opt/custom_ws/install/setup.sh && \
-	colcon build --cmake-args -DCMAKE_BUILD_TYPE=RelWithDebInfo
+	colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release
 
 FROM $FROM_IMAGE AS build
 ARG ROS_DISTRO=humble \
@@ -58,22 +48,11 @@ ENV ROS_DISTRO=$ROS_DISTRO \
 
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
-ENV FRAMOS_WS=/opt/framos_ws
+ENV PEOPLE_CUSTOM_WS=/opt/people_custom_ws
 
-RUN mkdir -p $FRAMOS_WS/install
-WORKDIR $FRAMOS_WS
-
-COPY --from=cache $FRAMOS_WS/install $FRAMOS_WS/install
-# copy package.xml files from cache
-COPY --from=cache /tmp/opt/src $FRAMOS_WS/src
-
-RUN apt update && rosdep update && rosdep install -q -y \
-	--from-paths src \
-	--ignore-src && \
-	apt purge -y ros-$ROS_DISTRO-librealsense2
-
-ARG ROS_DISTRO
-RUN sed -i 's:custom_ws:framos_ws:' /ros_entrypoint.sh
+RUN mkdir -p $PEOPLE_CUSTOM_WS/install
+COPY --from=cache $PEOPLE_CUSTOM_WS/install $PEOPLE_CUSTOM_WS/install
+RUN sed -i 's:custom_ws:people_custom_ws:' /ros_entrypoint.sh
 
 RUN apt update && \
 	apt install -y --no-install-recommends \
