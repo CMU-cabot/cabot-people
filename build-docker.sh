@@ -350,13 +350,36 @@ function build_x86_64 {
 }
 
 function prebuild_aarch64 {
-    export DOCKER_BUILDKIT=0
-    L4T_IMAGE="nvcr.io/nvidia/l4t-base:r35.1.0"
+    local CAMERA_IMAGE=$1
+    blue "- CAMERA_IMAGE=$CAMERA_IMAGE"
+
+    # check host OS JetPack version
+    HOST_L4T_V=$(dpkg-query --showformat='${Version}' --show nvidia-l4t-core)
+    HOST_L4T_V_ARRAY=(${HOST_L4T_V//./ })
+    HOST_L4T_RELEASE_V=${HOST_L4T_V_ARRAY[0]}
+    blue "- HOST_L4T_RELEASE_V=$HOST_L4T_RELEASE_V"
+
+    if [ $CAMERA_IMAGE == "framos" ] && [ $HOST_L4T_RELEASE_V -lt 36 ]; then
+        red "L4T version later than 36 is required for framos camera"
+        exit 1
+    fi
+    if [[ $HOST_L4T_RELEASE_V -lt 36 ]]; then
+        L4T_IMAGE="nvcr.io/nvidia/l4t-base:r35.1.0"
+        OPENCV_V=4.5.4
+        L4T_CUDA=11-4
+    else
+        L4T_IMAGE="nvcr.io/nvidia/l4t-base:r36.2.0"
+        OPENCV_V=4.9.0
+        L4T_CUDA=12-2
+    fi
+    blue "- L4T_IMAGE=$L4T_IMAGE"
+    blue "- OPENCV_V=$OPENCV_V"
+    blue "- L4T_CUDA=$L4T_CUDA"
 
     echo ""
-    local name1=${prefix}_l4t-realsense
-    blue "# build ${prefix}_l4t-realsense"
-    pushd $build_dir/realsense
+    local name1=${prefix}_l4t-$CAMERA_IMAGE
+    blue "# build ${prefix}_l4t-$CAMERA_IMAGE"
+    pushd $build_dir/$CAMERA_IMAGE
     docker build -f Dockerfile.jetson -t $name1 \
 	   --build-arg FROM_IMAGE=$L4T_IMAGE \
 	   $option \
@@ -368,11 +391,13 @@ function prebuild_aarch64 {
     popd
 
     echo ""
-    local name2=${prefix}_l4t-realsense-opencv
-    blue "# build ${prefix}_l4t-realsense-opencv"
+    local name2=${prefix}_l4t-$CAMERA_IMAGE-opencv
+    blue "# build ${prefix}_l4t-$CAMERA_IMAGE-opencv"
     pushd $build_dir/opencv
     docker build -f Dockerfile.jetson -t $name2 \
 	   --build-arg FROM_IMAGE=$name1 \
+	   --build-arg OPENCV_V=$OPENCV_V \
+	   --build-arg CUDA_V=$L4T_CUDA \
 	   $option \
 	   .
     if [ $? -ne 0 ]; then
@@ -382,8 +407,8 @@ function prebuild_aarch64 {
     popd
 
     echo ""
-    local name3=${prefix}_l4t-realsense-opencv-humble-base
-    blue "# build ${prefix}_l4t-realsense-opencv-humble-base"
+    local name3=${prefix}_l4t-$CAMERA_IMAGE-opencv-humble-base
+    blue "# build ${prefix}_l4t-$CAMERA_IMAGE-opencv-humble-base"
     pushd $common_dir/jetson-humble-base-src
     docker build -t $name3 \
 	   --build-arg FROM_IMAGE=$name2 \
@@ -396,13 +421,20 @@ function prebuild_aarch64 {
     popd
 
     echo ""
-    local name4=${prefix}_l4t-realsense-opencv-humble-custom
-    blue "# build ${prefix}_l4t-realsense-opencv-humble-custom"
+    local name4=${prefix}_l4t-$CAMERA_IMAGE-opencv-humble-custom
+    blue "# build ${prefix}_l4t-$CAMERA_IMAGE-opencv-humble-custom"
     pushd $build_dir/jetson-humble-custom
-    docker build -t $name4 \
-	   --build-arg FROM_IMAGE=$name3 \
-	   $option \
-	   .
+    if [[ $CAMERA_IMAGE == 'realsense' ]]; then
+        docker build -t $name4 \
+        --build-arg FROM_IMAGE=$name3 \
+        $option \
+        .
+    elif [[ $CAMERA_IMAGE == 'framos' ]]; then
+        docker build -f Dockerfile.framos -t $name4 \
+        --build-arg FROM_IMAGE=$name3 \
+        $option \
+        .
+    fi
     if [ $? -ne 0 ]; then
 	red "failed to build $name4"
 	exit 1
@@ -410,8 +442,8 @@ function prebuild_aarch64 {
     popd
 
     echo ""
-    local name5=${prefix}_l4t-realsense-opencv-humble-custom-open3d
-    blue "# build ${prefix}_l4t-realsense-opencv-humble-custom-open3d"
+    local name5=${prefix}_l4t-$CAMERA_IMAGE-opencv-humble-custom-open3d
+    blue "# build ${prefix}_l4t-$CAMERA_IMAGE-opencv-humble-custom-open3d"
     pushd $build_dir/open3d
     docker build -f Dockerfile.jetson -t $name5 \
 	   --build-arg FROM_IMAGE=$name4 \
@@ -425,25 +457,47 @@ function prebuild_aarch64 {
 }
 
 function build_aarch64 {
-    local image=${prefix}_l4t-realsense-opencv-humble-custom-open3d
-    export DOCKER_BUILDKIT=0
-    docker compose -f docker-compose-jetson.yaml build \
-		   --build-arg FROM_IMAGE=$image \
-		   --build-arg UID=$UID \
-		   --build-arg TZ=$time_zone \
-		   $option \
-		   people-jetson
+    local CAMERA_IMAGE=$1
 
-    if [[ $? -ne 0 ]]; then
-	return 1
+    if [[ $CAMERA_IMAGE == 'realsense' ]]; then
+        local image=${prefix}_l4t-realsense-opencv-humble-custom-open3d
+        docker compose -f docker-compose-jetson.yaml build \
+            --build-arg FROM_IMAGE=$image \
+            --build-arg UID=$UID \
+            --build-arg TZ=$time_zone \
+            $option \
+            people-jetson
+
+        if [[ $? -ne 0 ]]; then
+        return 1
+        fi
+
+        docker compose -f docker-compose-jetson-test-rs3.yaml build \
+            --build-arg FROM_IMAGE=$image \
+            --build-arg UID=$UID \
+            --build-arg TZ=$time_zone \
+            $option \
+            rs1 rs2 rs3 track
+    elif [[ $CAMERA_IMAGE == 'framos' ]]; then
+        local image=${prefix}_l4t-framos-opencv-humble-custom-open3d
+        docker compose -f docker-compose-jetson.yaml build \
+            --build-arg FROM_IMAGE=$image \
+            --build-arg UID=$UID \
+            --build-arg TZ=$time_zone \
+            $option \
+            people-framos-jetson
+
+        if [[ $? -ne 0 ]]; then
+        return 1
+        fi
+
+        docker compose -f docker-compose-jetson-test-rs3-framos.yaml build \
+            --build-arg FROM_IMAGE=$image \
+            --build-arg UID=$UID \
+            --build-arg TZ=$time_zone \
+            $option \
+            rs1-framos rs2-framos rs3-framos track-framos
     fi
-
-    docker compose -f docker-compose-jetson-test-rs3.yaml build \
-		   --build-arg FROM_IMAGE=$image \
-		   --build-arg UID=$UID \
-		   --build-arg TZ=$time_zone \
-		   $option \
-		   rs1 rs2 rs3 track
 }
 
 function build_x86_64_ws {
@@ -457,7 +511,13 @@ function build_x86_64_ws {
 }
 
 function build_aarch64_ws {
-    docker compose -f docker-compose-jetson.yaml run --rm people-jetson /launch.sh build
+    local CAMERA_IMAGE=$1
+
+    if [[ $CAMERA_IMAGE == 'realsense' ]]; then
+        docker compose -f docker-compose-jetson.yaml run --rm people-jetson /launch.sh build
+    elif [[ $CAMERA_IMAGE == 'framos' ]]; then
+        docker compose -f docker-compose-jetson.yaml run --rm people-framos-jetson /launch.sh build
+    fi
 }
 
 blue "Targets: $targets"

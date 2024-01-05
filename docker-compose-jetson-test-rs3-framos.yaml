@@ -1,0 +1,54 @@
+version: "2.3"
+
+services:
+  rs1-framos:
+    extends:
+      file: docker-compose-jetson.yaml
+      service: people-framos-jetson
+    environment:
+      - CABOT_CAMERA_NAME=rs1
+      - CABOT_REALSENSE_SERIAL=${CABOT_REALSENSE_SERIAL_1}
+    command:
+      - "/launch.sh"
+      - "-a"
+      - "-t"
+      - "0"
+      - "-D"
+
+  rs2-framos:
+    extends:
+      file: docker-compose-jetson.yaml
+      service: people-framos-jetson
+    environment:
+      - CABOT_CAMERA_NAME=rs2
+      - CABOT_REALSENSE_SERIAL=${CABOT_REALSENSE_SERIAL_2}
+    command:
+      - "/launch.sh"
+      - "-a"
+      - "-t"
+      - "0"
+      - "-D"
+
+  rs3-framos:
+    extends:
+      file: docker-compose-jetson.yaml
+      service: people-framos-jetson
+    environment:
+      - CABOT_CAMERA_NAME=rs3
+      - CABOT_REALSENSE_SERIAL=${CABOT_REALSENSE_SERIAL_3}
+    command:
+      - "/launch.sh"
+      - "-a"
+      - "-t"
+      - "0"
+      - "-D"
+
+  track-framos:
+    extends:
+      file: docker-compose-jetson.yaml
+      service: people-framos-jetson
+    environment:
+      - CABOT_USE_REALSENSE=0
+    command:
+      - "/launch.sh"
+      - "-K"
