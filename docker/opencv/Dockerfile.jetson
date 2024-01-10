@@ -103,6 +103,8 @@ RUN mkdir -p src/opencv/build && cd src/opencv && \
 # copy built opencv from cache and cuda/cudnn runtime library
 FROM $FROM_IMAGE AS build
 
+ARG CUDA_V=12-2
+
 COPY --from=cache /usr/opencv /usr/local
 
 RUN apt-get update && \

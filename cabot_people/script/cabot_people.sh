@@ -353,7 +353,6 @@ if [ $realsense_camera -eq 1 ]; then
         echo "launch $launch_file"
         eval "$command ros2 launch $launch_file \
                         align_depth.enable:=true \
-                        align_depth:=true \
                         depth_module.profile:=$width,$height,$depth_fps \
                         rgb_camera.profile:=$width,$height,$rgb_fps \
                         use_intra_process_comms:=$use_intra_process_comms \
@@ -362,10 +361,17 @@ if [ $realsense_camera -eq 1 ]; then
                         camera_name:=${namespace} $commandpost"
         pids+=($!)
     elif [ $camera_type -eq 2 ]; then
+        # if FPS is intger, convert to float for FRAMOS SDK
+        if [[ $rgb_fps =~ ^[+-]?[0-9]+$ ]]; then
+            rgb_fps="${rgb_fps}.0" 
+        fi
+        if [[ $depth_fps =~ ^[+-]?[0-9]+$ ]]; then
+            depth_fps="${depth_fps}.0" 
+        fi
+
         launch_file="cabot_people d400e_rs_composite.launch.py"
         echo "launch $launch_file"
         eval "$command ros2 launch $launch_file \
-                        align_depth.enable:=true \
                         align_depth:=true \
                         depth_width:=$width \
                         depth_height:=$height \
