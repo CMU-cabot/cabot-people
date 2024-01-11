@@ -55,7 +55,7 @@ function help {
     echo "-P <prefix>           prebuild with prefix"
     echo "-i                    build images"
     echo "-w                    build workspace"
-    echo "-c                    camera target (default=\"realsense framos\")"
+    echo "-c                    camera target (default=\"realsense\", set \"framos\" for FRAMOS camera)"
 }
 
 arch=$(uname -m)
@@ -79,7 +79,7 @@ confirmation=1
 prebuild=0
 build_image=0
 build_workspace=0
-camera_targets="realsense framos"
+camera_targets="realsense"
 
 export DOCKER_BUILDKIT=1
 export DEBUG_FLAG="--cmake-args -DCMAKE_BUILD_TYPE=RelWithDebInfo"
@@ -140,6 +140,10 @@ if [ -z "$targets" ]; then
     targets=$arch
 elif [[ "$targets" =~ "all" ]]; then
     targets="x86_64 aarch64"
+fi
+
+if [[ "$camera_targets" =~ "all" ]]; then
+    camera_targets="realsense framos"
 fi
 
 CUDAV=11.7.1

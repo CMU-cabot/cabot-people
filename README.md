@@ -20,10 +20,12 @@
 
 - assume you have docker (Nvidia docker) and docker compose
 - make sure you have a PC with a NVIDIA GPU, or a Jeston (Xavier, Orin, Xavier NX)
-- run the script to build image and workspaces
+- run one of the following the script to build image and workspaces
 
 ```
-./build-docker.sh
+./build-docker.sh -p -i -w              # build image and workspaces for RealSense
+./build-docker.sh -p -i -w -c framos    # build image and workspaces for FRAMOS
+./build-docker.sh -p -i -w -c all       # build image and workspaces for RealSense and FRAMOS
 ```
 
 ### Bringup Realsense(s), detection, and tracking
