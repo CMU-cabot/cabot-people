@@ -55,7 +55,7 @@ function help {
     echo "-P <prefix>           prebuild with prefix"
     echo "-i                    build images"
     echo "-w                    build workspace"
-    echo "-c                    camera target (default=\"realsense\", set \"framos\" for FRAMOS camera)"
+    echo "-c                    camera target (default=\"realsense framos\", set \"realsense\" for RealSense, and \"framos\" for FRAMOS camera)"
 }
 
 arch=$(uname -m)
@@ -79,7 +79,7 @@ confirmation=1
 prebuild=0
 build_image=0
 build_workspace=0
-camera_targets="realsense"
+camera_targets="realsense framos"
 
 export DOCKER_BUILDKIT=1
 export DEBUG_FLAG="--cmake-args -DCMAKE_BUILD_TYPE=RelWithDebInfo"
@@ -87,7 +87,7 @@ export UNDERLAY_MIXINS="rel-with-deb-info"
 export OVERLAY_MIXINS="rel-with-deb-info"
 debug_ros2="--build-arg DEBUG_FLAG"
 
-while getopts "hqno:t:dypP:iwc:" arg; do
+while getopts "hqno:t:u:dypP:iwc:" arg; do
     case $arg in
 	h)
 	    help

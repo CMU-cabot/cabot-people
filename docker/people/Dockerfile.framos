@@ -19,7 +19,7 @@
 # SOFTWARE.
 
 ARG PREFIX
-ARG FROM_IMAGE=${PREFIX}__jammy-cuda11.7.1-cudnn8-devel-realsense-humble-custom-opencv-open3d-mesa
+ARG FROM_IMAGE=${PREFIX}__jammy-cuda11.7.1-cudnn8-devel-framos-humble-custom-opencv-open3d-mesa
 
 FROM $FROM_IMAGE AS cache
 
