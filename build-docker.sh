@@ -363,10 +363,6 @@ function prebuild_aarch64 {
     HOST_L4T_RELEASE_V=${HOST_L4T_V_ARRAY[0]}
     blue "- HOST_L4T_RELEASE_V=$HOST_L4T_RELEASE_V"
 
-    if [ $CAMERA_IMAGE == "framos" ] && [ $HOST_L4T_RELEASE_V -lt 36 ]; then
-        red "L4T version later than 36 is required for framos camera"
-        exit 1
-    fi
     if [[ $HOST_L4T_RELEASE_V -lt 36 ]]; then
         L4T_IMAGE="nvcr.io/nvidia/l4t-base:r35.1.0"
         OPENCV_V=4.5.4

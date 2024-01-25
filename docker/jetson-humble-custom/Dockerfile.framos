@@ -12,8 +12,7 @@ RUN	cp -r /usr/src/librealsense2/wrappers/ros2 $CUSTOM_DIR/src
 
 WORKDIR $CUSTOM_DIR
 
-RUN apt update && rosdep update && rosdep install --from-paths src --ignore-src --rosdistro=${ROS_DISTRO} -r -y && \
-	apt purge -y ros-$ROS_DISTRO-librealsense2
+RUN apt update && rosdep update && rosdep install --from-paths src --ignore-src --rosdistro=${ROS_DISTRO} -r -y
 
 RUN . /opt/ros/$ROS_DISTRO/install/setup.sh && \
 	colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release  # --executor sequential
