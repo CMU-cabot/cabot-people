@@ -23,22 +23,16 @@ version: "2.3"
 services:
   people-jetson:
     extends:
-      file: docker-compose-base.yaml
-      service: people
-    build:
-      context: ./docker/people
-      dockerfile: Dockerfile.jetson
+      file: docker-compose-jetson-base.yaml
+      service: people-jetson
     environment:
       - CABOT_GAZEBO=0
       - CABOT_USE_REALSENSE=1
 
   people-framos-jetson:
     extends:
-      file: docker-compose-base.yaml
-      service: people
-    build:
-      context: ./docker/people
-      dockerfile: Dockerfile.jetson
+      file: docker-compose-jetson-base.yaml
+      service: people-jetson
     environment:
       - CABOT_GAZEBO=0
       - CABOT_USE_REALSENSE=1

@@ -468,7 +468,9 @@ fi
 if [ $obstacle -eq 1 ]; then
     launch_file="track_people_cpp track_obstacles.launch.py"
     echo "launch $launch_file"
-    com="$command ros2 launch $launch_file $commandpost"
+    com="$command ros2 launch $launch_file \
+                  jetpack5_workaround:=$jetpack5_workaround \
+                  $commandpost"
     echo $com
     eval $com
     pids+=($!)
