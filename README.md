@@ -49,12 +49,12 @@ docker compose -f docker-compose-jetson-test-rs3.yaml up                      # 
 ```
 
 ```
-docker compose -f docker-compose-test-rs3-framos.yaml up rs1-framos track-framos                   # 1 FRAMOS on PC
-docker compose -f docker-compose-test-rs3-framos.yaml up rs1-framos rs2-framos track-framos        # 2 FRAMOSes on PC
-docker compose -f docker-compose-test-rs3-framos.yaml up                                           # 3 FRAMOSes on PC
-docker compose -f docker-compose-jetson-test-rs3-framos.yaml up rs1-framos track-framos            # 1 FRAMOS on Jetson
-docker compose -f docker-compose-jetson-test-rs3-framos.yaml up rs1-framos rs2-framos track-framos        # 2 FRAMOSes on Jetson
-docker compose -f docker-compose-jetson-test-rs3-framos.yaml up                      # 3 FRAMOSes on Jetson
+docker compose -f docker-compose-test-rs3-framos.yaml up rs1-framos-camera rs1-framos-detection track-framos                                                # 1 FRAMOS on PC
+docker compose -f docker-compose-test-rs3-framos.yaml up rs1-framos-camera rs1-framos-detection rs2-framos-camera rs2-framos-detection track-framos         # 2 FRAMOSes on PC
+docker compose -f docker-compose-test-rs3-framos.yaml up                                                                                                    # 3 FRAMOSes on PC
+docker compose -f docker-compose-jetson-test-rs3-framos.yaml up rs1-framos-camera rs1-framos-detection track-framos                                         # 1 FRAMOS on Jetson
+docker compose -f docker-compose-jetson-test-rs3-framos.yaml up rs1-framos-camera rs1-framos-detection rs2-framos-camera rs2-framos-detection track-framos  # 2 FRAMOSes on Jetson
+docker compose -f docker-compose-jetson-test-rs3-framos.yaml up                                                                                             # 3 FRAMOSes on Jetson
 ```
 
 ### Check `/people` topic

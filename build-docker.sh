@@ -346,7 +346,7 @@ function build_x86_64 {
             --build-arg UID=$UID \
             --build-arg TZ=$time_zone \
             $option \
-            rs1-framos rs2-framos rs3-framos track-framos
+            rs1-framos-camera rs1-framos-detection rs2-framos-camera rs2-framos-detection rs3-framos-camera rs3-framos-detection track-framos
         if [[ $? -ne 0 ]]; then
             return 1
         fi
@@ -496,7 +496,7 @@ function build_aarch64 {
             --build-arg UID=$UID \
             --build-arg TZ=$time_zone \
             $option \
-            rs1-framos rs2-framos rs3-framos track-framos
+            rs1-framos-camera rs1-framos-detection rs2-framos-camera rs2-framos-detection rs3-framos-camera rs3-framos-detection track-framos
     fi
 }
 

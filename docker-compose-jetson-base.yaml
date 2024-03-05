@@ -55,7 +55,18 @@ services:
       - "-D"                                # detection
       - "-a"                                # no resetrs individually
 
-  people-jetson-detection-framos-base:
+  people-jetson-framos-camera-base:
+    extends:
+      service: people-jetson
+    command:
+      - "/launch.sh"
+      # - "/launch-core.sh"   # use core dump
+      - "-W"                                # wait roscore
+      # - "-p"                                # people topic is simulation groundtruth
+      - "-c 2"                              # use FRAMOS camera
+      - "-a"                                # no resetrs individually
+
+  people-jetson-framos-detection-base:
     extends:
       service: people-jetson
     command:
@@ -64,8 +75,6 @@ services:
       - "-W"                                # wait roscore
       # - "-p"                                # people topic is simulation groundtruth
       - "-D"                                # detection
-      - "-c 2"                              # use FRAMOS camera
-      - "-a"                                # no resetrs individually
 
   people-jetson:
     extends:
