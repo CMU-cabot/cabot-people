@@ -146,7 +146,7 @@ if [[ "$camera_targets" =~ "all" ]]; then
     camera_targets="realsense framos"
 fi
 
-CUDAV=11.7.1
+CUDAV=11.8.0
 CUDNNV=8
 ROS2_UBUNTUV=22.04
 ROS2_UBUNTU_DISTRO=jammy
@@ -292,6 +292,12 @@ function prebuild_x86_64 {
 	return 1
     fi
 
+    prebuild $image_tag $image_tag $build_dir/mmdeploy image_tag
+    if [ $? -ne 0 ]; then
+	red "failed to build $image_tag"
+	return 1
+    fi
+
     prebuild $image_tag $image_tag $build_dir/open3d image_tag
     if [ $? -ne 0 ]; then
 	red "failed to build $image_tag"
@@ -309,7 +315,7 @@ function build_x86_64 {
     local CAMERA_IMAGE=$1
 
     if [[ $CAMERA_IMAGE == 'realsense' ]]; then
-        local image=${prefix}__${ROS2_UBUNTU_DISTRO}-cuda${CUDAV}-cudnn${CUDNNV}-devel-realsense-humble-custom-opencv-open3d-mesa
+        local image=${prefix}__${ROS2_UBUNTU_DISTRO}-cuda${CUDAV}-cudnn${CUDNNV}-devel-realsense-humble-custom-opencv-mmdeploy-open3d-mesa
         docker compose build \
             --build-arg FROM_IMAGE=$image \
             --build-arg UID=$UID \
@@ -330,7 +336,7 @@ function build_x86_64 {
             return 1
         fi
     elif [[ $CAMERA_IMAGE == 'framos' ]]; then
-        local image=${prefix}__${ROS2_UBUNTU_DISTRO}-cuda${CUDAV}-cudnn${CUDNNV}-devel-framos-humble-custom-opencv-open3d-mesa
+        local image=${prefix}__${ROS2_UBUNTU_DISTRO}-cuda${CUDAV}-cudnn${CUDNNV}-devel-framos-humble-custom-opencv-mmdeploy-open3d-mesa
         docker compose build \
             --build-arg FROM_IMAGE=$image \
             --build-arg UID=$UID \

@@ -19,7 +19,7 @@
 # SOFTWARE.
 
 ARG PREFIX
-ARG FROM_IMAGE=${PREFIX}__jammy-cuda11.7.1-cudnn8-devel-realsense-humble-custom-opencv-open3d-mesa
+ARG FROM_IMAGE=${PREFIX}__jammy-cuda11.8.0-cudnn8-devel-realsense-humble-custom-opencv-mmdeploy-open3d-mesa
 
 FROM $FROM_IMAGE AS build
 ARG ROS_DISTRO=humble \
@@ -35,6 +35,7 @@ RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 RUN apt update && \
 	apt install -y --no-install-recommends \
 	git \
+	jq \
         libfreetype6-dev \
         libglu1-mesa-dev \
 	python-tk \
