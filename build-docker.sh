@@ -370,7 +370,7 @@ function prebuild_aarch64 {
     blue "- HOST_L4T_RELEASE_V=$HOST_L4T_RELEASE_V"
 
     if [[ $HOST_L4T_RELEASE_V -lt 36 ]]; then
-        L4T_IMAGE="nvcr.io/nvidia/l4t-base:r35.1.0"
+        L4T_IMAGE="nvcr.io/nvidia/l4t-base:35.3.1"
         OPENCV_V=4.5.4
         L4T_CUDA=11-4
     else
@@ -464,6 +464,7 @@ function prebuild_aarch64 {
 
 function build_aarch64 {
     local CAMERA_IMAGE=$1
+    export DOCKER_BUILDKIT=0
 
     if [[ $CAMERA_IMAGE == 'realsense' ]]; then
         local image=${prefix}_l4t-realsense-opencv-humble-custom-open3d
