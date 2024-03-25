@@ -111,7 +111,7 @@ RUN pip3 install --no-cache-dir \
 
 COPY ./launch.sh \
      ./launch-core.sh \
-	./resetusb.sh ./resetrs.sh /
+	./resetusb.sh ./resetframos.sh /
 
 # setup for display
 ENV USERNAME developer

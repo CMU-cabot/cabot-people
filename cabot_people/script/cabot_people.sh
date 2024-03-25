@@ -337,8 +337,15 @@ fi
 if [ $realsense_camera -eq 1 ]; then
 
     if [ $noreset -eq 0 ]; then
-        # reset RealSense port
-        sudo /resetrs.sh $serial_no
+        # reset RealSense or FRAMOS
+        if [ $camera_type -eq 1 ]; then
+            sudo /resetrs.sh $serial_no
+        elif [ $camera_type -eq 2 ]; then
+            sudo /resetframos.sh $serial_no
+        else
+            red "invalid camera type"
+            exit
+        fi
     fi
 
     option=""
