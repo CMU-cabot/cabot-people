@@ -78,7 +78,9 @@ class DetectMMDetSegPeople(AbsDetectPeople):
 
                 # create mask image from mask image cropped by bbox
                 mask_result = np.zeros((self.model_input_height, self.model_input_width), np.uint8)
-                mask_result[int(ytl):int(ytl)+mask.shape[0], int(xtl):int(xtl)+mask.shape[1]] = mask
+                mask_xtl = xtl if int(xtl)+mask.shape[1]<=self.model_input_width else self.model_input_width-mask.shape[1]
+                mask_ytl = ytl if int(ytl)+mask.shape[0]<=self.model_input_height else self.model_input_height-mask.shape[0]
+                mask_result[int(mask_ytl):int(mask_ytl)+mask.shape[0], int(mask_xtl):int(mask_xtl)+mask.shape[1]] = mask
 
                 # resize detected box to original image size
                 xtl = int(xtl / resize_width_ratio)
@@ -88,7 +90,7 @@ class DetectMMDetSegPeople(AbsDetectPeople):
                 people_res.append([xtl, ytl, xbr, ybr, score, 1])
 
                 # resize mask to original image size
-                mask_result = cv2.resize(mask_result, (rgb_img.shape[1], rgb_img.shape[0]))
+                mask_result = cv2.resize(mask_result, (rgb_img.shape[1], rgb_img.shape[0]), interpolation=cv2.INTER_NEAREST)
                 mask_results.append(mask_result.tolist())
         detect_results = np.array(people_res)
         mask_results = np.array(mask_results, dtype=np.uint8)
