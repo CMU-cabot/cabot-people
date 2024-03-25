@@ -85,6 +85,13 @@ void DetectMMDetSeg::process_detect(DetectData & dd)
       continue;
     }
 
+    // create mask image from mask image cropped by bbox
+    cv::Mat cropped_mask(dets[i].mask->height, dets[i].mask->width, CV_8UC1, dets[i].mask->data);
+    cv::Mat mask = cv::Mat::zeros(cv::Size(model_input_width_, model_input_height_), CV_8UC1);
+    int mask_left = (box.left+dets[i].mask->width<=model_input_width_) ? box.left : model_input_width_-dets[i].mask->width;
+    int mask_top = (box.top+dets[i].mask->height<=model_input_height_) ? box.top : model_input_height_-dets[i].mask->height;
+    cropped_mask.copyTo(mask(cv::Rect(box.left, box.top, dets[i].mask->width, dets[i].mask->height)));
+
     // resize detected box to original image size
     box.left = int(box.left / resize_width_ratio);
     box.top = int(box.top / resize_height_ratio);
@@ -134,8 +141,7 @@ void DetectMMDetSeg::process_detect(DetectData & dd)
     tbs.tracked_boxes.push_back(tb);
 
     // resize mask to original image size
-    cv::Mat mask(dets[i].mask->height, dets[i].mask->width, CV_8UC1, dets[i].mask->data);
-    cv::resize(mask, mask, rImg.size());
+    cv::resize(mask, mask, rImg.size(), cv::INTER_NEAREST);
     // rotate back mask
     if (dd.rotate == 1) {
       cv::rotate(mask, mask, cv::ROTATE_90_COUNTERCLOCKWISE);

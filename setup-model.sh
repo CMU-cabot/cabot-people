@@ -197,8 +197,8 @@ if [ ! -e "rtmdet-ins/end2end.engine" ]; then
             --device cuda:0 \
             --dump-info || true &&
 
-        echo 'fix deployed pipeline to disable is_resize_mask option...' &&
-        sed -i 's/\"is_resize_mask\": true/\"is_resize_mask\": false/g' rtmdet-ins/pipeline.json &&
+        echo 'fix deployed pipeline to enable is_crop_rtmdt_ins_mask option...' &&
+        sed -i 's/\"is_resize_mask\": true/\"is_resize_mask\": false,\"is_crop_rtmdt_ins_mask\": true/g' rtmdet-ins/pipeline.json &&
 
         echo 'run mmdeploy profiler...' &&
         python3 /opt/mmdeploy/tools/profiler.py \
