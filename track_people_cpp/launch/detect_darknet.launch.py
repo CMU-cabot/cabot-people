@@ -129,6 +129,7 @@ def generate_launch_description():
                     plugin="track_people_cpp::DetectDarknetOpencv",
                     name="detect_darknet_people_cpp",
                     namespace=namespace,
+                    extra_arguments=[{'use_intra_process_comms': True}],
                 ),
             ],
             condition=IfCondition(use_composite),

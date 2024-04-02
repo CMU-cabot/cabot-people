@@ -149,6 +149,9 @@ private:
   rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr toggle_srv_;
   rclcpp::Subscription<sensor_msgs::msg::CameraInfo>::SharedPtr camera_info_sub_;
   rclcpp::Publisher<track_people_msgs::msg::TrackedBoxes>::SharedPtr detected_boxes_pub_;
+  rclcpp::CallbackGroup::SharedPtr fps_loop_cb_group_;
+  rclcpp::CallbackGroup::SharedPtr detect_loop_cb_group_;
+  rclcpp::CallbackGroup::SharedPtr depth_loop_cb_group_;
   rclcpp::TimerBase::SharedPtr fps_loop_;
   rclcpp::TimerBase::SharedPtr detect_loop_;
   rclcpp::TimerBase::SharedPtr depth_loop_;
