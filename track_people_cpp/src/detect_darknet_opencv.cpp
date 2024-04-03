@@ -80,7 +80,7 @@ DetectDarknetOpencv::DetectDarknetOpencv(rclcpp::NodeOptions options)
   std::vector<int> classIds;
   std::vector<float> scores;
   std::vector<cv::Rect> boxes;
-  model_->detect(dummy, classIds, scores, boxes, 0.6, 0.4);
+  model_->detect(dummy, classIds, scores, boxes, detection_threshold_, 0.4);
   RCLCPP_INFO(this->get_logger(), "Model Loaded");
 
   // enable/disable service
@@ -345,7 +345,7 @@ void DetectDarknetOpencv::process_detect(DetectData & dd)
   std::vector<int> classIds;
   std::vector<float> scores;
   std::vector<cv::Rect> boxes;
-  model_->detect(rImg, classIds, scores, boxes, 0.6, 0.4);
+  model_->detect(rImg, classIds, scores, boxes, detection_threshold_, 0.4);
 
   track_people_msgs::msg::TrackedBoxes & tbs = dd.result;
   tbs.header = dd.header;
@@ -358,8 +358,7 @@ void DetectDarknetOpencv::process_detect(DetectData & dd)
     auto box = boxes[i];
 
     // assume classId 0 is person
-    if (classId != 0 || score < detection_threshold_ || box.width < minimum_detection_size_threshold_ ||
-      box.height < minimum_detection_size_threshold_)
+    if (classId != 0 || box.width < minimum_detection_size_threshold_ || box.height < minimum_detection_size_threshold_)
     {
       continue;
     }

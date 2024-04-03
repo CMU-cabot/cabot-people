@@ -27,7 +27,7 @@ from launch.actions import SetEnvironmentVariable
 from launch.actions import RegisterEventHandler
 from launch.conditions import IfCondition
 from launch.event_handlers import OnShutdown
-from launch.substitutions import LaunchConfiguration
+from launch.substitutions import LaunchConfiguration, EnvironmentVariable
 from launch.substitutions import PathJoinSubstitution
 from launch_ros.actions import Node
 from launch_ros.actions import SetParameter
@@ -50,6 +50,7 @@ def generate_launch_description():
     depth_unit_meter = LaunchConfiguration('depth_unit_meter')
     target_fps = LaunchConfiguration('target_fps')
     publish_simulator_people = LaunchConfiguration('publish_simulator_people')
+    detection_threshold = LaunchConfiguration('detection_threshold')
 
     # ToDo: workaround https://github.com/CMU-cabot/cabot/issues/86
     jetpack5_workaround = LaunchConfiguration('jetpack5_workaround')
@@ -75,6 +76,7 @@ def generate_launch_description():
         DeclareLaunchArgument('use_composite', default_value='false'),
         DeclareLaunchArgument('target_container', default_value=''),
         DeclareLaunchArgument('publish_simulator_people', default_value='false'),
+        DeclareLaunchArgument('detection_threshold', default_value=EnvironmentVariable('CABOT_DETECT_PEOPLE_CONF_THRES', default_value='0.25')),
 
         DeclareLaunchArgument('jetpack5_workaround', default_value='false'),
 
@@ -88,7 +90,7 @@ def generate_launch_description():
         SetParameter(name='depth_unit_meter', value=depth_unit_meter),
         SetParameter(name='target_fps', value=target_fps),
         SetParameter(name='publish_simulator_people', value=publish_simulator_people),
-        SetParameter(name='detection_threshold', value=0.25),
+        SetParameter(name='detection_threshold', value=detection_threshold),
         SetParameter(name='minimum_detection_size_threshold', value=50.0),
         SetParameter(name='detect_config_file', value=yolov4_cfg),
         SetParameter(name='detect_weight_file', value=yolov4_weights),
