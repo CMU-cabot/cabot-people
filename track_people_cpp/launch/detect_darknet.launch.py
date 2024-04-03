@@ -90,7 +90,7 @@ def generate_launch_description():
         DeclareLaunchArgument('use_composite', default_value='false'),
         DeclareLaunchArgument('target_container', default_value='camera_manager'),
         DeclareLaunchArgument('publish_simulator_people', default_value='false'),
-        DeclareLaunchArgument('detection_threshold', default_value=EnvironmentVariable('CABOT_DETECT_PEOPLE_CONF_THRES', default_value='0.25')),
+        DeclareLaunchArgument('detection_threshold', default_value=EnvironmentVariable('CABOT_DETECT_PEOPLE_CONF_THRES', default_value='0.6')),
 
         DeclareLaunchArgument('jetpack5_workaround', default_value='false'),
 
