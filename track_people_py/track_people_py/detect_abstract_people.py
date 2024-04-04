@@ -64,7 +64,7 @@ class AbsDetectPeople(rclpy.node.Node):
         self.vis_detect_image = False
 
         # load detect model
-        self.detection_threshold = self.declare_parameter('detection_threshold', 0.25).value
+        self.detection_threshold = self.declare_parameter('detection_threshold', 0.6).value
         self.minimum_detection_size_threshold = self.declare_parameter('minimum_detection_size_threshold', 50.0).value
 
         self.map_frame_name = self.declare_parameter('map_frame', 'map').value
@@ -166,8 +166,7 @@ class AbsDetectPeople(rclpy.node.Node):
         self.current_input = None
 
         try:
-            # notice : openCV default is BGR, but use RGB for Re-identification model
-            input_rgb_image = self.bridge.imgmsg_to_cv2(rgb_img_msg, "rgb8")
+            input_rgb_image = self.bridge.imgmsg_to_cv2(rgb_img_msg, "bgr8")
             input_depth_image = self.bridge.imgmsg_to_cv2(depth_img_msg, "32FC1")
         except CvBridgeError as e:
             self.get_logger().error(e)

@@ -75,7 +75,7 @@ class DetectDarknetPeople(AbsDetectPeople):
 
     def detect_people(self, rgb_img, frame_resized, darknet_image):
         # (classIds, scores, boxes)
-        return self.darknet_net.detect(rgb_img, confThreshold=0.6, nmsThreshold=0.4)
+        return self.darknet_net.detect(rgb_img, confThreshold=self.detection_threshold, nmsThreshold=0.4)
 
     def post_process(self, rgb_img, frame_resized, boxes_res):
         people_res = []
