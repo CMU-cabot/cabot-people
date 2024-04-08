@@ -48,7 +48,7 @@ class DetectDarknetPeople(AbsDetectPeople):
             net.setPreferableBackend(cv2.dnn.DNN_BACKEND_CUDA)
             net.setPreferableTarget(cv2.dnn.DNN_TARGET_CUDA_FP16)
             model = cv2.dnn_DetectionModel(net)
-            model.setInputParams(scale=1 / 255, size=(NET_SIZE, NET_SIZE), swapRB=False)
+            model.setInputParams(scale=1 / 255, size=(NET_SIZE, NET_SIZE), swapRB=True)
             self.get_logger().info("network loaded")
             names = self._load_names(names_file)
             return model, names
@@ -75,7 +75,7 @@ class DetectDarknetPeople(AbsDetectPeople):
 
     def detect_people(self, rgb_img, frame_resized, darknet_image):
         # (classIds, scores, boxes)
-        return self.darknet_net.detect(rgb_img, confThreshold=0.6, nmsThreshold=0.4)
+        return self.darknet_net.detect(rgb_img, confThreshold=self.detection_threshold, nmsThreshold=0.4)
 
     def post_process(self, rgb_img, frame_resized, boxes_res):
         people_res = []

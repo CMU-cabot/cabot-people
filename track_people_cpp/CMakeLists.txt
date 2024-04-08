@@ -82,6 +82,7 @@ rclcpp_components_register_node(
   detect_darknet_opencv
   PLUGIN "track_people_cpp::DetectDarknetOpencv"
   EXECUTABLE detect_darknet_opencv_node
+  EXECUTOR MultiThreadedExecutor
 )
 
 

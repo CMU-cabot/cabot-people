@@ -63,7 +63,7 @@ class AbsDetectPeople(rclpy.node.Node):
         self.lookup_transform_duration = 1
 
         # load detect model
-        self.detection_threshold = self.declare_parameter('detection_threshold', 0.25).value
+        self.detection_threshold = self.declare_parameter('detection_threshold', 0.6).value
         self.minimum_detection_size_threshold = self.declare_parameter('minimum_detection_size_threshold', 50.0).value
 
         self.map_frame_name = self.declare_parameter('map_frame', 'map').value

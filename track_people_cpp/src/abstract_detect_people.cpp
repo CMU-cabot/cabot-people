@@ -80,9 +80,12 @@ AbstractDetectPeople::AbstractDetectPeople(const std::string & node_name, rclcpp
   }
 
   // process loop
-  fps_loop_ = this->create_wall_timer(std::chrono::duration<float>(1.0 / target_fps_), std::bind(&AbstractDetectPeople::fps_loop_cb, this));
-  detect_loop_ = this->create_wall_timer(std::chrono::duration<float>(0.01), std::bind(&AbstractDetectPeople::detect_loop_cb, this));
-  depth_loop_ = this->create_wall_timer(std::chrono::duration<float>(0.01), std::bind(&AbstractDetectPeople::depth_loop_cb, this));
+  fps_loop_cb_group_ = this->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
+  detect_loop_cb_group_ = this->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
+  depth_loop_cb_group_ = this->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
+  fps_loop_ = this->create_wall_timer(std::chrono::duration<float>(1.0 / target_fps_), std::bind(&AbstractDetectPeople::fps_loop_cb, this), fps_loop_cb_group_);
+  detect_loop_ = this->create_wall_timer(std::chrono::duration<float>(0.01), std::bind(&AbstractDetectPeople::detect_loop_cb, this), detect_loop_cb_group_);
+  depth_loop_ = this->create_wall_timer(std::chrono::duration<float>(0.01), std::bind(&AbstractDetectPeople::depth_loop_cb, this), depth_loop_cb_group_);
 
   // diagnostic updater
   updater_ = new diagnostic_updater::Updater(this);

@@ -42,14 +42,14 @@ DetectDarknetOpencv::DetectDarknetOpencv(rclcpp::NodeOptions options)
   darknet_.setPreferableBackend(cv::dnn::DNN_BACKEND_CUDA);
   darknet_.setPreferableTarget(cv::dnn::DNN_TARGET_CUDA_FP16);
   model_ = std::make_shared<cv::dnn::DetectionModel>(cv::dnn::DetectionModel(darknet_));
-  model_->setInputParams(1 / 255.0, cv::Size(416, 416), cv::Scalar(), false);
+  model_->setInputParams(1 / 255.0, cv::Size(416, 416), cv::Scalar(), true);
 
   // fully prepare image by givng a dummy image
   cv::Mat dummy = cv::Mat::zeros(cv::Size(1280, 720), CV_8UC3);
   std::vector<int> classIds;
   std::vector<float> scores;
   std::vector<cv::Rect> boxes;
-  model_->detect(dummy, classIds, scores, boxes, 0.6, 0.4);
+  model_->detect(dummy, classIds, scores, boxes, detection_threshold_, 0.4);
   RCLCPP_INFO(this->get_logger(), "Model Loaded");
 }
 
@@ -75,7 +75,7 @@ void DetectDarknetOpencv::process_detect(DetectData & dd)
   std::vector<int> classIds;
   std::vector<float> scores;
   std::vector<cv::Rect> boxes;
-  model_->detect(rImg, classIds, scores, boxes, 0.6, 0.4);
+  model_->detect(rImg, classIds, scores, boxes, detection_threshold_, 0.4);
 
   track_people_msgs::msg::TrackedBoxes & tbs = dd.result;
   tbs.header = dd.header;
@@ -88,8 +88,7 @@ void DetectDarknetOpencv::process_detect(DetectData & dd)
     auto box = boxes[i];
 
     // assume classId 0 is person
-    if (classId != 0 || score < detection_threshold_ || box.width < minimum_detection_size_threshold_ ||
-      box.height < minimum_detection_size_threshold_)
+    if (classId != 0 || box.width < minimum_detection_size_threshold_ || box.height < minimum_detection_size_threshold_)
     {
       continue;
     }

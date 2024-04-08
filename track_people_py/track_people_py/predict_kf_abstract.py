@@ -53,7 +53,7 @@ class PredictKfBuffer():
 
 
 class PredictKfAbstract(rclpy.node.Node):
-    def __init__(self, name, input_time, duration_inactive_to_remove, duration_inactive_to_stop_publish, fps_est_time):
+    def __init__(self, name, input_time, duration_inactive_to_remove, fps_est_time):
         super().__init__(name)
         # settings for visualization
         self.vis_pred_image = False
@@ -61,7 +61,7 @@ class PredictKfAbstract(rclpy.node.Node):
         # start initialization
         self.input_time = input_time
         self.duration_inactive_to_remove = duration_inactive_to_remove
-        self.duration_inactive_to_stop_publish = duration_inactive_to_stop_publish
+        self.duration_inactive_to_stop_publish = self.declare_parameter('duration_inactive_to_stop_publish', 0.2).value # duration (seconds) for a track to be inactive before stop publishing in people topic
         self.fps_est_time = fps_est_time
 
         # buffer to calculate FPS for each track, in multiple camera mode FPS might be different for each track
