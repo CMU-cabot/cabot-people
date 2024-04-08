@@ -74,6 +74,7 @@ def generate_launch_description():
             name="predict_obstacle",
             namespace='obstacle',
             parameters=[{
+                'duration_inactive_to_stop_publish': 0.2,
                 'stationary_detect_threshold_duration': 1.0,
                 'diagnostic_name': 'ObstaclePredict'
             }],

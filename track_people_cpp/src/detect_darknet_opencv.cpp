@@ -80,7 +80,7 @@ DetectDarknetOpencv::DetectDarknetOpencv(rclcpp::NodeOptions options)
   std::vector<int> classIds;
   std::vector<float> scores;
   std::vector<cv::Rect> boxes;
-  model_->detect(dummy, classIds, scores, boxes, 0.6, 0.4);
+  model_->detect(dummy, classIds, scores, boxes, detection_threshold_, 0.4);
   RCLCPP_INFO(this->get_logger(), "Model Loaded");
 
   // enable/disable service
@@ -102,9 +102,12 @@ DetectDarknetOpencv::DetectDarknetOpencv(rclcpp::NodeOptions options)
   detected_boxes_pub_ = this->create_publisher<track_people_msgs::msg::TrackedBoxes>("/people/detected_boxes", 1);
 
   // process loop
-  fps_loop_ = this->create_wall_timer(std::chrono::duration<float>(1.0 / target_fps_), std::bind(&DetectDarknetOpencv::fps_loop_cb, this));
-  detect_loop_ = this->create_wall_timer(std::chrono::duration<float>(0.01), std::bind(&DetectDarknetOpencv::detect_loop_cb, this));
-  depth_loop_ = this->create_wall_timer(std::chrono::duration<float>(0.01), std::bind(&DetectDarknetOpencv::depth_loop_cb, this));
+  fps_loop_cb_group_ = this->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
+  detect_loop_cb_group_ = this->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
+  depth_loop_cb_group_ = this->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
+  fps_loop_ = this->create_wall_timer(std::chrono::duration<float>(1.0 / target_fps_), std::bind(&DetectDarknetOpencv::fps_loop_cb, this), fps_loop_cb_group_);
+  detect_loop_ = this->create_wall_timer(std::chrono::duration<float>(0.01), std::bind(&DetectDarknetOpencv::detect_loop_cb, this), detect_loop_cb_group_);
+  depth_loop_ = this->create_wall_timer(std::chrono::duration<float>(0.01), std::bind(&DetectDarknetOpencv::depth_loop_cb, this), depth_loop_cb_group_);
 
   // diagnostic updater
   updater_ = new diagnostic_updater::Updater(this);
@@ -342,7 +345,7 @@ void DetectDarknetOpencv::process_detect(DetectData & dd)
   std::vector<int> classIds;
   std::vector<float> scores;
   std::vector<cv::Rect> boxes;
-  model_->detect(rImg, classIds, scores, boxes, 0.6, 0.4);
+  model_->detect(rImg, classIds, scores, boxes, detection_threshold_, 0.4);
 
   track_people_msgs::msg::TrackedBoxes & tbs = dd.result;
   tbs.header = dd.header;
@@ -355,8 +358,7 @@ void DetectDarknetOpencv::process_detect(DetectData & dd)
     auto box = boxes[i];
 
     // assume classId 0 is person
-    if (classId != 0 || score < detection_threshold_ || box.width < minimum_detection_size_threshold_ ||
-      box.height < minimum_detection_size_threshold_)
+    if (classId != 0 || box.width < minimum_detection_size_threshold_ || box.height < minimum_detection_size_threshold_)
     {
       continue;
     }
