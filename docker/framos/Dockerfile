@@ -1,4 +1,4 @@
-# Copyright (c) 2020, 2023  Carnegie Mellon University, IBM Corporation, and others
+# Copyright (c) 2023  Carnegie Mellon University, IBM Corporation, and others
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -18,21 +18,34 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-version: "2.3"
+ARG FROM_IMAGE
 
-services:
-  people-jetson:
-    extends:
-      file: docker-compose-jetson-base.yaml
-      service: people-jetson
-    environment:
-      - CABOT_GAZEBO=0
-      - CABOT_USE_REALSENSE=1
+FROM $FROM_IMAGE AS build
+ARG UBUNTU_DISTRO=jammy
+ENV DEBIAN_FRONTEND="noninteractive"
 
-  people-framos-jetson:
-    extends:
-      file: docker-compose-jetson-base.yaml
-      service: people-jetson
-    environment:
-      - CABOT_GAZEBO=0
-      - CABOT_USE_REALSENSE=1
+RUN apt update && \
+    apt install -y --no-install-recommends \
+        dirmngr \
+        gpg-agent \
+        software-properties-common \
+        curl \
+        wget \
+    && \
+    apt clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# install Framos realsense
+RUN cd /tmp && \
+	wget https://www.framos.com/framos3d/D400e/Software/Latest/FRAMOS_D400e_Software_Package_Linux64_x64_latest.tar.gz && \
+    tar xzf FRAMOS_D400e_Software_Package_Linux64_x64_latest.tar.gz && \
+    cd FRAMOS_D400e_Software_Package && \
+    apt update && \
+    apt install -y --no-install-recommends \
+        ./FRAMOS_CameraSuite_4.10.1.0-Linux64_x64.deb \
+        ./FRAMOS-librealsense2-2.50.12-Linux64_x64.deb \
+    && \
+    apt clean && \
+    rm -rf /var/lib/apt/lists/* && \
+    cd ../ && \
+	rm -rf *

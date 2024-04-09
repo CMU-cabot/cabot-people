@@ -56,6 +56,19 @@ function ctrl_c() {
     exit
 } 
 
+function err {
+    >&2 red "[ERROR] "$@
+}
+function red {
+    echo -en "\033[31m"  ## red
+    echo $@
+    echo -en "\033[0m"  ## reset color
+}
+function blue {
+    echo -en "\033[36m"  ## blue
+    echo $@
+    echo -en "\033[0m"  ## reset color
+}
 function snore()
 {
     local IFS
@@ -109,6 +122,7 @@ resolution=$CABOT_CAMERA_RESOLUTION
 
 opencv_dnn_ver=$CABOT_DETECT_VERSION
 
+camera_type=1
 check_required=0
 publish_tf=0
 publish_sim_people=0
@@ -142,6 +156,8 @@ function usage {
     echo "-C                       check required before launch"
     echo "-W                       wait roscore"
     echo "-t <roll>                publish map camera_link tf"
+    echo "-c [1-2]                 camera type"
+    echo "   1: RealSense, 2: FRAMOS"
     echo "-v [1-3]                 use specified opencv dnn implementation"
     echo "   1: python-opencv, 2: cpp-opencv-node, 3: cpp-opencv-nodelet"
     echo "-N <name space>          namespace for tracking"
@@ -155,7 +171,7 @@ function usage {
     exit
 }
 
-while getopts "hdm:n:w:srVCt:pWv:N:f:KDF:P:S:R:Oa" arg; do
+while getopts "hdm:n:w:srVCt:pWc:v:N:f:KDF:P:S:R:Oa" arg; do
     case $arg in
     h)
         usage
@@ -196,6 +212,9 @@ while getopts "hdm:n:w:srVCt:pWv:N:f:KDF:P:S:R:Oa" arg; do
         ;;
     W)
         wait_roscore=1
+        ;;
+    c)
+        camera_type=$OPTARG
         ;;
     v)
         opencv_dnn_ver=$OPTARG
@@ -246,6 +265,11 @@ else
     exit
 fi
 
+if [ $camera_type -eq 2 ] && [ $opencv_dnn_ver -eq 3 ]; then
+    red "FRAMOS SDK does not support intra process communication yet, do not set CABOT_DETECT_VERSION=3"
+    exit
+fi
+
 if [ $check_required -eq 1 ]; then
     flag=1
     while [ $flag -eq 1 ];
@@ -283,6 +307,7 @@ echo "World         : $world"
 echo "Map           : $map"
 echo "Anchor        : $anchor"
 echo "Simulation    : $gazebo"
+echo "Camera type   : $camera_type"
 echo "DNN impl      : $opencv_dnn_ver"
 echo "Namespace     : $namespace"
 echo "Camera frame  : $camera_link_frame"
@@ -314,28 +339,64 @@ fi
 if [ $realsense_camera -eq 1 ]; then
 
     if [ $noreset -eq 0 ]; then
-        # reset RealSense port
-        sudo /resetrs.sh $serial_no
+        # reset RealSense or FRAMOS
+        if [ $camera_type -eq 1 ]; then
+            sudo /resetrs.sh $serial_no
+        elif [ $camera_type -eq 2 ]; then
+            sudo /resetframos.sh $serial_no
+        else
+            red "invalid camera type"
+            exit
+        fi
     fi
 
     option=""
     # work around to specify number string as string
     if [[ ! -z $serial_no ]]; then option="$option \"serial_no:='$serial_no'\""; fi
-    launch_file="cabot_people rs_composite.launch.py"
     use_intra_process_comms=false
     if [ $opencv_dnn_ver -eq 3 ]; then
-	use_intra_process_comms=true
+        use_intra_process_comms=true
     fi
-    echo "launch $launch_file"
-    eval "$command ros2 launch $launch_file \
-                   align_depth.enable:=true \
-                   depth_module.profile:=$width,$height,$depth_fps \
-                   rgb_camera.profile:=$width,$height,$rgb_fps \
-		   use_intra_process_comms:=$use_intra_process_comms \
-		   jetpack5_workaround:=$jetpack5_workaround \
-                   $option \
-                   camera_name:=${namespace} $commandpost"
-    pids+=($!)
+    if [ $camera_type -eq 1 ]; then
+        launch_file="cabot_people rs_composite.launch.py"
+        echo "launch $launch_file"
+        eval "$command ros2 launch $launch_file \
+                        align_depth.enable:=true \
+                        depth_module.profile:=$width,$height,$depth_fps \
+                        rgb_camera.profile:=$width,$height,$rgb_fps \
+                        use_intra_process_comms:=$use_intra_process_comms \
+                        jetpack5_workaround:=$jetpack5_workaround \
+                        $option \
+                        camera_name:=${namespace} $commandpost"
+        pids+=($!)
+    elif [ $camera_type -eq 2 ]; then
+        # if FPS is intger, convert to float for FRAMOS SDK
+        if [[ $rgb_fps =~ ^[+-]?[0-9]+$ ]]; then
+            rgb_fps="${rgb_fps}.0" 
+        fi
+        if [[ $depth_fps =~ ^[+-]?[0-9]+$ ]]; then
+            depth_fps="${depth_fps}.0" 
+        fi
+
+        launch_file="cabot_people d400e_rs_composite.launch.py"
+        echo "launch $launch_file"
+        eval "$command ros2 launch $launch_file \
+                        align_depth:=true \
+                        depth_width:=$width \
+                        depth_height:=$height \
+                        depth_fps:=$depth_fps \
+                        color_width:=$width \
+                        color_height:=$height \
+                        color_fps:=$rgb_fps \
+                        use_intra_process_comms:=$use_intra_process_comms \
+                        jetpack5_workaround:=$jetpack5_workaround \
+                        $option \
+                        camera_name:=${namespace} $commandpost"
+        pids+=($!)
+    else
+        red "invalid camera type"
+        exit
+    fi
 fi
 
 opt_predict=''
@@ -416,7 +477,9 @@ fi
 if [ $obstacle -eq 1 ]; then
     launch_file="track_people_cpp track_obstacles.launch.py"
     echo "launch $launch_file"
-    com="$command ros2 launch $launch_file $commandpost"
+    com="$command ros2 launch $launch_file \
+                  jetpack5_workaround:=$jetpack5_workaround \
+                  $commandpost"
     echo $com
     eval $com
     pids+=($!)

@@ -13,7 +13,7 @@ COPY requirements.txt /
 RUN pip3 install --no-cache-dir \
         -r /requirements.txt
 
-COPY ./launch.sh ./resetusb.sh ./resetrs.sh /
+COPY ./launch.sh ./resetusb.sh ./resetrs.sh ./resetframos.sh /
 
 # debug
 # RUN apt update && apt-get install -y --no-install-recommends gdb

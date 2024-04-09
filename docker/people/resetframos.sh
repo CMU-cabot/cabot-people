@@ -1,4 +1,6 @@
-# Copyright (c) 2020, 2023  Carnegie Mellon University, IBM Corporation, and others
+#!/bin/bash
+
+# Copyright (c) 2021  IBM Corporation
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -18,21 +20,21 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-version: "2.3"
+serial=$1
 
-services:
-  people-jetson:
-    extends:
-      file: docker-compose-jetson-base.yaml
-      service: people-jetson
-    environment:
-      - CABOT_GAZEBO=0
-      - CABOT_USE_REALSENSE=1
+## sometimes, bash blocks the following command if it is without timeout
+result=$(timeout 30 rs-enumerate-devices -S)
 
-  people-framos-jetson:
-    extends:
-      file: docker-compose-jetson-base.yaml
-      service: people-jetson
-    environment:
-      - CABOT_GAZEBO=0
-      - CABOT_USE_REALSENSE=1
+readarray -t serials < <(echo "$result" | sed -nE 's/^FRAMOS .....\s+([0-9A-Z]+).*/\1/p')
+
+if [ ${#serials[@]} = 0 ] ; then
+    echo "No FRAMOS device"
+else
+    echo "Found FRAMOS devices : ${serials[@]}"
+fi
+
+for serial in "${serials[@]}"; do
+    echo "Restart FRAMOS $serial"
+    ## set timeout because ConfigureIp does not exit automatically after restart
+    timeout 5 /usr/src/framos/camerasuite/Tools/ConfigureIp -restart $serial &
+done

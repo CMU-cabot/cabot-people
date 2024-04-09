@@ -94,6 +94,33 @@ services:
       - "-D"                                # detection
       - "-a"                                # no resetrs individually
 
+  people-framos-camera-base:
+    extends:
+      service: people
+    build:
+      context: ./docker/people
+      dockerfile: Dockerfile.framos
+    command:
+      - "/launch.sh"
+      # - "/launch-core.sh"   # use core dump
+      - "-W"                                # wait roscore
+      # - "-p"                                # people topic is simulation groundtruth
+      - "-c 2"                              # use FRAMOS camera
+      - "-a"                                # no resetrs individually
+
+  people-framos-detection-base:
+    extends:
+      service: people
+    build:
+      context: ./docker/people
+      dockerfile: Dockerfile.framos
+    command:
+      - "/launch.sh"
+      # - "/launch-core.sh"   # use core dump
+      - "-W"                                # wait roscore
+      # - "-p"                                # people topic is simulation groundtruth
+      - "-D"                                # detection
+
   people:
     extends:
       service: people-all-base
@@ -106,3 +133,8 @@ services:
     volumes:
       - ./docker/home:/home/developer
 
+  people-detection-framos:
+    extends:
+      service: people-detection-framos-base
+    volumes:
+      - ./docker/home:/home/developer
