@@ -309,7 +309,16 @@ function build_x86_64 {
 		   --build-arg TZ=$time_zone \
 		   $option \
 		   people
+    if [[ $? -ne 0 ]]; then
+	return 1
+    fi
 
+    docker compose -f docker-compose-people-setup-model.yaml build \
+		   --build-arg FROM_IMAGE=$image \
+		   --build-arg UID=$UID \
+		   --build-arg TZ=$time_zone \
+		   $option \
+		   people-setup-model
     if [[ $? -ne 0 ]]; then
 	return 1
     fi
@@ -406,7 +415,16 @@ function build_aarch64 {
 		   --build-arg TZ=$time_zone \
 		   $option \
 		   people-jetson
+    if [[ $? -ne 0 ]]; then
+	return 1
+    fi
 
+    docker compose -f docker-compose-people-setup-model.yaml build \
+		   --build-arg FROM_IMAGE=$image \
+		   --build-arg UID=$UID \
+		   --build-arg TZ=$time_zone \
+		   $option \
+		   people-jetson-setup-model
     if [[ $? -ne 0 ]]; then
 	return 1
     fi

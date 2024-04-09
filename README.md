@@ -11,10 +11,9 @@
 
 ### Preparation
 
-- run the script to download yolov4 model and dependencies
+- run the script to download dependencies
 
 ```
-./setup-model.sh
 ./setup-dependency.sh
 ```
 
@@ -24,6 +23,12 @@
 
 ```
 ./build-docker.sh
+```
+
+- run the script to prepare people detection models after you build image
+
+```
+./setup-model.sh
 ```
 
 ### Bringup Realsense(s), detection, and tracking

@@ -25,6 +25,13 @@ scriptdir=`dirname $0`
 cd $scriptdir
 scriptdir=`pwd`
 
+if [[ -n $1 ]]; then
+    # When you call this script from cabot project, set docker compose directory by input arguments
+    dc_dir=$1
+else
+    dc_dir=$scriptdir
+fi
+
 cd $scriptdir/track_people_py/models
 
 if [ ! -e "yolov4.cfg" ]; then
@@ -55,12 +62,11 @@ if [ ! -e "rtmdet/end2end.engine" ]; then
         echo "Unknown architecture: $arch"
         exit 1
     fi
+    dc_file=$dc_dir/docker-compose-people-setup-model.yaml
     if [ $arch = "x86_64" ]; then
-        dc_file=../../docker-compose.yaml
-        people_service=people
+        people_service=people-setup-model
     elif [ $arch = "aarch64" ]; then
-        dc_file=../../docker-compose-jetson.yaml
-        people_service=people-jetson
+        people_service=people-jetson-setup-model
     fi
 
     docker compose -f $dc_file run --rm $people_service bash -c "exit"
@@ -139,12 +145,11 @@ if [ ! -e "rtmdet-ins/end2end.engine" ]; then
         echo "Unknown architecture: $arch"
         exit 1
     fi
+    dc_file=$dc_dir/docker-compose-people-setup-model.yaml
     if [ $arch = "x86_64" ]; then
-        dc_file=../../docker-compose.yaml
-        people_service=people
+        people_service=people-setup-model
     elif [ $arch = "aarch64" ]; then
-        dc_file=../../docker-compose-jetson.yaml
-        people_service=people-jetson
+        people_service=people-jetson-setup-model
     fi
 
     docker compose -f $dc_file run --rm $people_service bash -c "exit"
