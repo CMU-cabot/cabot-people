@@ -72,7 +72,7 @@ def generate_launch_description():
         DeclareLaunchArgument('image_rect_topic', default_value='color/image_raw'),
         DeclareLaunchArgument('depth_registered_topic', default_value='aligned_depth_to_color/image_raw'),
         DeclareLaunchArgument('depth_unit_meter', default_value='false'),
-        DeclareLaunchArgument('target_fps', default_value='15.0'),
+        DeclareLaunchArgument('target_fps', default_value=EnvironmentVariable('CABOT_DETECT_PEOPLE_FPS', default_value='15.0')),
         DeclareLaunchArgument('use_composite', default_value='false'),
         DeclareLaunchArgument('target_container', default_value=''),
         DeclareLaunchArgument('publish_simulator_people', default_value='false'),
