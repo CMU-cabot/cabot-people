@@ -113,9 +113,9 @@ DetectDarknetOpencv::DetectDarknetOpencv(rclcpp::NodeOptions options)
   updater_ = new diagnostic_updater::Updater(this);
   updater_->setHardwareID(this->get_namespace());
   diagnostic_updater::FrequencyStatusParam param1(&target_fps_, &target_fps_, 1.0, 2);
-  camera_freq_ = new diagnostic_updater::HeaderlessTopicDiagnostic("CameraInput", *updater_, param1);
+  camera_freq_ = new diagnostic_updater::HeaderlessTopicDiagnostic(std::string("CameraInput")+this->get_namespace(), *updater_, param1);
   diagnostic_updater::FrequencyStatusParam param2(&target_fps_, &target_fps_, 0.5, 2);
-  people_freq_ = new diagnostic_updater::HeaderlessTopicDiagnostic("PeopleDetect", *updater_, param2);
+  people_freq_ = new diagnostic_updater::HeaderlessTopicDiagnostic(std::string("PeopleDetect")+this->get_namespace(), *updater_, param2);
 
   RCLCPP_INFO(this->get_logger(), "constructor completed");
 }
