@@ -28,7 +28,7 @@ from launch.actions import RegisterEventHandler
 from launch.conditions import IfCondition
 from launch.conditions import UnlessCondition
 from launch.event_handlers import OnShutdown
-from launch.substitutions import LaunchConfiguration
+from launch.substitutions import LaunchConfiguration, EnvironmentVariable
 from launch.substitutions import PathJoinSubstitution
 from launch.substitutions import PythonExpression
 from launch_ros.actions import LoadComposableNodes
@@ -81,7 +81,7 @@ def generate_launch_description():
         DeclareLaunchArgument('image_rect_topic', default_value='color/image_raw'),
         DeclareLaunchArgument('depth_registered_topic', default_value='aligned_depth_to_color/image_raw'),
         DeclareLaunchArgument('depth_unit_meter', default_value='false'),
-        DeclareLaunchArgument('target_fps', default_value='15.0'),
+        DeclareLaunchArgument('target_fps', default_value=EnvironmentVariable('CABOT_DETECT_PEOPLE_FPS', default_value='15.0')),
         DeclareLaunchArgument('use_composite', default_value='false'),
         DeclareLaunchArgument('target_container', default_value='camera_manager'),
         DeclareLaunchArgument('publish_simulator_people', default_value='false'),
