@@ -24,7 +24,8 @@ ARG FROM_IMAGE
 FROM $FROM_IMAGE AS cache
 
 ARG CMAKE_V=3.19.3 \
-    OPENCV_V=4.5.4 \
+    OPENCV_V=4.9.0 \
+    CUDA_V=12-2 \
     COMP_CAP=7.2,8.7
 
 ENV DEBIAN_FRONTEND="noninteractive"
@@ -44,12 +45,12 @@ RUN apt update && \
 # install cuda/cudnn development library
 RUN apt-get update && \
 	apt-get install -y --no-install-recommends \
-	cuda-nvcc-11-4  \
+	cuda-nvcc-${CUDA_V} \
 	libcunit1-dev \
-	libcublas-dev-11-4 \
-	libcurand-dev-11-4 \
-	libnpp-dev-11-4 \
-	libcufft-dev-11-4 \
+	libcublas-dev-${CUDA_V} \
+	libcurand-dev-${CUDA_V} \
+	libnpp-dev-${CUDA_V} \
+	libcufft-dev-${CUDA_V} \
 	nvidia-cudnn8-dev \
 	&& rm -rf /var/lib/apt/lists/* \
 	&& apt-get clean
@@ -102,16 +103,18 @@ RUN mkdir -p src/opencv/build && cd src/opencv && \
 # copy built opencv from cache and cuda/cudnn runtime library
 FROM $FROM_IMAGE AS build
 
+ARG CUDA_V=12-2
+
 COPY --from=cache /usr/opencv /usr/local
 
 RUN apt-get update && \
 	apt-get install -y --no-install-recommends \
-	cuda-nvcc-11-4  \
+	cuda-nvcc-${CUDA_V} \
 	libcunit1-dev \
-	libcublas-11-4 \
-	libcurand-11-4 \
-	libnpp-11-4 \
-	libcufft-11-4 \
+	libcublas-${CUDA_V} \
+	libcurand-${CUDA_V} \
+	libnpp-${CUDA_V} \
+	libcufft-${CUDA_V} \
 	nvidia-cudnn8 \
 	&& rm -rf /var/lib/apt/lists/* \
 	&& apt-get clean

@@ -196,7 +196,7 @@ RUN cd /opt && \
         cd /opt && \
 	git clone -b v3.3.0 https://github.com/open-mmlab/mmdetection.git
 
-COPY ./launch.sh ./resetusb.sh ./resetrs.sh /
+COPY ./launch.sh ./resetusb.sh ./resetrs.sh ./resetframos.sh /
 
 # debug
 # RUN apt update && apt-get install -y --no-install-recommends gdb

@@ -1,4 +1,4 @@
-# Copyright (c) 2021, 2022  IBM Corporation and Carnegie Mellon University
+# Copyright (c) 2023  Carnegie Mellon University, IBM Corporation, and others
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -19,7 +19,23 @@
 # SOFTWARE.
 
 ARG PREFIX
-ARG FROM_IMAGE=${PREFIX}__jammy-cuda11.8.0-cudnn8-devel-realsense-humble-custom-opencv-mmdeploy-open3d-mesa
+ARG FROM_IMAGE=${PREFIX}__jammy-cuda11.8.0-cudnn8-devel-framos-humble-custom-opencv-mmdeploy-open3d-mesa
+
+FROM $FROM_IMAGE AS cache
+
+ENV PEOPLE_CUSTOM_WS=/opt/people_custom_ws
+
+RUN mkdir -p $PEOPLE_CUSTOM_WS/src && \
+	cp -r /usr/src/librealsense2/wrappers/ros2 $PEOPLE_CUSTOM_WS/src/realsense-ros
+
+WORKDIR $PEOPLE_CUSTOM_WS
+
+RUN apt update && rosdep update && \
+	rosdep install --from-paths src --ignore-src --rosdistro=${ROS_DISTRO} -r -y && \
+	apt purge -y ros-$ROS_DISTRO-librealsense2
+
+RUN . /opt/custom_ws/install/setup.sh && \
+	colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release
 
 FROM $FROM_IMAGE AS build
 ARG ROS_DISTRO=humble \
@@ -31,6 +47,12 @@ ENV ROS_DISTRO=$ROS_DISTRO \
     TZ=$TZ
 
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+
+ENV PEOPLE_CUSTOM_WS=/opt/people_custom_ws
+
+RUN mkdir -p $PEOPLE_CUSTOM_WS/install
+COPY --from=cache $PEOPLE_CUSTOM_WS/install $PEOPLE_CUSTOM_WS/install
+RUN sed -i 's:custom_ws:people_custom_ws:' /ros_entrypoint.sh
 
 RUN apt update && \
 	apt install -y --no-install-recommends \
@@ -66,9 +88,6 @@ RUN apt update && \
 	ros-$ROS_DISTRO-tf2-geometry-msgs \
 	ros-$ROS_DISTRO-tf-transformations \
 	ros-$ROS_DISTRO-rmw-cyclonedds-cpp \
-	ros-$ROS_DISTRO-realsense2-camera-msgs \
-	ros-$ROS_DISTRO-realsense2-camera \
-	ros-$ROS_DISTRO-realsense2-description \
 	ros-dev-tools \
 	qtbase5-dev \
 	libarmadillo-dev \
@@ -93,7 +112,7 @@ RUN pip3 install --no-cache-dir \
 
 COPY ./launch.sh \
      ./launch-core.sh \
-	./resetusb.sh ./resetrs.sh /
+	./resetusb.sh ./resetframos.sh /
 
 # setup for display
 ENV USERNAME developer

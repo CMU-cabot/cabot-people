@@ -1,0 +1,114 @@
+# Copyright (c) 2023  Carnegie Mellon University, IBM Corporation, and others
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
+ARG FROM_IMAGE
+
+FROM $FROM_IMAGE AS base
+
+ENV DEBIAN_FRONTEND="noninteractive"
+
+RUN apt update && \
+    apt install -y --no-install-recommends \
+        dirmngr \
+        gpg-agent \
+        software-properties-common \
+        curl \
+        wget \
+    && \
+    apt clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# install Framos realsense
+RUN cd /tmp && \
+	wget https://www.framos.com/framos3d/D400e/Software/Latest/FRAMOS_D400e_Software_Package_Linux64_x64_latest.tar.gz && \
+    tar xzf FRAMOS_D400e_Software_Package_Linux64_x64_latest.tar.gz && \
+    cd FRAMOS_D400e_Software_Package && \
+    apt update && \
+    apt install -y --no-install-recommends \
+        ./FRAMOS_CameraSuite_4.10.1.0-Linux64_x64.deb \
+        ./FRAMOS-librealsense2-2.50.12-Linux64_x64.deb \
+    && \
+    apt clean && \
+    rm -rf /var/lib/apt/lists/* && \
+    cd ../ && \
+    rm -rf *
+
+FROM base AS cache
+
+ARG CMAKE_V=3.19.3
+
+# install gui, usb development library
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    libglu1-mesa-dev \
+    libxcursor-dev \
+    libxi-dev \
+    libxinerama-dev \
+    libxrandr-dev \
+    libx11-dev \
+    libusb-1.0-0-dev \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
+
+# install cmake
+RUN wget https://github.com/Kitware/CMake/releases/download/v${CMAKE_V}/cmake-${CMAKE_V}-linux-x86_64.sh && \
+    sh cmake-${CMAKE_V}-linux-x86_64.sh --skip-license --prefix=/usr && \
+    rm cmake-${CMAKE_V}-linux-x86_64.sh
+
+# build librealsense2 with CUDA option
+RUN cd /tmp && \
+    cp -r /usr/src/librealsense2 ./ && \
+    cd librealsense2 && \
+    mkdir build && \
+    cd build && \
+    export LD_LIBRARY_PATH=/usr/local/cuda/lib && \
+    export PATH=/usr/local/cuda/bin:$PATH && \
+    export CUDACXX=/usr/local/cuda/bin/nvcc && \
+    export CAMERA_SUITE_PACKAGE=/usr/src/framos/camerasuite/CMakePackages && \
+    export CAMERA_SUITE_SRC_PATH=/usr/src/framos/camerasuite && \
+    export CAMERA_SUITE_INCLUDE_PATH=/usr/include/framos/camerasuite && \
+    export CAMERA_SUITE_LIB_PATH=/usr/lib/framos/camerasuite && \
+    cmake \
+        -DBUILD_WITH_CUDA=true \
+        -DCMAKE_BUILD_TYPE=release \
+        -DCMAKE_INSTALL_PREFIX=/usr/librealsense2 \
+        ../ && \
+    make -j$(nproc) && \
+    make install && \
+    cd ../../ && \
+    rm -rf librealsense2
+
+FROM base as build
+
+# install librealsense2 with CUDA option
+COPY --from=cache /usr/librealsense2 /usr/local
+
+# install gui, usb library
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    libglu1-mesa \
+    libxcursor1 \
+    libxi6 \
+    libxinerama1 \
+    libxrandr2 \
+    libx11-6 \
+    libusb-1.0-0 \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean

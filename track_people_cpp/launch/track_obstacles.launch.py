@@ -21,10 +21,13 @@
 from launch.logging import launch_config
 
 from launch import LaunchDescription
+from launch.actions import DeclareLaunchArgument
 from launch.actions import LogInfo
 from launch.actions import SetEnvironmentVariable
 from launch.actions import RegisterEventHandler
+from launch.conditions import IfCondition
 from launch.event_handlers import OnShutdown
+from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 
 try:
@@ -35,12 +38,18 @@ except ImportError:
 
 
 def generate_launch_description():
+    # ToDo: workaround https://github.com/CMU-cabot/cabot/issues/86
+    jetpack5_workaround = LaunchConfiguration('jetpack5_workaround')
+
     return LaunchDescription([
         # save all log file in the directory where the launch.log file is saved
         SetEnvironmentVariable('ROS_LOG_DIR', launch_config.log_dir),
         # append prefix name to the log directory for convenience
         LogInfo(msg=["no cabot_common"]) if workaround else RegisterEventHandler(OnShutdown(on_shutdown=[AppendLogDirPrefix("track_people_cpp-detect_darknet")])),
 
+        DeclareLaunchArgument('jetpack5_workaround', default_value='false'),
+
+        SetEnvironmentVariable(name='LD_PRELOAD', value='/usr/local/lib/libOpen3D.so', condition=IfCondition(jetpack5_workaround)),
         Node(
             package='track_people_cpp',
             executable='detect_obstacle_on_path_node',

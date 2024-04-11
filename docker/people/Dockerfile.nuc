@@ -22,13 +22,12 @@ ARG PREFIX
 ARG FROM_IMAGE=${PREFIX}__jammy-humble-custom-mesa
 FROM $FROM_IMAGE
 
-ARG ROS_DISTRO=noetic \
-    UBUNTU_DISTRO=focal \
+ARG ROS_DISTRO=humble \
+    UBUNTU_DISTRO=jammy \
     GAZEBOV=11 \
-    TZ="Etc/UTC" \
+    TZ="Etc/UTC"
 
 ENV ROS_DISTRO=$ROS_DISTRO \
-    CMAKE_V=3.19.3 \
     OPEN3D_VERSION=0.15.1 \
     TZ=$TZ
 
