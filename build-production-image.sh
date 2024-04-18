@@ -68,6 +68,16 @@ if [ -z $target ]; then
 fi
 
 if [ $target == "l4t" ] || [ $target == "all" ]; then
+    arch=$(uname -m)
+    if [ $arch = "x86_64" ]; then
+        red "Building l4t image on x86_64 machine"
+        if [ ! -f "/proc/sys/fs/binfmt_misc/qemu-arm" ]; then
+            red "You need to install arm emurator to build l4t image on "
+            exit 1
+        fi
+        export DOCKER_DEFAULT_PLATFORM=linux/aarch64
+    fi
+
     if [ $not_copy -eq 0 ]; then
        blue "copy package files"
        rm -rf ./docker/people/src/*

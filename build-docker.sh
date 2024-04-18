@@ -176,20 +176,15 @@ function check_to_proceed {
     fi
 
     if [[ "$targets" =~ "aarch64" ]]; then
-	if [ $arch = "aarch64" ]; then
-	    blue "Building l4t image on aarch64 machine"
-	elif [ $arch = "x86_64" ]; then
-	    red "Building l4t image not on x86_64 machine"
-	    if [ $(apt list qemu 2> /dev/null | grep installed | wc -l) -eq 1 ]; then
-		red "It takes time to build l4t image on emulator. Do you want to proceed?"
-		if [ $confirmation -eq 1 ]; then
-		    read -p "Press enter to continue or terminate"
-		fi
-	    else
-		red "You need to install arm emurator to build l4t image on "
-		exit 1
-	    fi
-	fi
+        if [ $arch = "aarch64" ]; then
+            blue "Building l4t image on aarch64 machine"
+        elif [ $arch = "x86_64" ]; then
+            red "Building l4t image on x86_64 machine"
+            if [ ! -f "/proc/sys/fs/binfmt_misc/qemu-arm" ]; then
+                red "You need to install arm emurator to build l4t image on x86_64 machine"
+                exit 1
+            fi
+        fi
     fi
 }
 
@@ -358,9 +353,14 @@ function prebuild_aarch64 {
     blue "- CAMERA_IMAGE=$CAMERA_IMAGE"
 
     # check host OS JetPack version
-    HOST_L4T_V=$(dpkg-query --showformat='${Version}' --show nvidia-l4t-core)
-    HOST_L4T_V_ARRAY=(${HOST_L4T_V//./ })
-    HOST_L4T_RELEASE_V=${HOST_L4T_V_ARRAY[0]}
+    if [ $arch = "aarch64" ]; then
+        HOST_L4T_V=$(dpkg-query --showformat='${Version}' --show nvidia-l4t-core)
+        HOST_L4T_V_ARRAY=(${HOST_L4T_V//./ })
+        HOST_L4T_RELEASE_V=${HOST_L4T_V_ARRAY[0]}
+    else
+        # for QEMU emulator, set JetPack version as 35
+        HOST_L4T_RELEASE_V=35
+    fi
     blue "- HOST_L4T_RELEASE_V=$HOST_L4T_RELEASE_V"
 
     if [[ $HOST_L4T_RELEASE_V -lt 36 ]]; then
@@ -524,6 +524,12 @@ blue "Targets: $targets"
 blue "Camera targets: $camera_targets"
 check_to_proceed
 for target in $targets; do
+    if [ $target != $arch ]; then
+        export DOCKER_DEFAULT_PLATFORM=linux/$target
+    else
+        unset DOCKER_DEFAULT_PLATFORM
+    fi
+
     for camera_target in $camera_targets; do
         if [ $camera_target != "realsense" ] && [ $camera_target != "framos" ]; then
             red "invalid camera target $camera_target"
