@@ -73,7 +73,7 @@ RUN cd /opt && \
 	git clone -b v0.7.0 https://github.com/openppl-public/ppl.cv.git && \
 	cd ppl.cv && \
 	./build.sh cuda && \
-# build mmdeploy model converter
+	# build mmdeploy model converter
 	cd /opt && \
 	git clone -b cabot-main https://github.com/CMU-cabot/mmdeploy.git --recursive && \
 	cd mmdeploy && \
@@ -86,7 +86,7 @@ RUN cd /opt && \
 	cd ../ && \
 	python3 setup.py bdist_wheel -d /tmp/wheelhouse && \
 	rm -rf build && \
-# build mmdeploy SDK
+	# build mmdeploy SDK
 	mkdir build && cd build && \
 	cmake .. \
 	-DCMAKE_INSTALL_PREFIX=/usr/mmdeploy \

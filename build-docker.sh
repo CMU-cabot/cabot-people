@@ -381,6 +381,7 @@ function build_x86_64 {
 
 function prebuild_aarch64 {
     local CAMERA_IMAGE=$1
+    export DOCKER_BUILDKIT=0
     blue "- CAMERA_IMAGE=$CAMERA_IMAGE"
 
     # check host OS JetPack version
@@ -468,15 +469,29 @@ function prebuild_aarch64 {
     popd
 
     echo ""
-    local name5=${prefix}_l4t-$CAMERA_IMAGE-opencv-humble-custom-open3d
-    blue "# build ${prefix}_l4t-$CAMERA_IMAGE-opencv-humble-custom-open3d"
-    pushd $build_dir/open3d
+    local name5=${prefix}_l4t-$CAMERA_IMAGE-opencv-humble-custom-mmdeploy
+    blue "# build ${prefix}_l4t-$CAMERA_IMAGE-opencv-humble-custom-mmdeploy"
+    pushd $build_dir/mmdeploy
     docker build -f Dockerfile.jetson -t $name5 \
 	   --build-arg FROM_IMAGE=$name4 \
 	   $option \
 	   .
     if [ $? -ne 0 ]; then
 	red "failed to build $name5"
+	exit 1
+    fi
+    popd
+
+    echo ""
+    local name6=${prefix}_l4t-$CAMERA_IMAGE-opencv-humble-custom-mmdeploy-open3d
+    blue "# build ${prefix}_l4t-$CAMERA_IMAGE-opencv-humble-custom-mmdeploy-open3d"
+    pushd $build_dir/open3d
+    docker build -f Dockerfile.jetson -t $name6 \
+	   --build-arg FROM_IMAGE=$name5 \
+	   $option \
+	   .
+    if [ $? -ne 0 ]; then
+	red "failed to build $name6"
 	exit 1
     fi
     popd
@@ -487,7 +502,7 @@ function build_aarch64 {
     export DOCKER_BUILDKIT=0
 
     if [[ $CAMERA_IMAGE == 'realsense' ]]; then
-        local image=${prefix}_l4t-realsense-opencv-humble-custom-open3d
+        local image=${prefix}_l4t-realsense-opencv-humble-custom-mmdeploy-open3d
         docker compose -f docker-compose-jetson.yaml build \
             --build-arg FROM_IMAGE=$image \
             --build-arg UID=$UID \
@@ -517,7 +532,7 @@ function build_aarch64 {
             $option \
             rs1 rs2 rs3 track
     elif [[ $CAMERA_IMAGE == 'framos' ]]; then
-        local image=${prefix}_l4t-framos-opencv-humble-custom-open3d
+        local image=${prefix}_l4t-framos-opencv-humble-custom-mmdeploy-open3d
         docker compose -f docker-compose-jetson.yaml build \
             --build-arg FROM_IMAGE=$image \
             --build-arg UID=$UID \

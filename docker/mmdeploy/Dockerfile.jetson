@@ -1,0 +1,283 @@
+# Copyright (c) 2023  IBM Corporation and Carnegie Mellon University
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
+ARG FROM_IMAGE
+
+# build cache image for mmdeploy, mmdetection
+FROM $FROM_IMAGE AS cache
+
+ARG CMAKE_V=3.19.3
+
+# install cmake
+RUN wget https://github.com/Kitware/CMake/releases/download/v${CMAKE_V}/cmake-${CMAKE_V}-linux-aarch64.sh && \
+        sh cmake-${CMAKE_V}-linux-aarch64.sh --skip-license --prefix=/usr && \
+        rm cmake-${CMAKE_V}-linux-aarch64.sh
+
+# install TensorRT packages
+RUN apt update && \
+        apt-get install -y --no-install-recommends \
+        libnvinfer-dev \
+        libnvinfer-plugin-dev \
+        libnvinfer-plugin8 \
+        libnvinfer8 \
+        libnvonnxparsers8 \ 
+        libnvparsers8 \
+        python3-libnvinfer \
+        && \
+        apt clean && \
+        rm -rf /var/lib/apt/lists/*
+
+# install mmdeploy requirements
+ENV PATH=/usr/local/cuda/bin:${PATH}
+ENV LD_LIBRARY_PATH=/usr/local/cuda/lib64:${LD_LIBRARY_PATH}
+
+RUN apt update && \
+        apt-get install -y --no-install-recommends \
+        cuda-nvml-dev-11-4 \
+        cuda-nvrtc-dev-11-4 \
+        cuda-nvtx-11-4 \
+        cuda-profiler-api-11-4 \
+        libcublas-dev-11-4 \
+        libcudla-dev-11-4 \
+        libcufft-dev-11-4 \
+        libcurand-dev-11-4 \
+        libcusolver-dev-11-4 \
+        libcusparse-dev-11-4 \
+        libopenblas-dev \
+        libopenmpi-dev \
+        && \
+        apt-get clean && \
+        rm -rf /var/lib/apt/lists/*
+
+# install for torch, torchvision
+RUN pip3 install --no-cache-dir typing-extensions==4.8.0
+
+# install pytorch by setting USE_DISTRIBUTED option to use torch.distributed package for mmdeploy
+# https://forums.developer.nvidia.com/t/pytorch-for-jetson/72048
+RUN git clone --recursive --branch v2.1.1 http://github.com/pytorch/pytorch && \
+        cd pytorch && \
+        pip3 install --no-cache-dir -r requirements.txt && \
+        pip3 install --no-cache-dir scikit-build && \
+        pip3 install --no-cache-dir ninja && \
+        USE_NCCL=0 USE_DISTRIBUTED=1 USE_QNNPACK=0 USE_PYTORCH_QNNPACK=0 USE_NATIVE_ARCH=1 TORCH_CUDA_ARCH_LIST="7.2;8.7" PYTORCH_BUILD_VERSION=2.1.1 PYTORCH_BUILD_NUMBER=1 \
+        python3 setup.py bdist_wheel -d /tmp/wheelhouse && \
+        pip3 install --no-cache-dir /tmp/wheelhouse/torch-*.whl && \
+        cd ../ && \
+        rm -rf pytorch
+
+# install torchvision
+RUN git clone --branch v0.16.1 https://github.com/pytorch/vision torchvision && \
+        cd torchvision && \
+        FORCE_CUDA=1 TORCH_CUDA_ARCH_LIST="7.2;8.7" BUILD_VERSION=0.16.1 python3 setup.py bdist_wheel -d /tmp/wheelhouse && \
+        pip3 install --no-cache-dir /tmp/wheelhouse/torchvision-*.whl && \
+        cd ../ && \
+        rm -rf torchvision
+
+# install mmdeploy requirements
+RUN pip3 install --no-cache-dir openmim==0.3.9 && \
+        # install all requirements for mmengine except opencv-python
+        pip3 install --no-cache-dir addict termcolor pyyaml matplotlib yapf numpy rich && \
+        # install mmengine withtout opencv-python to use opencv-python built from source
+        pip3 install --no-cache-dir --no-deps mmengine==0.10.3 && \
+        # upgrade pip to install pycuda
+        pip3 install --no-cache-dir pip==23.3.1 && \
+        # upgrade setuptools to install grpcio
+        pip3 install --no-cache-dir setuptools==69.0.2 && \
+        # install specific version for mmdeploy
+        pip3 install --no-cache-dir grpcio==1.59.3 && \
+        # install psutil, ninja for fast build of python packages
+        pip3 install --no-cache-dir psutil==5.9.6 ninja==1.11.1.1 && \
+        # install pycuda for mmdeploy
+        pip3 install --no-cache-dir pycuda==2023.1
+
+# install mmcv
+RUN git clone --branch v2.1.0 https://github.com/open-mmlab/mmcv.git && \
+        cd mmcv && \
+        MMCV_WITH_OPS=1 python3 setup.py bdist_wheel -d /tmp/wheelhouse && \
+        # install all requirements for mmcv except opencv-python, mmengine
+        pip3 install --no-cache-dir addict numpy packaging Pillow pyyaml yapf matplotlib rich termcolor "importlib-metadata>=6.6.0" "platformdirs>=3.5.1" \
+                "tomli>=2.0.1" "zipp>=0.5" "contourpy>=1.0.1" "cycler>=0.10" "fonttools>=4.22.0" "kiwisolver>=1.0.1" "pyparsing>=2.2.1" \
+                "python-dateutil>=2.7" "markdown-it-py>=2.2.0" "pygments<3.0.0,>=2.13.0" "typing-extensions<5.0,>=4.0.0" "mdurl~=0.1" "six>=1.5" && \
+        # install mmcv withtout opencv-python to use opencv-python built from source
+        pip3 install --no-cache-dir --no-deps /tmp/wheelhouse/mmcv-*.whl && \
+        cd ../ && \
+        rm -rf mmcv
+
+# install spdlog to build mmdeploy
+RUN apt update && \
+        apt-get install -y --no-install-recommends \
+        libspdlog1 \
+        libspdlog-dev \
+        && \
+        apt-get clean && \
+        rm -rf /var/lib/apt/lists/*
+
+# workaround to to find TensorRT directory when running mmdeploy
+# https://github.com/open-mmlab/mmdeploy/issues/2514
+ENV TENSORRT_DIR=/usr/include/aarch64-linux-gnu
+
+# build ppl.cv
+RUN cd /opt && \
+        # use ppl.cv version which supports Jetson Orin
+        # https://github.com/openppl-public/ppl.cv/commit/a2b386a
+        # git clone -b v0.7.0 https://github.com/openppl-public/ppl.cv.git && \
+        git clone https://github.com/openppl-public/ppl.cv.git && \
+        cd ppl.cv && \
+        git checkout a2b386a && \
+        ./build.sh cuda && \
+        # build mmdeploy model converter
+        cd /opt && \
+        git clone -b cabot-main https://github.com/CMU-cabot/mmdeploy.git --recursive && \
+        cd mmdeploy && \
+        mkdir build && cd build && \
+        cmake .. \
+        -DCMAKE_INSTALL_PREFIX=/usr/mmdeploy \
+        -DTENSORRT_DIR=${TENSORRT_DIR}\
+        -DMMDEPLOY_TARGET_BACKENDS="trt" && \
+        make -j$(nproc) && make install && \
+        cd ../ && \
+        python3 setup.py bdist_wheel -d /tmp/wheelhouse && \
+        rm -rf build && \
+        # build mmdeploy SDK
+        mkdir build && cd build && \
+        cmake .. \
+        -DCMAKE_INSTALL_PREFIX=/usr/mmdeploy \
+        -DMMDEPLOY_BUILD_SDK=ON \
+        -DMMDEPLOY_BUILD_EXAMPLES=ON \
+        -DCMAKE_CXX_COMPILER=g++ \
+        -Dpplcv_DIR=/opt/ppl.cv/cuda-build/install/lib/cmake/ppl \
+        -DTENSORRT_DIR=${TENSORRT_DIR} \
+        -DMMDEPLOY_BUILD_SDK_MONOLITHIC=ON \
+        -DMMDEPLOY_BUILD_SDK_PYTHON_API=ON \
+        -DMMDEPLOY_TARGET_DEVICES="cuda;cpu" \
+        -DMMDEPLOY_TARGET_BACKENDS="trt" \
+        -DMMDEPLOY_CODEBASES="mmdet" && \
+        make -j$(nproc) && make install && \
+        # copy mmdeploy_runtime library manually to use mmdeploy_runtime python package
+        mkdir -p /usr/mmdeploy_runtime/lib && \
+        cp lib/mmdeploy_runtime*.so /usr/mmdeploy_runtime/lib/ && \
+        cd ../../ && \
+        rm -rf ppl.cv mmdeploy
+
+# build mmdetection
+RUN cd /opt && \
+        git clone -b v3.3.0 https://github.com/open-mmlab/mmdetection.git && \
+        cd mmdetection && \
+        python3 setup.py bdist_wheel -d /tmp/wheelhouse && \
+        cd ../ && \
+        rm -rf mmdetection
+
+# copy mmdeploy, mmdetection from cache image
+FROM $FROM_IMAGE AS build
+
+# install TensorRT packages
+RUN apt update && \
+        apt-get install -y --no-install-recommends \
+        libnvinfer-dev \
+        libnvinfer-plugin-dev \
+        libnvinfer-plugin8 \
+        libnvinfer8 \
+        libnvonnxparsers8 \ 
+        libnvparsers8 \
+        python3-libnvinfer \
+        && \
+        apt clean && \
+        rm -rf /var/lib/apt/lists/*
+
+# install mmdeploy requirements
+ENV PATH=/usr/local/cuda/bin:${PATH}
+ENV LD_LIBRARY_PATH=/usr/local/cuda/lib64:${LD_LIBRARY_PATH}
+
+RUN apt update && \
+        apt-get install -y --no-install-recommends \
+        cuda-nvml-dev-11-4 \
+        cuda-nvrtc-11-4 \
+        cuda-nvtx-11-4 \
+        cuda-profiler-api-11-4 \
+        libcublas-11-4 \
+        libcudla-11-4 \
+        libcufft-11-4 \
+        libcurand-dev-11-4 \
+        libcusolver-11-4 \
+        libcusparse-11-4 \
+        libopenblas0 \
+        libopenmpi3 \
+        && \
+        apt-get clean && \
+        rm -rf /var/lib/apt/lists/*
+
+# install for torch, torchvision
+RUN pip3 install --no-cache-dir typing-extensions==4.8.0
+
+COPY --from=cache /tmp/wheelhouse /tmp/wheelhouse
+
+RUN pip3 install --no-cache-dir /tmp/wheelhouse/torch-*.whl
+RUN pip3 install --no-cache-dir /tmp/wheelhouse/torchvision-*.whl
+
+# install mmdeploy requirements
+RUN pip3 install --no-cache-dir openmim==0.3.9 && \
+        # install all requirements for mmengine except opencv-python
+        pip3 install --no-cache-dir addict termcolor pyyaml matplotlib yapf numpy rich && \
+        # install mmengine withtout opencv-python to use opencv-python built from source
+ 	pip3 install --no-cache-dir --no-deps mmengine==0.10.3 && \
+        # upgrade pip to install pycuda
+        pip3 install --no-cache-dir pip==23.3.1 && \
+        # upgrade setuptools to install grpcio
+        pip3 install --no-cache-dir setuptools==69.0.2 && \
+        # install specific version for mmdeploy
+        pip3 install --no-cache-dir grpcio==1.59.3 && \
+        # install psutil, ninja for fast build of python packages
+        pip3 install --no-cache-dir psutil==5.9.6 ninja==1.11.1.1 && \
+        # install pycuda for mmdeploy
+        pip3 install --no-cache-dir pycuda==2023.1
+
+# install all requirements for mmcv except opencv-python, mmengine
+RUN pip3 install --no-cache-dir addict numpy packaging Pillow pyyaml yapf matplotlib rich termcolor "importlib-metadata>=6.6.0" "platformdirs>=3.5.1" \
+                "tomli>=2.0.1" "zipp>=0.5" "contourpy>=1.0.1" "cycler>=0.10" "fonttools>=4.22.0" "kiwisolver>=1.0.1" "pyparsing>=2.2.1" \
+                "python-dateutil>=2.7" "markdown-it-py>=2.2.0" "pygments<3.0.0,>=2.13.0" "typing-extensions<5.0,>=4.0.0" "mdurl~=0.1" "six>=1.5" && \
+        # install mmcv withtout opencv-python to use opencv-python built from source
+        pip3 install --no-cache-dir --no-deps /tmp/wheelhouse/mmcv-*.whl
+
+# workaround to to find TensorRT directory when running mmdeploy
+# https://github.com/open-mmlab/mmdeploy/issues/2514
+ENV TENSORRT_DIR=/usr/include/aarch64-linux-gnu
+
+# install mmdeploy, mmdetection packages
+COPY --from=cache /usr/mmdeploy /usr/local
+# install all requirements for mmdeploy except opencv-python, mmengine
+RUN pip3 install --no-cache-dir aenum grpcio matplotlib multiprocess numpy "onnx>=1.13.0" prettytable "protobuf<=3.20.2" six terminaltables \
+                "contourpy>=1.0.1" "cycler>=0.10" "fonttools>=4.22.0" "kiwisolver>=1.0.1" "packaging>=20.0" "pillow>=6.2.0" "pyparsing>=2.2.1" \
+                "python-dateutil>=2.7" addict pyyaml rich termcolor yapf "dill>=0.3.7" wcwidth "markdown-it-py>=2.2.0" "pygments<3.0.0,>=2.13.0" \
+                "typing-extensions<5.0,>=4.0.0" "importlib-metadata>=6.6.0" "platformdirs>=3.5.1" "tomli>=2.0.1" "zipp>=0.5" "mdurl~=0.1" && \
+        # install mmdeploy withtout opencv-python to use opencv-python built from source
+        pip3 install --no-cache-dir --no-deps /tmp/wheelhouse/mmdeploy-*.whl && \
+        pip3 install --no-cache-dir /tmp/wheelhouse/mmdet-*.whl && \
+	rm -rf /tmp/wheelhouse
+
+# copy mmdeploy_runtime library manually to use mmdeploy_runtime python package
+COPY --from=cache /usr/mmdeploy_runtime /opt/mmdeploy_runtime
+ENV PYTHONPATH=/opt/mmdeploy_runtime/lib:$PYTHONPATH
+
+# clone mmdeploy, mmdetection repository which is used when deploying models
+RUN cd /opt && \
+        git clone -b cabot-main https://github.com/CMU-cabot/mmdeploy.git --recursive && \
+        cd mmdeploy && \
+        cd /opt && \
+	git clone -b v3.3.0 https://github.com/open-mmlab/mmdetection.git
