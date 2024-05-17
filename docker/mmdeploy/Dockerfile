@@ -85,6 +85,7 @@ RUN cd /opt && \
 	make -j$(nproc) && make install && \
 	cd ../ && \
 	python3 setup.py bdist_wheel -d /tmp/wheelhouse && \
+	pip3 install --no-cache-dir --no-deps /tmp/wheelhouse/mmdeploy-*.whl && \
 	rm -rf build && \
 	# build mmdeploy SDK
 	mkdir build && cd build && \
@@ -109,11 +110,15 @@ RUN cd /opt && \
 
 ENV LD_LIBRARY_PATH=${BACKUP_LD_LIBRARY_PATH}
 
-# build mmdetection
+# install mmdetection requirements
+RUN pip3 install --no-cache-dir pycocotools==2.0.7 shapely==2.0.4
+
+# install mmdetection
 RUN cd /opt && \
 	git clone -b v3.3.0 https://github.com/open-mmlab/mmdetection.git && \
 	cd mmdetection && \
 	python3 setup.py bdist_wheel -d /tmp/wheelhouse && \
+	pip3 install --no-cache-dir --no-deps /tmp/wheelhouse/mmdet-*.whl && \
 	cd ../ && \
 	rm -rf mmdetection
 
@@ -160,21 +165,25 @@ RUN mkdir $TENSORRT_DIR && \
 	ln -sf /usr/lib/x86_64-linux-gnu $TENSORRT_DIR/lib && \
 	ln -sf /usr/include/x86_64-linux-gnu $TENSORRT_DIR/include
 
-# install mmdeploy, mmdetection packages
+# install mmdeploy model converter, mmdeploy SDK
 COPY --from=cache /usr/mmdeploy /usr/local
-COPY --from=cache /tmp/wheelhouse /tmp/wheelhouse
 # install all requirements for mmdeploy except opencv-python, mmengine
 RUN pip3 install --no-cache-dir terminaltables grpcio numpy matplotlib prettytable six aenum "protobuf<=3.20.2" multiprocess onnx>=1.13.0 \
 		addict termcolor pyyaml rich yapf dill>=0.3.7 wcwidth "pygments<3.0.0,>=2.13.0" markdown-it-py>=2.2.0 importlib-metadata>=6.6.0 \
-		tomli>=2.0.1 platformdirs>=3.5.1 zipp>=0.5 mdurl~=0.1 && \
-	# install mmdeploy without opencv-python to use opencv-python built from source
-	pip3 install --no-cache-dir --no-deps /tmp/wheelhouse/mmdeploy-*.whl && \
-	pip3 install --no-cache-dir /tmp/wheelhouse/mmdet-*.whl && \
-	rm -rf /tmp/wheelhouse
+		tomli>=2.0.1 platformdirs>=3.5.1 zipp>=0.5 mdurl~=0.1
+# install mmdeploy without opencv-python to use opencv-python built from source
+COPY --from=cache /usr/local/lib/python3.10/dist-packages/mmdeploy /usr/local/lib/python3.10/dist-packages/mmdeploy
+COPY --from=cache /usr/local/lib/python3.10/dist-packages/mmdeploy-1.3.1.dist-info /usr/local/lib/python3.10/dist-packages/mmdeploy-1.3.1.dist-info
 
 # copy mmdeploy_runtime library manually to use mmdeploy_runtime python package
 COPY --from=cache /usr/mmdeploy_runtime /opt/mmdeploy_runtime
 ENV PYTHONPATH=/opt/mmdeploy_runtime/lib:$PYTHONPATH
+
+# install mmdetection requirements
+RUN pip3 install --no-cache-dir pycocotools==2.0.7 shapely==2.0.4
+# install mmdetection
+COPY --from=cache /usr/local/lib/python3.10/dist-packages/mmdet /usr/local/lib/python3.10/dist-packages/mmdet
+COPY --from=cache /usr/local/lib/python3.10/dist-packages/mmdet-3.3.0.dist-info /usr/local/lib/python3.10/dist-packages/mmdet-3.3.0.dist-info
 
 # clone mmdeploy, mmdetection repository which is used when deploying models
 RUN cd /opt && \
