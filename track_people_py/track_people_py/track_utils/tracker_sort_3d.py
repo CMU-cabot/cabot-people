@@ -18,32 +18,36 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-import numpy as np
+from filterpy.kalman import KalmanFilter
+from filterpy.common import Q_discrete_white_noise
 import matplotlib.pyplot as plt
+import numpy as np
+from scipy.linalg import block_diag
+from scipy.optimize import linear_sum_assignment
+
 from . import reid_utils_fn
 from . import kf_utils
-from scipy.optimize import linear_sum_assignment
 
 
 class TrackerSort3D:
-    def __init__(self,
-                 iou_threshold=0.01, iou_circle_size=0.5,
-                 minimum_valid_track_duration=0.3,
-                 duration_inactive_to_remove=2.0,
-                 n_colors=100
-                 ):
+    def __init__(self, iou_threshold=0.01, iou_circle_size=0.5, kf_init_var=1.0, kf_process_var=1000.0, kf_measure_var=1.0,
+                 minimum_valid_track_duration=0.3, duration_inactive_to_remove=2.0, n_colors=100):
         # Initialization
         #
         # iou_threshold : minimum IOU threshold to keep track
         # iou_circle_size : radius of circle in bird-eye view to calculate IOU
+        # kf_init_var : variance for initial state covariance matrix
+        # kf_process_var : variance for process noise covariance matrix
+        # kf_measure_var : variance for measurement noise covariance matrix
         # minimum_valid_track_duration : minimum duration to consider track is valid
         # duration_inactive_to_remove : duration for an inactive detection to be removed
         # n_colors : number of colors to assign to each track
 
         # parameters for Kalman Filter
-        self.kf_time_step = 1.0/1.0  # 1 FPS
-        self.kf_sigma_proc = 10.0  # process noise : smaller value will be smoother
-        self.kf_sigma_meas = 10.0  # measurement noise
+        self.kf_time_step = 1.0  # set time step as 1 second, and multiply average fps later if velocity is necessary
+        self.kf_init_var = kf_init_var
+        self.kf_process_var = kf_process_var  # process noise : smaller value will be smoother
+        self.kf_measure_var = kf_measure_var  # measurement noise
         self.sigma_l = 0.0  # if detection confidence score is larger than this value, start tracking
         self.sigma_h = 0.5  # if maximum detection confidence store of track is smaller than this value, finish tracking
 
@@ -64,6 +68,24 @@ class TrackerSort3D:
 
         # counter of tracks
         self.tracker_count = 0
+
+
+    def _predict_kf(self, id_track, now):
+        # set time steps
+        dt = (now - self.record_tracker[id_track]["last_predict"]).nanoseconds/1000000000
+        self.kf_active[id_track]["kf"].F = np.array([[1, dt, 0,  0],
+                                                     [0,  1, 0,  0],
+                                                     [0,  0, 1, dt],
+                                                     [0,  0, 0,  1]])
+        q = Q_discrete_white_noise(dim=2, dt=dt, var=self.kf_process_var)
+        self.kf_active[id_track]["kf"].Q = block_diag(q, q)
+
+        # run predict
+        self.kf_active[id_track]["kf"].predict()
+
+        # set last predict time
+        self.record_tracker[id_track]["last_predict"] = now
+
 
     def track(self, now, bboxes, center_pos_list, frame_id, counter_penalty=1, drop_inactive_feature=True):
         # Performs tracking by comparing with previous detected people
@@ -103,7 +125,7 @@ class TrackerSort3D:
 
             # predict box by Kalman Filter
             for id_track in self.kf_active.keys():
-                self.kf_active[id_track]["kf"].predict()
+                self._predict_kf(id_track, now)
         elif (len(bboxes) == 0) and (len(self.box_active) > 0):
             # No new detection but has active tracks
 
@@ -115,7 +137,7 @@ class TrackerSort3D:
 
             # predict box by Kalman Filter
             for id_track in self.kf_active.keys():
-                self.kf_active[id_track]["kf"].predict()
+                self._predict_kf(id_track, now)
         elif (len(bboxes) > 0) and (len(self.box_active) == 0):
 
             # If no active detection, add all of them
@@ -126,7 +148,7 @@ class TrackerSort3D:
 
             # predict box by Kalman Filter
             for id_track in self.kf_active.keys():
-                self.kf_active[id_track]["kf"].predict()
+                self._predict_kf(id_track, now)
         elif (len(bboxes) > 0) and (len(self.box_active) > 0):
             # If there are active detections, compared them to new detections
             # then decide to match or add as new tracks
@@ -134,7 +156,7 @@ class TrackerSort3D:
             # predict circle by Kalman Filter
             kf_pred_circles = []
             for id_track in self.kf_active.keys():
-                self.kf_active[id_track]["kf"].predict()
+                self._predict_kf(id_track, now)
 
                 kf_x = self.kf_active[id_track]["kf"].x[0, 0]
                 kf_y = self.kf_active[id_track]["kf"].x[2, 0]
@@ -208,6 +230,7 @@ class TrackerSort3D:
             self.record_tracker[self.tracker_count]["color"] = self.list_colors[self.tracker_count % self.n_colors]
             self.record_tracker[self.tracker_count]["expire"] = now + self.duration_inactive_to_remove
             self.record_tracker[self.tracker_count]["since"] = now
+            self.record_tracker[self.tracker_count]["last_predict"] = now
 
             # save active box
             self.box_active[self.tracker_count] = bboxes[id_track]
@@ -215,7 +238,8 @@ class TrackerSort3D:
             # save active Kalaman Filter
             new_kf_x = center_circle_list[id_track][0]
             new_kf_y = center_circle_list[id_track][1]
-            self.kf_active[self.tracker_count] = kf_utils.init_kf_fixed_size([new_kf_x, 0.0, new_kf_y, 0.0], self.kf_time_step, self.kf_sigma_proc, self.kf_sigma_meas)
+            self.kf_active[self.tracker_count] = kf_utils.init_kf_fixed_size([new_kf_x, 0.0, new_kf_y, 0.0], self.kf_time_step,
+                                                                            self.kf_init_var, self.kf_process_var, self.kf_measure_var)
 
             # save archive data
             self.record_tracker_archive[self.tracker_count] = self.record_tracker[self.tracker_count]

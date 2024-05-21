@@ -33,8 +33,8 @@ from track_people_py import PredictKfAbstract
 
 
 class PredictKfObstacle(PredictKfAbstract):
-    def __init__(self, input_time, duration_inactive_to_remove, fps_est_time):
-        super().__init__('predict_obstacle_py', input_time, duration_inactive_to_remove, fps_est_time)
+    def __init__(self, input_time, duration_inactive_to_remove):
+        super().__init__('predict_obstacle_py', input_time, duration_inactive_to_remove)
 
     def pub_result(self, msg, alive_track_id_list, track_pos_dict, track_vel_dict, track_vel_hist_dict):
         # init People message
@@ -87,9 +87,8 @@ def main():
 
     input_time = 5  # number of frames to start prediction
     duration_inactive_to_remove = 2.0  # duration (seconds) for a track to be inactive before removal (this value should be enough long because track_obstacle_py resturns recovered tracks)
-    fps_est_time = 100  # number of frames which are used to estimate FPS
 
-    predict_people = PredictKfObstacle(input_time, duration_inactive_to_remove, fps_est_time)
+    predict_people = PredictKfObstacle(input_time, duration_inactive_to_remove)
 
     plt.ion()
     plt.show()

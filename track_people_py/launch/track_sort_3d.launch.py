@@ -39,6 +39,10 @@ except ImportError:
 
 
 def generate_launch_description():
+    iou_circle_size = LaunchConfiguration('iou_circle_size')
+    kf_init_var = LaunchConfiguration('kf_init_var')
+    kf_process_var = LaunchConfiguration('kf_process_var')
+    kf_measure_var = LaunchConfiguration('kf_measure_var')
     target_fps = LaunchConfiguration('target_fps')
 
     # ToDo: workaround https://github.com/CMU-cabot/cabot/issues/86
@@ -51,11 +55,19 @@ def generate_launch_description():
         # append prefix name to the log directory for convenience
         LogInfo(msg=["no cabot_common"]) if workaround else RegisterEventHandler(OnShutdown(on_shutdown=[AppendLogDirPrefix("track_people_cpp-detect_darknet")])),
 
+        DeclareLaunchArgument('iou_circle_size', default_value='0.5'),
+        DeclareLaunchArgument('kf_init_var', default_value='1.0'),
+        DeclareLaunchArgument('kf_process_var', default_value='1000.0'),
+        DeclareLaunchArgument('kf_measure_var', default_value='1.0'),
         DeclareLaunchArgument('target_fps', default_value=EnvironmentVariable('CABOT_PEOPLE_TRACK_FPS', default_value='15.0')),
 
         DeclareLaunchArgument('jetpack5_workaround', default_value='false'),
 
         # overwrite parameters
+        SetParameter(name='iou_circle_size', value=iou_circle_size),
+        SetParameter(name='kf_init_var', value=kf_init_var),
+        SetParameter(name='kf_process_var', value=kf_process_var),
+        SetParameter(name='kf_measure_var', value=kf_measure_var),
         SetParameter(name='target_fps', value=target_fps),
 
         SetEnvironmentVariable(name='LD_PRELOAD', value='/usr/local/lib/libOpen3D.so', condition=IfCondition(jetpack5_workaround)),

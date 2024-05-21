@@ -35,12 +35,17 @@ from track_people_msgs.msg import TrackedBoxes
 
 
 class TrackSort3dPeople(AbsTrackPeople):
-    def __init__(self, device, minimum_valid_track_duration,
-                 iou_threshold, iou_circle_size, duration_inactive_to_remove):
+    def __init__(self, device, minimum_valid_track_duration, iou_threshold, duration_inactive_to_remove):
         super().__init__(device, minimum_valid_track_duration)
+
+        iou_circle_size = self.declare_parameter('iou_circle_size', 0.5).value
+        kf_init_var = self.declare_parameter('kf_init_var', 1.0).value
+        kf_process_var = self.declare_parameter('kf_process_var', 1000.0).value
+        kf_measure_var = self.declare_parameter('kf_measure_var', 1.0).value
 
         # set tracker
         self.tracker = TrackerSort3D(iou_threshold=iou_threshold, iou_circle_size=iou_circle_size,
+                                     kf_init_var=kf_init_var, kf_process_var=kf_process_var, kf_measure_var=kf_measure_var,
                                      minimum_valid_track_duration=Duration(seconds=minimum_valid_track_duration),
                                      duration_inactive_to_remove=Duration(seconds=duration_inactive_to_remove))
 
@@ -110,10 +115,9 @@ def main():
     minimum_valid_track_duration = 0  # Minimum duration to consider track is valid
 
     iou_threshold = 0.01  # IOU threshold to consider detection between frames as same person
-    iou_circle_size = 1.0  # radius of circle in bird-eye view to calculate IOU
     duration_inactive_to_remove = 2.0  # duration (seconds) for a track to be inactive before removal
 
-    track_people = TrackSort3dPeople(device, minimum_valid_track_duration, iou_threshold, iou_circle_size, duration_inactive_to_remove)
+    track_people = TrackSort3dPeople(device, minimum_valid_track_duration, iou_threshold, duration_inactive_to_remove)
 
     plt.ion()
     plt.show()
