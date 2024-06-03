@@ -38,12 +38,17 @@ from track_people_msgs.msg import TrackedBoxes
 class AbsTrackPeople(rclpy.node.Node):
     __metaclass__ = ABCMeta
 
-    def __init__(self, device, minimum_valid_track_duration):
+    def __init__(self):
         super().__init__('track_people_py')
-        # start initialization
-        self.minimum_valid_track_duration = minimum_valid_track_duration
 
-        self.device = device
+        self.iou_threshold = self.declare_parameter('iou_threshold', 0.01).value
+        self.iou_circle_size = self.declare_parameter('iou_circle_size', 0.5).value
+        self.kf_init_var = self.declare_parameter('kf_init_var', 1.0).value
+        self.kf_process_var = self.declare_parameter('kf_process_var', 1000.0).value
+        self.kf_measure_var = self.declare_parameter('kf_measure_var', 1.0).value
+        self.minimum_valid_track_duration = self.declare_parameter('minimum_valid_track_duration', 0.0).value
+        self.duration_inactive_to_remove = self.declare_parameter('duration_inactive_to_remove', 2.0).value
+
         self.detected_boxes_sub = self.create_subscription(TrackedBoxes, 'people/detected_boxes', self.detected_boxes_cb, 10)
         self.tracked_boxes_pub = self.create_publisher(TrackedBoxes, 'people/tracked_boxes', 10)
         self.visualization_marker_array_pub = self.create_publisher(MarkerArray, 'people/tracking_visualization', 10)

@@ -39,7 +39,7 @@ class TrackerSort3D:
         # kf_init_var : variance for initial state covariance matrix
         # kf_process_var : variance for process noise covariance matrix
         # kf_measure_var : variance for measurement noise covariance matrix
-        # minimum_valid_track_duration : minimum duration to consider track is valid
+        # minimum_valid_track_duration : minimum duration to consider track is valid, set the value 0.0 for multiple cameras
         # duration_inactive_to_remove : duration for an inactive detection to be removed
         # n_colors : number of colors to assign to each track
 
