@@ -35,14 +35,14 @@ from track_people_msgs.msg import TrackedBoxes
 
 
 class TrackSort3dPeople(AbsTrackPeople):
-    def __init__(self, device, minimum_valid_track_duration,
-                 iou_threshold, iou_circle_size, duration_inactive_to_remove):
-        super().__init__(device, minimum_valid_track_duration)
+    def __init__(self):
+        super().__init__()
 
         # set tracker
-        self.tracker = TrackerSort3D(iou_threshold=iou_threshold, iou_circle_size=iou_circle_size,
-                                     minimum_valid_track_duration=Duration(seconds=minimum_valid_track_duration),
-                                     duration_inactive_to_remove=Duration(seconds=duration_inactive_to_remove))
+        self.tracker = TrackerSort3D(iou_threshold=self.iou_threshold, iou_circle_size=self.iou_circle_size,
+                                     kf_init_var=self.kf_init_var, kf_process_var=self.kf_process_var, kf_measure_var=self.kf_measure_var,
+                                     minimum_valid_track_duration=Duration(seconds=self.minimum_valid_track_duration),
+                                     duration_inactive_to_remove=Duration(seconds=self.duration_inactive_to_remove))
 
         self.combined_detected_boxes_pub = self.create_publisher(TrackedBoxes, 'people/combined_detected_boxes', 10)
 
@@ -103,17 +103,8 @@ class TrackSort3dPeople(AbsTrackPeople):
 
 def main():
     rclpy.init()
-    device = "cuda"
 
-    # minimum valid duration should be always 0 for multi camera
-    # minimum_valid_track_duration = rospy.Duration(0.3) # Minimum duration to consider track is valid
-    minimum_valid_track_duration = 0  # Minimum duration to consider track is valid
-
-    iou_threshold = 0.01  # IOU threshold to consider detection between frames as same person
-    iou_circle_size = 1.0  # radius of circle in bird-eye view to calculate IOU
-    duration_inactive_to_remove = 2.0  # duration (seconds) for a track to be inactive before removal
-
-    track_people = TrackSort3dPeople(device, minimum_valid_track_duration, iou_threshold, iou_circle_size, duration_inactive_to_remove)
+    track_people = TrackSort3dPeople()
 
     plt.ion()
     plt.show()

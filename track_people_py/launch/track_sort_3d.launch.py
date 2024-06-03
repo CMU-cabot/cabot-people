@@ -39,6 +39,13 @@ except ImportError:
 
 
 def generate_launch_description():
+    iou_threshold = LaunchConfiguration('iou_threshold')
+    iou_circle_size = LaunchConfiguration('iou_circle_size')
+    kf_init_var = LaunchConfiguration('kf_init_var')
+    kf_process_var = LaunchConfiguration('kf_process_var')
+    kf_measure_var = LaunchConfiguration('kf_measure_var')
+    minimum_valid_track_duration = LaunchConfiguration('minimum_valid_track_duration')
+    duration_inactive_to_remove = LaunchConfiguration('duration_inactive_to_remove')
     target_fps = LaunchConfiguration('target_fps')
 
     # ToDo: workaround https://github.com/CMU-cabot/cabot/issues/86
@@ -51,11 +58,25 @@ def generate_launch_description():
         # append prefix name to the log directory for convenience
         LogInfo(msg=["no cabot_common"]) if workaround else RegisterEventHandler(OnShutdown(on_shutdown=[AppendLogDirPrefix("track_people_cpp-detect_darknet")])),
 
+        DeclareLaunchArgument('iou_threshold', default_value='0.01'),
+        DeclareLaunchArgument('iou_circle_size', default_value='0.5'),
+        DeclareLaunchArgument('kf_init_var', default_value='1.0'),
+        DeclareLaunchArgument('kf_process_var', default_value='1000.0'),
+        DeclareLaunchArgument('kf_measure_var', default_value='1.0'),
+        DeclareLaunchArgument('minimum_valid_track_duration', default_value='0.0'),
+        DeclareLaunchArgument('duration_inactive_to_remove', default_value='2.0'),
         DeclareLaunchArgument('target_fps', default_value=EnvironmentVariable('CABOT_PEOPLE_TRACK_FPS', default_value='15.0')),
 
         DeclareLaunchArgument('jetpack5_workaround', default_value='false'),
 
         # overwrite parameters
+        SetParameter(name='iou_threshold', value=iou_threshold),
+        SetParameter(name='iou_circle_size', value=iou_circle_size),
+        SetParameter(name='kf_init_var', value=kf_init_var),
+        SetParameter(name='kf_process_var', value=kf_process_var),
+        SetParameter(name='kf_measure_var', value=kf_measure_var),
+        SetParameter(name='minimum_valid_track_duration', value=minimum_valid_track_duration),
+        SetParameter(name='duration_inactive_to_remove', value=duration_inactive_to_remove),
         SetParameter(name='target_fps', value=target_fps),
 
         SetEnvironmentVariable(name='LD_PRELOAD', value='/usr/local/lib/libOpen3D.so', condition=IfCondition(jetpack5_workaround)),
