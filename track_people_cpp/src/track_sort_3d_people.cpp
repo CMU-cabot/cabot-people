@@ -180,7 +180,7 @@ TrackSort3dPeople::TrackSort3dPeople(rclcpp::NodeOptions options)
     iou_threshold_, iou_circle_size_, minimum_valid_track_duration_,
     duration_inactive_to_remove_));
 
-    combined_detected_boxes_pub_ = super->create_publisher<track_people_msgs::msg::TrackedBoxes>('people/combined_detected_boxes', 10);
+    combined_detected_boxes_pub_ = this->create_publisher<track_people_msgs::msg::TrackedBoxes>("people/combined_detected_boxes", 10);
   /*
 
   self.buffer = {}
