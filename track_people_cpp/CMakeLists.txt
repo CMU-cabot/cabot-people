@@ -82,6 +82,27 @@ rclcpp_components_register_node(
   EXECUTOR MultiThreadedExecutor
 )
 
+## track_sort_3d_people
+add_library(track_sort_3d_people SHARED
+  src/track_sort_3d_people.cpp
+)
+
+ament_target_dependencies(track_sort_3d_people
+  ${dependencies}
+)
+
+target_link_libraries(track_sort_3d_people
+  ${OpenCV_LIBRARIES}
+  ${Open3D_LIBRARIES}
+)
+
+rclcpp_components_register_node(
+  track_sort_3d_people
+  PLUGIN "track_people_cpp::TrackSort3dPeople"
+  EXECUTABLE track_sort_3d_people_node
+  EXECUTOR  MultiThreadedExecutor
+)
+
 
 ## detect_obstacle_on_path
 add_library(detect_obstacle_on_path SHARED
@@ -93,6 +114,10 @@ ament_target_dependencies(detect_obstacle_on_path
 )
 
 target_link_libraries(detect_darknet_opencv
+  ${OpenCV_LIBRARIES}
+)
+
+target_link_libraries(track_sort_3d_people
   ${OpenCV_LIBRARIES}
 )
 
@@ -122,6 +147,7 @@ install(TARGETS
   # convert_obstacle_node
   detect_darknet_opencv
   detect_obstacle_on_path
+  track_sort_3d_people
   EXPORT export_track_people_cpp
   RUNTIME DESTINATION bin
   ARCHIVE DESTINATION lib
@@ -131,6 +157,7 @@ install(TARGETS
 install(DIRECTORY launch/ DESTINATION share/${PROJECT_NAME}/launch)
 
 ament_export_libraries(detect_darknet_opencv)
+ament_export_libraries(track_sort_3d_people)
 ament_export_targets(export_track_people_cpp HAS_LIBRARY_TARGET)
 ament_export_dependencies(${dependencies})
 
