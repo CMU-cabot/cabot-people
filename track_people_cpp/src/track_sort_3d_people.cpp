@@ -52,8 +52,9 @@ TrackerSort3D::TrackerSort3D(
 
 void TrackerSort3D::track(
   int* prev_exist, int* person_id, int* person_color, int* trackeduration, 
-  int now, int bboxes, int center_pos_list, int frame_id,
-  int counter_penalty=1, bool drop_inactive_feature=true)
+  const rclcpp::Time& now, const std::vector<std::vector<double>>& bboxes,
+  const std::vector<std::vector<double>>& center_pos_list,
+  int frame_id, int counter_penalty=1, bool drop_inactive_feature=true)
 {
   /* WIP */
 }
@@ -91,11 +92,10 @@ AbsTrackPeople::AbsTrackPeople(
   */
 }
 
-void AbsTrackPeople::detected_boxes_cb(int detected_boxes_msg)
-{
-}
-
-void AbsTrackPeople::preprocess_msg(int detected_boxes_msg)
+void AbsTrackPeople::preprocess_msg(
+  std::vector<std::vector<double>>* detect_results,
+  std::vector<std::vector<double>>* center_bird_eye_global_list,
+  const track_people_msgs::msg::TrackedBoxes& detected_boxes_msg)
 {
   /*
   detect_results = []
@@ -108,7 +108,8 @@ void AbsTrackPeople::preprocess_msg(int detected_boxes_msg)
 }
 
 void AbsTrackPeople::pub_result(
-  int detected_boxes_msg, int id_list, int color_list, int tracked_duration)
+  const track_people_msgs::msg::TrackedBoxes& detected_boxes_msg,
+  int id_list, int color_list, int tracked_duration)
 {
 /*
   # publish tracked boxes message
@@ -133,7 +134,8 @@ void AbsTrackPeople::pub_result(
 }
 
 void AbsTrackPeople::vis_result(
-  int detected_boxes_msg, int id_list, int color_list, int tracked_duration)
+  const track_people_msgs::msg::TrackedBoxes& detected_boxes_msg,
+  int id_list, int color_list, int tracked_duration)
 {
 /*
   # publish visualization marker array for rviz
@@ -176,82 +178,108 @@ TrackSort3dPeople::TrackSort3dPeople(rclcpp::NodeOptions options)
   AbsTrackPeople("track_sort_3d_people_node", options, device_, minimum_valid_track_duration_)
 {
   // set tracker
-  tracker = std::shared_ptr<TrackerSort3D>(new TrackerSort3D(
+  tracker_ = std::shared_ptr<TrackerSort3D>(new TrackerSort3D(
     iou_threshold_, iou_circle_size_, minimum_valid_track_duration_,
     duration_inactive_to_remove_));
 
-    combined_detected_boxes_pub_ = this->create_publisher<track_people_msgs::msg::TrackedBoxes>("people/combined_detected_boxes", 10);
-  /*
+  combined_detected_boxes_pub_ = this->create_publisher<track_people_msgs::msg::TrackedBoxes>("people/combined_detected_boxes", 10);
 
-  self.buffer = {}
-  */
+  buffer_ = std::map<std::string, track_people_msgs::msg::TrackedBoxes>();
 
 /*
+WIP
   plt.ion()
   plt.show()
   rclpy.spin(track_people)
 */
 }
 
-void TrackSort3dPeople::detected_boxes_cb(int detected_boxes_msg)
+void TrackSort3dPeople::detected_boxes_cb(
+  track_people_msgs::msg::TrackedBoxes detected_boxes_msg)
 {
 /*
+WIP
   self.htd.tick()
-  self.get_logger().info("detected_boxes_cb")
+*/
+  RCLCPP_INFO(this->get_logger(), "detected_boxes_cb");
+
+/*
+WIP
   # check if tracker is initialized
   if not hasattr(self, 'tracker'):
       return
-
-  now = self.get_clock().now()
-
-  # To ignore cameras which stop by accidents, remove detecion results for cameras that are not updated longer than threshold to remove track
-  delete_camera_ids = []
-  for key in self.buffer:
-      if (now - rclpy.time.Time.from_msg(self.buffer[key].header.stamp)) > self.tracker.duration_inactive_to_remove:
-          delete_camera_ids.append(key)
-  for key in delete_camera_ids:
-      self.get_logger().info("delete buffer for the camera which is not updated, camera ID = " + str(key))
-      del self.buffer[key]
-
-  # 2022.01.12: remove time check for multiple detection
-  # check if image is received in correct time order
-  # cur_detect_time_sec = detected_boxes_msg.header.stamp.to_sec()
-  # if cur_detect_time_sec<self.prev_detect_time_sec:
-  #    return
-
-  self.buffer[detected_boxes_msg.camera_id] = detected_boxes_msg
-
-  combined_msg = None
-  for key in self.buffer:
-      msg = copy.deepcopy(self.buffer[key])
-      if not combined_msg:
-          combined_msg = msg
-      else:
-          combined_msg.tracked_boxes.extend(msg.tracked_boxes)
-  combined_msg.header.stamp = now.to_msg()
-
-  detect_results, center_bird_eye_global_list = self.preprocess_msg(combined_msg)
-
-  self.combined_detected_boxes_pub.publish(combined_msg)
-
-  try:
-      _, id_list, color_list, tracked_duration = self.tracker.track(now, detect_results, center_bird_eye_global_list, self.frame_id)
-  except Exception as e:
-      self.get_logger().error(F"tracking error, {e}")
-      return
-
-  self.pub_result(combined_msg, id_list, color_list, tracked_duration)
-
-  self.vis_result(combined_msg, id_list, color_list, tracked_duration)
-
-  self.frame_id += 1
-  # self.prev_detect_time_sec = cur_detect_time_sec
 */
+  std::unique_ptr<rclcpp::Time> now = std::make_unique<rclcpp::Time>(get_clock()->now());
+
+  // To ignore cameras which stop by accidents, remove detecion results for cameras that are not updated longer than threshold to remove track
+  std::vector<std::string> delete_camera_ids;
+  for (const auto& [key, value] : buffer_) {
+    if ((*now - rclcpp::Time(value.header.stamp)) > rclcpp::Duration::from_seconds(tracker_->duration_inactive_to_remove_)) {
+      delete_camera_ids.push_back(key);
+    }
+  }
+  for (const auto& d : delete_camera_ids) {
+    RCLCPP_INFO(this->get_logger(), "delete buffer for the camera which is not updated, camera ID = %s", d.c_str());
+    buffer_.erase(d);
+  }
+
+/*
+  2022.01.12: remove time check for multiple detection
+  check if image is received in correct time order
+  cur_detect_time_sec = detected_boxes_msg.header.stamp.to_sec()
+  if cur_detect_time_sec<self.prev_detect_time_sec:
+     return
+*/
+
+  buffer_[detected_boxes_msg.camera_id] = detected_boxes_msg;
+
+  std::shared_ptr<track_people_msgs::msg::TrackedBoxes> combined_msg;
+
+  for (const auto& [key, value] : buffer_) {
+    std::shared_ptr<track_people_msgs::msg::TrackedBoxes> msg =
+      std::make_shared<track_people_msgs::msg::TrackedBoxes>(buffer_[key]);
+    if (combined_msg) {
+      combined_msg = msg;
+    } else {
+      combined_msg->tracked_boxes.insert(
+        combined_msg->tracked_boxes.end(),
+        msg->tracked_boxes.begin(),
+        msg->tracked_boxes.end());
+    }
+  }
+  combined_msg->header.stamp = *now;
+
+  std::vector<std::vector<double>> detect_results;
+  std::vector<std::vector<double>> center_bird_eye_global_list;
+  preprocess_msg(&detect_results, &center_bird_eye_global_list, *combined_msg);
+
+  combined_detected_boxes_pub_->publish(*combined_msg);
+
+  int prev_exist;
+  int id_list;
+  int color_list;
+  int tracked_duration;
+
+  try {
+    tracker_->track(
+      &prev_exist, &id_list, &color_list, &tracked_duration,
+      *now, detect_results, center_bird_eye_global_list, frame_id_);
+  } catch (char* e) {
+    RCLCPP_ERROR(this->get_logger(), "tracking error, %s", e);
+  }
+
+  pub_result(*combined_msg, id_list, color_list, tracked_duration);
+
+  vis_result(*combined_msg, id_list, color_list, tracked_duration);
+
+  frame_id_ += 1;
+  // self.prev_detect_time_sec = cur_detect_time_sec
 }
 
 void TrackSort3dPeople::receiveSignal(int signal_num, int frame)
 {
 /*
+WIP
   print("Received:", signal_num)
   sys.exit(0)
 
