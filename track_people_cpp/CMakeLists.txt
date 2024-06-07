@@ -29,6 +29,7 @@ find_package(track_people_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(cv_bridge REQUIRED)
 find_package(diagnostic_updater REQUIRED)
+find_package(visualization_msgs REQUIRED)
 
 find_package(OpenCV REQUIRED)
 find_package(Eigen3 REQUIRED)
@@ -56,6 +57,7 @@ set(dependencies
   nav_msgs
   cv_bridge
   diagnostic_updater
+  visualization_msgs
   EIGEN3
   Open3D
   OpenCV

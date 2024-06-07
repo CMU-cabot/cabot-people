@@ -6,6 +6,8 @@
 #include <rclcpp/node.hpp>
 
 #include <diagnostic_updater/diagnostic_updater.hpp>
+#include <visualization_msgs/msg/marker_array.hpp>
+#include <visualization_msgs/msg/marker.hpp>
 
 #include <track_people_msgs/msg/tracked_boxes.hpp>
 
@@ -19,7 +21,8 @@ public:
     int n_colors);
 
   void track(
-    int* prev_exist, int* person_id, int* person_color, int* trackeduration, 
+    std::vector<bool>* prev_exist, std::vector<int>* person_id,
+    std::vector<std::vector<double>>* person_color, std::vector<double>* tracked_duration,
     const rclcpp::Time& now, const std::vector<std::vector<double>>& bboxes,
     const std::vector<std::vector<double>>& center_pos_list,
     int frame_id, int counter_penalty, bool drop_inactive_feature);
@@ -60,16 +63,20 @@ public:
     const track_people_msgs::msg::TrackedBoxes& detected_boxes_msg);
   void pub_result(
     const track_people_msgs::msg::TrackedBoxes& detected_boxes_msg,
-    int id_list, int color_list, int tracked_duration);
+    const std::vector<int>& id_list,
+    const std::vector<std::vector<double>>& color_list,
+    const std::vector<double>& tracked_duration);
   void vis_result(
     const track_people_msgs::msg::TrackedBoxes& detected_boxes_msg,
-    int id_list, int color_list, int tracked_duration);
+    const std::vector<int>& id_list,
+    const std::vector<std::vector<double>>& color_list,
+    const std::vector<double>& tracked_duration);
 private:
   int minimum_valid_track_duration_;
   char* device_;
-  int detected_boxes_sub_;
-  int tracked_boxes_pub_;
-  int visualization_marker_array_pub_;
+  rclcpp::Subscription<track_people_msgs::msg::TrackedBoxes>::SharedPtr detected_boxes_sub_;
+  rclcpp::Publisher<track_people_msgs::msg::TrackedBoxes>::SharedPtr tracked_boxes_pub_;
+  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr visualization_marker_array_pub_;
   int prev_detect_time_sec_;
   int updater_;
 protected:
