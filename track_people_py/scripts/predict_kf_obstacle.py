@@ -24,6 +24,7 @@ import math
 import signal
 import sys
 
+import numpy as np
 import rclpy
 from geometry_msgs.msg import Point
 from people_msgs.msg import People, Person
@@ -33,8 +34,8 @@ from track_people_py import PredictKfAbstract
 
 
 class PredictKfObstacle(PredictKfAbstract):
-    def __init__(self, input_time, duration_inactive_to_remove):
-        super().__init__('predict_obstacle_py', input_time, duration_inactive_to_remove)
+    def __init__(self):
+        super().__init__('predict_obstacle_py')
 
     def pub_result(self, msg, alive_track_id_list, track_pos_dict, track_vel_dict, track_vel_hist_dict):
         # init People message
@@ -60,22 +61,25 @@ class PredictKfObstacle(PredictKfAbstract):
             else:
                 person.reliability = 0.9
 
-            tvel = 0
-            tvelcount = 1
-            enough_duration = False
-            for i in range(-1, -len(track_vel_hist_dict[track_id]), -1):
-                (timestamp, vel) = track_vel_hist_dict[track_id][i]
-                if (rclpy.time.Time.from_msg(msg.header.stamp) - timestamp).nanoseconds/1e9 > self.stationary_detect_threshold_duration_:
-                    enough_duration = True
-                    break
-                tvel += math.sqrt(vel[0]*vel[0]+vel[1]*vel[1])
-                tvelcount += 1
+            # calculate median velocity of track in recent time window to remove noise
+            track_vel_hist = []
+            for (track_hist_time, track_hist_vel) in track_vel_hist_dict[track_id]:
+                track_vel_hist.append(np.linalg.norm([track_hist_vel[0], track_hist_vel[1]]))
+            track_vel_hist_median = np.median(track_vel_hist)
 
-            if enough_duration and tvelcount > 0 and tvel / tvelcount < 0.1:
-                person.tags.append("stationary")
-            else:
-                if "stationary" in person.tags:
-                    person.tags.remove("stationary")
+            # check if track is in stationary state
+            if track_vel_hist_median < self.stationary_detect_threshold_velocity_:
+                if track_id not in self.predict_buf.track_id_stationary_start_time_dict:
+                    # record time to start stationary state
+                    self.predict_buf.track_id_stationary_start_time_dict[track_id] = rclpy.time.Time.from_msg(msg.header.stamp)
+                else:
+                    # add stationary tag if enough time passes after starting stationary state
+                    stationary_start_time = self.predict_buf.track_id_stationary_start_time_dict[track_id]
+                    if (rclpy.time.Time.from_msg(msg.header.stamp) - stationary_start_time).nanoseconds/1e9 > self.stationary_detect_threshold_duration_:
+                        person.tags.append("stationary")
+            elif track_id in self.predict_buf.track_id_stationary_start_time_dict:
+                # clear time to start stationary state
+                del self.predict_buf.track_id_stationary_start_time_dict[track_id]
 
             people_msg.people.append(person)
 
@@ -85,10 +89,7 @@ class PredictKfObstacle(PredictKfAbstract):
 def main():
     rclpy.init()
 
-    input_time = 5  # number of frames to start prediction
-    duration_inactive_to_remove = 2.0  # duration (seconds) for a track to be inactive before removal (this value should be enough long because track_obstacle_py resturns recovered tracks)
-
-    predict_people = PredictKfObstacle(input_time, duration_inactive_to_remove)
+    predict_people = PredictKfObstacle()
 
     plt.ion()
     plt.show()
