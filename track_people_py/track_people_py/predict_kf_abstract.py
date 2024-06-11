@@ -51,22 +51,23 @@ class PredictKfBuffer():
 
         self.track_id_kf_model_dict = {}
         self.track_id_missing_time_dict = {}
+        self.track_id_stationary_start_time_dict = {}
 
 
 
 class PredictKfAbstract(rclpy.node.Node):
-    def __init__(self, name, input_time, duration_inactive_to_remove):
+    def __init__(self, name):
         super().__init__(name)
         # settings for visualization
         self.vis_pred_image = False
 
         # start initialization
-        self.input_time = input_time
+        self.input_time = self.declare_parameter('input_time', 5).value # number of frames to start prediction
         self.kf_init_var = self.declare_parameter('kf_init_var', 1.0).value
         self.kf_process_var = self.declare_parameter('kf_process_var', 1000.0).value
         self.kf_measure_var = self.declare_parameter('kf_measure_var', 1.0).value
-        self.duration_inactive_to_remove = duration_inactive_to_remove
-        self.duration_inactive_to_stop_publish = self.declare_parameter('duration_inactive_to_stop_publish', 0.2).value # duration (seconds) for a track to be inactive before stop publishing in people topic
+        self.duration_inactive_to_remove = self.declare_parameter('duration_inactive_to_remove', 2.0).value # duration (seconds) to remove an inactive track (this value should be enough long because track_obstacle_py returns recovered tracks)
+        self.duration_inactive_to_stop_publish = self.declare_parameter('duration_inactive_to_stop_publish', 0.2).value # duration (seconds) to stop publishing an inactive track in people topic
 
         # buffers to predict
         self.predict_buf = PredictKfBuffer()
@@ -88,6 +89,7 @@ class PredictKfAbstract(rclpy.node.Node):
                                              FrequencyStatusParam({'min': target_fps, 'max': target_fps}, 0.2, 2))
 
         self.stationary_detect_threshold_duration_ = self.declare_parameter('stationary_detect_threshold_duration', 1.0).value
+        self.stationary_detect_threshold_velocity_ = self.declare_parameter('stationary_detect_threshold_velocity', 0.1).value
 
     @abstractmethod
     def pub_result(self, msg, alive_track_id_list, track_pos_dict, track_vel_dict, track_vel_hist_dict):
@@ -276,8 +278,12 @@ class PredictKfAbstract(rclpy.node.Node):
             if (now - self.predict_buf.track_id_missing_time_dict[track_id]).nanoseconds/1000000000 > self.duration_inactive_to_remove:
                 del self.predict_buf.track_input_queue_dict[track_id]
                 del self.predict_buf.track_time_queue_dict[track_id]
+                if track_id in self.predict_buf.track_vel_hist_dict:
+                    del self.predict_buf.track_vel_hist_dict[track_id]
                 del self.predict_buf.track_color_dict[track_id]
                 del self.predict_buf.track_id_missing_time_dict[track_id]
+                if track_id in self.predict_buf.track_id_stationary_start_time_dict:
+                    del self.predict_buf.track_id_stationary_start_time_dict[track_id]
                 if track_id in self.predict_buf.track_id_kf_model_dict:
                     del self.predict_buf.track_id_kf_model_dict[track_id]
 
