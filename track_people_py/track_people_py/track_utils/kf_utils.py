@@ -24,13 +24,14 @@ from filterpy.kalman import KalmanFilter
 from filterpy.common import Q_discrete_white_noise
 
 
-def init_kf(initial_state, dt, Q_std, R_std):
+def init_kf(initial_state, dt, init_var, Q_var, R_var):
     """
     Args:
         initial_state : [x, vx, y, vy, w, h]
         dt : time step to update
-        Q_std : Standard deviation to use for process noise covariance matrix
-        R_std : Standard deviation to use for measurement noise covariance matrix
+        init_pos_var : variance for initial state covariance matrix
+        Q_var : variance for process noise covariance matrix
+        R_var : variance for measurement noise covariance matrix
     Returns:
         kf: KalmanFilter instance
     """
@@ -38,7 +39,7 @@ def init_kf(initial_state, dt, Q_std, R_std):
 
     # state mean and covariance
     kf.x = np.array([initial_state]).T
-    kf.P = np.eye(kf.dim_x) * 500.
+    kf.P = np.eye(kf.dim_x) * init_var
 
     # no control inputs
     kf.u = 0.
@@ -53,26 +54,27 @@ def init_kf(initial_state, dt, Q_std, R_std):
     kf.H[0, 0] = kf.H[1, 2] = kf.H[2, 4] = kf.H[3, 5] = 1.0
 
     # measurement noise covariance
-    kf.R = np.eye(kf.dim_z) * R_std**2
+    kf.R = np.eye(kf.dim_z) * R_var
 
     # process noise covariance for x-vx or y-vy pairs
-    q = Q_discrete_white_noise(dim=2, dt=dt, var=Q_std**2)
+    q = Q_discrete_white_noise(dim=2, dt=dt, var=Q_var)
 
     # assume width and height are uncorrelated
-    q_wh = np.diag([Q_std**2, Q_std**2])
+    q_wh = np.diag([Q_var, Q_var])
 
     kf.Q = block_diag(q, q, q_wh)
 
     return {"kf": kf, "missed": 0}
 
 
-def init_kf_fixed_size(initial_state, dt, Q_std, R_std):
+def init_kf_fixed_size(initial_state, dt, init_var, Q_var, R_var):
     """
     Args:
         initial_state : [x, vx, y, vy]
         dt : time step to update
-        Q_std : Standard deviation to use for process noise covariance matrix
-        R_std : Standard deviation to use for measurement noise covariance matrix
+        init_var : variance for initial state covariance matrix
+        Q_var : variance for process noise covariance matrix
+        R_var : variance for measurement noise covariance matrix
     Returns:
         kf: KalmanFilter instance
     """
@@ -80,7 +82,7 @@ def init_kf_fixed_size(initial_state, dt, Q_std, R_std):
 
     # state mean and covariance
     kf.x = np.array([initial_state]).T
-    kf.P = np.eye(kf.dim_x) * 500.
+    kf.P = np.eye(kf.dim_x) * init_var
 
     # no control inputs
     kf.u = 0.
@@ -95,10 +97,10 @@ def init_kf_fixed_size(initial_state, dt, Q_std, R_std):
     kf.H[0, 0] = kf.H[1, 2] = 1.0
 
     # measurement noise covariance
-    kf.R = np.eye(kf.dim_z) * R_std**2
+    kf.R = np.eye(kf.dim_z) * R_var
 
     # process noise covariance for x-vx or y-vy pairs
-    q = Q_discrete_white_noise(dim=2, dt=dt, var=Q_std**2)
+    q = Q_discrete_white_noise(dim=2, dt=dt, var=Q_var)
 
     kf.Q = block_diag(q, q)
 

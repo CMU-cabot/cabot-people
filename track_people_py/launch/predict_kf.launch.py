@@ -39,6 +39,9 @@ except ImportError:
 
 
 def generate_launch_description():
+    kf_init_var = LaunchConfiguration('kf_init_var')
+    kf_process_var = LaunchConfiguration('kf_process_var')
+    kf_measure_var = LaunchConfiguration('kf_measure_var')
     duration_inactive_to_stop_publish = LaunchConfiguration('duration_inactive_to_stop_publish')
     target_fps = LaunchConfiguration('target_fps')
     publish_simulator_people = LaunchConfiguration('publish_simulator_people')
@@ -53,6 +56,9 @@ def generate_launch_description():
         # append prefix name to the log directory for convenience
         LogInfo(msg=["no cabot_common"]) if workaround else RegisterEventHandler(OnShutdown(on_shutdown=[AppendLogDirPrefix("track_people_cpp-detect_darknet")])),
 
+        DeclareLaunchArgument('kf_init_var', default_value='1.0'),
+        DeclareLaunchArgument('kf_process_var', default_value='1000.0'),
+        DeclareLaunchArgument('kf_measure_var', default_value='1.0'),
         DeclareLaunchArgument('duration_inactive_to_stop_publish', default_value=EnvironmentVariable('CABOT_DETECT_PEOPLE_CLEAR_TIME', default_value='0.2')),
         DeclareLaunchArgument('target_fps', default_value=EnvironmentVariable('CABOT_PEOPLE_PREDICT_FPS', default_value='15.0')),
         DeclareLaunchArgument('publish_simulator_people', default_value='false'),
@@ -60,6 +66,9 @@ def generate_launch_description():
         DeclareLaunchArgument('jetpack5_workaround', default_value='false'),
 
         # overwrite parameters
+        SetParameter(name='kf_init_var', value=kf_init_var),
+        SetParameter(name='kf_process_var', value=kf_process_var),
+        SetParameter(name='kf_measure_var', value=kf_measure_var),
         SetParameter(name='duration_inactive_to_stop_publish', value=duration_inactive_to_stop_publish),
         SetParameter(name='target_fps', value=target_fps),
         SetParameter(name='publish_simulator_people', value=publish_simulator_people),

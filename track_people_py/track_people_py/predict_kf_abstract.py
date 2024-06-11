@@ -45,6 +45,8 @@ from tf_transformations import quaternion_from_euler
 class PredictKfBuffer():
     def __init__(self):
         self.track_input_queue_dict = {}
+        self.track_time_queue_dict = {}
+        self.track_vel_hist_dict = {}
         self.track_color_dict = {}
 
         self.track_id_kf_model_dict = {}
@@ -53,21 +55,18 @@ class PredictKfBuffer():
 
 
 class PredictKfAbstract(rclpy.node.Node):
-    def __init__(self, name, input_time, duration_inactive_to_remove, fps_est_time):
+    def __init__(self, name, input_time, duration_inactive_to_remove):
         super().__init__(name)
         # settings for visualization
         self.vis_pred_image = False
 
         # start initialization
         self.input_time = input_time
+        self.kf_init_var = self.declare_parameter('kf_init_var', 1.0).value
+        self.kf_process_var = self.declare_parameter('kf_process_var', 1000.0).value
+        self.kf_measure_var = self.declare_parameter('kf_measure_var', 1.0).value
         self.duration_inactive_to_remove = duration_inactive_to_remove
         self.duration_inactive_to_stop_publish = self.declare_parameter('duration_inactive_to_stop_publish', 0.2).value # duration (seconds) for a track to be inactive before stop publishing in people topic
-        self.fps_est_time = fps_est_time
-
-        # buffer to calculate FPS for each track, in multiple camera mode FPS might be different for each track
-        self.track_predict_fps = {}
-        self.track_prev_predict_timestamp = {}
-        self.track_vel_hist_dict = {}
 
         # buffers to predict
         self.predict_buf = PredictKfBuffer()
@@ -162,6 +161,20 @@ class PredictKfAbstract(rclpy.node.Node):
         self.vis_marker_array_pub.publish(marker_array)
 
 
+    def _predict_update_kf(self, track_id, dt, pos):
+        # set time steps
+        self.predict_buf.track_id_kf_model_dict[track_id].F = np.array([[1, dt, 0,  0],
+                                                                        [0,  1, 0,  0],
+                                                                        [0,  0, 1, dt],
+                                                                        [0,  0, 0,  1]])
+        q = Q_discrete_white_noise(dim=2, dt=dt, var=self.kf_process_var)
+        self.predict_buf.track_id_kf_model_dict[track_id].Q = block_diag(q, q)
+
+        # run predict, update
+        self.predict_buf.track_id_kf_model_dict[track_id].predict()
+        self.predict_buf.track_id_kf_model_dict[track_id].update(pos)
+
+
     def tracked_boxes_cb(self, msg):
         self.htd.tick()
         self.on_tracked_boxes_cb(msg)
@@ -171,9 +184,9 @@ class PredictKfAbstract(rclpy.node.Node):
         # for _, tbox in enumerate(msg.tracked_boxes):
         #     if tbox.box.Class == "person":
         #         track_id = tbox.track_id
-        #         if (track_id in self.track_prev_predict_timestamp) and (msg.header.stamp.to_sec()<self.track_prev_predict_timestamp[track_id][-1]):
+        #         if (track_id in self.predict_buf.track_time_queue_dict) and (msg.header.stamp.to_sec()<self.predict_buf.track_time_queue_dict[track_id][-1]):
         #             rospy.logwarn("skip wrong time order message. msg timestamp = " + str(msg.header.stamp.to_sec())
-        #                 + "track_id = " + str(track_id) + ", previous time stamp for track = " + str(self.track_prev_predict_timestamp[track_id][-1]))
+        #                 + "track_id = " + str(track_id) + ", previous time stamp for track = " + str(self.predict_buf.track_time_queue_dict[track_id][-1]))
         #             return
 
         # update queue
@@ -182,9 +195,9 @@ class PredictKfAbstract(rclpy.node.Node):
             if tbox.box.class_name == "person" or tbox.box.class_name == "obstacle":
                 # check if time order is valid
                 track_id = tbox.track_id
-                if (track_id in self.track_prev_predict_timestamp) and (rclpy.time.Time.from_msg(tbox.header.stamp) <= self.track_prev_predict_timestamp[track_id][-1]):
+                if (track_id in self.predict_buf.track_time_queue_dict) and (rclpy.time.Time.from_msg(tbox.header.stamp) <= self.predict_buf.track_time_queue_dict[track_id][-1]):
                     # rospy.logwarn("skip wrong time order box. box timestamp = " + str(tbox.header.stamp.to_sec())
-                    #               + "track_id = " + str(track_id) + ", previous time stamp for track = " + str(self.track_prev_predict_timestamp[track_id][-1]))
+                    #               + "track_id = " + str(track_id) + ", previous time stamp for track = " + str(self.predict_buf.track_time_queue_dict[track_id][-1]))
                     continue
 
                 # update buffer to predict
@@ -200,60 +213,51 @@ class PredictKfAbstract(rclpy.node.Node):
                 if track_id in self.predict_buf.track_id_missing_time_dict:
                     del self.predict_buf.track_id_missing_time_dict[track_id]
 
-                # update buffer for FPS
-                if track_id in self.track_prev_predict_timestamp:
-                    # calculate average FPS in past frames
-                    self.track_predict_fps[track_id] = len(self.track_prev_predict_timestamp[track_id])/((rclpy.time.Time.from_msg(tbox.header.stamp)-self.track_prev_predict_timestamp[track_id][0]).nanoseconds/1e9)
-                    # self.get_logger().info("track_id = " + str(track_id) + ", FPS = " + str(self.track_predict_fps[track_id]))
-                else:
-                    self.track_prev_predict_timestamp[track_id] = deque(maxlen=self.fps_est_time)
-
-                self.track_prev_predict_timestamp[track_id].append(rclpy.time.Time.from_msg(tbox.header.stamp))
+                # update buffer for observation time
+                if track_id not in self.predict_buf.track_time_queue_dict:
+                    self.predict_buf.track_time_queue_dict[track_id] = deque(maxlen=self.input_time)
+                self.predict_buf.track_time_queue_dict[track_id].append(rclpy.time.Time.from_msg(tbox.header.stamp))
 
         # predict
         track_pos_dict = {}
         track_vel_dict = {}
         for track_id in alive_track_id_list:
-            if (len(self.predict_buf.track_input_queue_dict[track_id]) < self.input_time) or (track_id not in self.track_predict_fps):
+            if len(self.predict_buf.track_input_queue_dict[track_id]) < self.input_time:
                 continue
 
-            past = np.array(self.predict_buf.track_input_queue_dict[track_id])[:, :2]
+            input_pos = np.array(self.predict_buf.track_input_queue_dict[track_id])[:, :2]
+            input_time = list(self.predict_buf.track_time_queue_dict[track_id])
 
             if track_id not in self.predict_buf.track_id_kf_model_dict:
+                # initialize Kalman Filter
                 tracker = KalmanFilter(dim_x=4, dim_z=2)
-                dt = 1.   # time step 1 second
-                tracker.F = np.array([[1, dt, 0,  0],
-                                      [0,  1, 0,  0],
-                                      [0,  0, 1, dt],
-                                      [0,  0, 0,  1]])
                 tracker.u = 0.
                 tracker.H = np.array([[1, 0, 0, 0],
                                       [0, 0, 1, 0]])
-                tracker.R = np.eye(2) * 5
-                q = Q_discrete_white_noise(dim=2, dt=dt, var=0.05)
-                tracker.Q = block_diag(q, q)
-                tracker.x = np.array([[past[-1][0], 0, past[-1][1], 0]]).T
-                tracker.P = np.eye(4) * 500.
-            else:
-                tracker = self.predict_buf.track_id_kf_model_dict[track_id]
-                # get only last input to update KF
-                past = past[-1:, :]
+                tracker.R = np.eye(2) * self.kf_measure_var
+                tracker.x = np.array([[input_pos[0][0], 0, input_pos[0][1], 0]]).T
+                tracker.P = np.eye(4) * self.kf_init_var
 
-            # update model by inputting past history
-            for _, px in enumerate(past):
-                tracker.predict()
-                tracker.update(px)
-            self.predict_buf.track_id_kf_model_dict[track_id] = tracker
+                self.predict_buf.track_id_kf_model_dict[track_id] = tracker
+
+                # update Kalman Filter
+                for idx in range(1, len(input_time)):
+                    dt = (input_time[idx] - input_time[idx-1]).nanoseconds/1000000000
+                    self._predict_update_kf(track_id, dt, input_pos[idx, :])
+            else:
+                # update Kalman Filter
+                dt = (input_time[-1] - input_time[-2]).nanoseconds/1000000000
+                self._predict_update_kf(track_id, dt, input_pos[-1, :])
 
             # save position and velocity
             # use raw position
-            track_pos_dict[track_id] = past[-1]
+            track_pos_dict[track_id] = input_pos[-1]
             # ues filtered position
-            # track_pos_dict[track_id] = tracker.x.reshape(1,4)[0, [0,2]]
-            track_vel_dict[track_id] = tracker.x.reshape(1, 4)[0, [1, 3]] * self.track_predict_fps[track_id]
-            if track_id not in self.track_vel_hist_dict:
-                self.track_vel_hist_dict[track_id] = deque(maxlen=self.fps_est_time)
-            self.track_vel_hist_dict[track_id].append((self.track_prev_predict_timestamp[track_id][-1], track_vel_dict[track_id]))
+            # track_pos_dict[track_id] = self.predict_buf.track_id_kf_model_dict[track_id].x.reshape(1, 4)[0, [0, 2]]
+            track_vel_dict[track_id] = self.predict_buf.track_id_kf_model_dict[track_id].x.reshape(1, 4)[0, [1, 3]]
+            if track_id not in self.predict_buf.track_vel_hist_dict:
+                self.predict_buf.track_vel_hist_dict[track_id] = deque(maxlen=self.input_time)
+            self.predict_buf.track_vel_hist_dict[track_id].append((self.predict_buf.track_time_queue_dict[track_id][-1], track_vel_dict[track_id]))
 
         # clean up missed track if necessary
         missing_track_id_list = set(self.predict_buf.track_input_queue_dict.keys()) - set(alive_track_id_list)
@@ -270,12 +274,8 @@ class PredictKfAbstract(rclpy.node.Node):
 
             # if missing long time, delete track
             if (now - self.predict_buf.track_id_missing_time_dict[track_id]).nanoseconds/1000000000 > self.duration_inactive_to_remove:
-                if track_id in self.track_predict_fps:
-                    del self.track_predict_fps[track_id]
-                if track_id in self.track_prev_predict_timestamp:
-                    del self.track_prev_predict_timestamp[track_id]
-
                 del self.predict_buf.track_input_queue_dict[track_id]
+                del self.predict_buf.track_time_queue_dict[track_id]
                 del self.predict_buf.track_color_dict[track_id]
                 del self.predict_buf.track_id_missing_time_dict[track_id]
                 if track_id in self.predict_buf.track_id_kf_model_dict:
@@ -286,17 +286,16 @@ class PredictKfAbstract(rclpy.node.Node):
         for track_id in publish_missing_track_id_list:
             if track_id not in self.predict_buf.track_id_kf_model_dict:
                 continue
-            tracker = self.predict_buf.track_id_kf_model_dict[track_id]
 
-            last_vel = tracker.x.reshape(1, 4)[0, [1, 3]] * self.track_predict_fps[track_id]
+            last_vel = self.predict_buf.track_id_kf_model_dict[track_id].x.reshape(1, 4)[0, [1, 3]]
 
             # save position and velocity
             # use raw position
             track_pos_dict[track_id] = np.array(self.predict_buf.track_input_queue_dict[track_id])[-1, :2]
             # ues filtered position
-            # track_pos_dict[track_id] = tracker.x.reshape(1,4)[0, [0,2]]
+            # track_pos_dict[track_id] = self.predict_buf.track_id_kf_model_dict[track_id].x.reshape(1,4)[0, [0,2]]
             track_vel_dict[track_id] = last_vel
 
-        self.pub_result(msg, alive_track_id_list, track_pos_dict, track_vel_dict, self.track_vel_hist_dict)
+        self.pub_result(msg, alive_track_id_list, track_pos_dict, track_vel_dict, self.predict_buf.track_vel_hist_dict)
 
         self.vis_result(msg, alive_track_id_list, track_pos_dict, track_vel_dict)
