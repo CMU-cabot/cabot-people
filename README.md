@@ -31,6 +31,7 @@
 
 ```
 ./setup-model.sh
+./build-docker.sh -w
 ```
 
 ### Bringup Realsense(s), detection, and tracking

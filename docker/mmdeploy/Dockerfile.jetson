@@ -23,7 +23,8 @@ ARG FROM_IMAGE
 # build cache image for mmdeploy, mmdetection
 FROM $FROM_IMAGE AS cache
 
-ARG CMAKE_V=3.19.3
+ARG CMAKE_V=3.19.3 \
+    CUDA_V=12-2
 
 # install cmake
 RUN wget https://github.com/Kitware/CMake/releases/download/v${CMAKE_V}/cmake-${CMAKE_V}-linux-aarch64.sh && \
@@ -50,16 +51,16 @@ ENV LD_LIBRARY_PATH=/usr/local/cuda/lib64:${LD_LIBRARY_PATH}
 
 RUN apt update && \
         apt-get install -y --no-install-recommends \
-        cuda-nvml-dev-11-4 \
-        cuda-nvrtc-dev-11-4 \
-        cuda-nvtx-11-4 \
-        cuda-profiler-api-11-4 \
-        libcublas-dev-11-4 \
-        libcudla-dev-11-4 \
-        libcufft-dev-11-4 \
-        libcurand-dev-11-4 \
-        libcusolver-dev-11-4 \
-        libcusparse-dev-11-4 \
+        cuda-nvml-dev-${CUDA_V} \
+        cuda-nvrtc-dev-${CUDA_V} \
+        cuda-nvtx-${CUDA_V} \
+        cuda-profiler-api-${CUDA_V} \
+        libcublas-dev-${CUDA_V} \
+        libcudla-dev-${CUDA_V} \
+        libcufft-dev-${CUDA_V} \
+        libcurand-dev-${CUDA_V} \
+        libcusolver-dev-${CUDA_V} \
+        libcusparse-dev-${CUDA_V} \
         libopenblas-dev \
         libopenmpi-dev \
         && \
@@ -193,6 +194,8 @@ RUN cd /opt && \
 # copy mmdeploy, mmdetection from cache image
 FROM $FROM_IMAGE AS build
 
+ARG CUDA_V=12-2
+
 # install TensorRT packages
 RUN apt update && \
         apt-get install -y --no-install-recommends \
@@ -213,16 +216,16 @@ ENV LD_LIBRARY_PATH=/usr/local/cuda/lib64:${LD_LIBRARY_PATH}
 
 RUN apt update && \
         apt-get install -y --no-install-recommends \
-        cuda-nvml-dev-11-4 \
-        cuda-nvrtc-11-4 \
-        cuda-nvtx-11-4 \
-        cuda-profiler-api-11-4 \
-        libcublas-11-4 \
-        libcudla-11-4 \
-        libcufft-11-4 \
-        libcurand-dev-11-4 \
-        libcusolver-11-4 \
-        libcusparse-11-4 \
+        cuda-nvml-dev-${CUDA_V} \
+        cuda-nvrtc-${CUDA_V} \
+        cuda-nvtx-${CUDA_V} \
+        cuda-profiler-api-${CUDA_V} \
+        libcublas-${CUDA_V} \
+        libcudla-${CUDA_V} \
+        libcufft-${CUDA_V} \
+        libcurand-dev-${CUDA_V} \
+        libcusolver-${CUDA_V} \
+        libcusparse-${CUDA_V} \
         libopenblas0 \
         libopenmpi3 \
         && \
@@ -297,4 +300,4 @@ RUN cd /opt && \
         git clone -b cabot-main https://github.com/CMU-cabot/mmdeploy.git --recursive && \
         cd mmdeploy && \
         cd /opt && \
-	git clone -b v3.3.0 https://github.com/open-mmlab/mmdetection.git
+        git clone -b v3.3.0 https://github.com/open-mmlab/mmdetection.git

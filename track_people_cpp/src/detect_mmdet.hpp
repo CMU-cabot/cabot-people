@@ -21,9 +21,9 @@
 #ifndef DETECT_MMDet_HPP_
 #define DETECT_MMDet_HPP_
 
-#include "abstract_detect_people.hpp"
-
 #include <mmdeploy/detector.hpp>
+
+#include "abstract_detect_people.hpp"
 
 
 namespace track_people_cpp

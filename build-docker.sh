@@ -474,6 +474,7 @@ function prebuild_aarch64 {
     pushd $build_dir/mmdeploy
     docker build -f Dockerfile.jetson -t $name5 \
 	   --build-arg FROM_IMAGE=$name4 \
+	   --build-arg CUDA_V=$L4T_CUDA \
 	   $option \
 	   .
     if [ $? -ne 0 ]; then
