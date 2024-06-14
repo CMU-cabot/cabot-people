@@ -94,7 +94,7 @@ def generate_launch_description():
             composable_node_descriptions=[
                 ComposableNode(
                     package='realsense2_camera',
-                    namespace=LaunchConfiguration("camera_name"),
+                    namespace='',
                     plugin='realsense2_camera::RealSenseNodeFactory',
                     name=LaunchConfiguration("camera_name"),
                     parameters=[set_configurable_parameters(configurable_parameters)],
