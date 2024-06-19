@@ -22,6 +22,7 @@ ARG FROM_IMAGE
 
 FROM $FROM_IMAGE AS build
 ARG UBUNTU_DISTRO=jammy
+ARG TARGETARCH
 ENV DEBIAN_FRONTEND="noninteractive"
 
 RUN apt update && \
@@ -37,13 +38,18 @@ RUN apt update && \
 
 # install Framos realsense
 RUN cd /tmp && \
-	wget https://www.framos.com/framos3d/D400e/Software/Latest/FRAMOS_D400e_Software_Package_Linux64_x64_latest.tar.gz && \
-    tar xzf FRAMOS_D400e_Software_Package_Linux64_x64_latest.tar.gz && \
+if [[ ${TARGETARCH} = "amd64" ]]; \
+        wget https://www.framos.com/framos3d/D400e/Software/Latest/FRAMOS_D400e_Software_Package_Linux64_x64_latest.tar.gz && \
+        tar xzf FRAMOS_D400e_Software_Package_Linux64_x64_latest.tar.gz ; \
+    fi \
+    if [[ ${TARGETARCH} = "arm64" ]]; \
+        wget https://www.framos.com/framos3d/D400e/Software/Latest/FRAMOS_D400e_Software_Package_Linux64_ARM_latest.tar.gz && \
+        tar xzf FRAMOS_D400e_Software_Package_Linux64_ARM_latest.tar.gz ; \
+    fi \
     cd FRAMOS_D400e_Software_Package && \
     apt update && \
     apt install -y --no-install-recommends \
-        ./FRAMOS_CameraSuite_4.10.1.0-Linux64_x64.deb \
-        ./FRAMOS-librealsense2-2.50.12-Linux64_x64.deb \
+        ./FRAMOS*.deb \
     && \
     apt clean && \
     rm -rf /var/lib/apt/lists/* && \
