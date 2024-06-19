@@ -19,37 +19,61 @@
 # SOFTWARE.
 
 ARG FROM_IMAGE
-
 FROM $FROM_IMAGE AS build
-ARG UBUNTU_DISTRO=jammy
+ARG TARGETARCH
 ENV DEBIAN_FRONTEND="noninteractive"
 
-RUN apt update && \
-    apt install -y --no-install-recommends \
-    dirmngr \
-    gpg-agent \
-    software-properties-common \
-    curl \
-    && \
+RUN if [[ $TARGETARCH = "amd64" ]]; \
+        apt update && \
+        apt install -y --no-install-recommends \
+        dirmngr \
+        gpg-agent \
+        software-properties-common \
+        curl \
+        ; \
+    fi \
+    if [[ $TARGETARCH = "arm64" ]]; \
+        apt update && \
+        apt-get install -y --no-install-recommends \
+        libogg-dev \
+        libtheora-dev \
+        software-properties-common \
+        ; \
+    fi \
     apt clean && \
     rm -rf /var/lib/apt/lists/*
 
 # install realsense
-RUN mkdir -p /etc/apt/keyrings && \
-    curl -sSf https://librealsense.intel.com/Debian/librealsense.pgp | tee /etc/apt/keyrings/librealsense.pgp > /dev/null && \
-    echo "deb [signed-by=/etc/apt/keyrings/librealsense.pgp] https://librealsense.intel.com/Debian/apt-repo `lsb_release -cs` main" | \
-    tee /etc/apt/sources.list.d/librealsense.list && \
-    apt-get update && \
-    apt install -y --no-install-recommends \
-    librealsense2 \
-    librealsense2-gl \
-#    librealsense2-net \  # avoid dependency error @ 2023.06.07, may not be used
-    librealsense2-udev-rules \
-    librealsense2-utils \
-    librealsense2-dev \
-    librealsense2-dbg \
-    # librealsense2-dkms 1.3.28 fails @ 2024.11.21
-    librealsense2-dkms=1.3.27-0ubuntu1 \
-    && \
+RUN if [[ $TARGETARCH = "amd64" ]]; \
+        mkdir -p /etc/apt/keyrings && \
+        curl -sSf https://librealsense.intel.com/Debian/librealsense.pgp | tee /etc/apt/keyrings/librealsense.pgp > /dev/null && \
+        echo "deb [signed-by=/etc/apt/keyrings/librealsense.pgp] https://librealsense.intel.com/Debian/apt-repo `lsb_release -cs` main" | \
+        tee /etc/apt/sources.list.d/librealsense.list && \
+        apt-get update && \
+        apt install -y --no-install-recommends \
+        librealsense2 \
+        librealsense2-gl \
+    #    librealsense2-net \  # avoid dependency error @ 2023.06.07, may not be used
+        librealsense2-udev-rules \
+        librealsense2-utils \
+        librealsense2-dev \
+        librealsense2-dbg \
+        # librealsense2-dkms 1.3.28 fails @ 2024.11.21
+        librealsense2-dkms=1.3.27-0ubuntu1 \
+        ; \
+    fi \
+    if [[ $TARGETARCH = "arm64" ]]; \
+        apt-key adv --keyserver keyserver.ubuntu.com --recv-key F6E65AC044F831AC80A06380C8B3A55A6F3EFCDE || \
+        apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-key F6E65AC044F831AC80A06380C8B3A55A6F3EFCDE && \
+        add-apt-repository "deb https://librealsense.intel.com/Debian/apt-repo $UBUNTU_DISTRO main" -u \
+        && apt update && \
+        apt install -y --no-install-recommends \
+        librealsense2-utils \
+        librealsense2-dev \
+        && \
+        apt-get clean && \
+        rm -rf /var/lib/apt/lists/* \
+    ; \
+    fi \
     apt clean && \
     rm -rf /var/lib/apt/lists/*
