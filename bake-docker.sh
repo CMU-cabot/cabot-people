@@ -40,7 +40,7 @@ function help {
 }
 
 platform=
-base_name=cabot-base
+base_name=cabot-gpu-base
 image_name=cabot-people
 local=0
 tags=
@@ -80,6 +80,9 @@ if [[ -z $base_name ]]; then
     exit 1
 fi
 
+export ROS_DISTRO=humble
+export UBUNTU_DISTRO=jammy
+
 if [[ -z $(docker network ls | grep "registry-network") ]]; then
     docker network create registry-network
 fi
@@ -113,8 +116,19 @@ if [[ -z $(docker buildx ls | grep "mybuilder\*") ]]; then
     fi
 fi
 
+# replace ros Dockerfile FROM instruction to replace base image
+# this isn't good, but cannot find alternative
+if [[ -e ./docker/docker_images ]]; then
+    while read -r line; do
+        sed 's=FROM.*=ARG\ FROM_IMAGE\
+    FROM\ $FROM_IMAGE=' "$line" > "$line.tmp"
+    done < <(find ./docker/docker_images/ -wholename "*/$ROS_DISTRO/*/Dockerfile")
+fi
+
 # tag option
-tag_option="--set=*.tags=${REGISTRY}/${image_name}:{${tags}}"
+if [[ -n $tags ]]; then
+    tag_option="--set=*.tags=${REGISTRY}/${image_name}:${tags}"
+fi
 
 # platform option
 platform_option=
@@ -123,10 +137,19 @@ if [[ -n $platform ]]; then
 fi
 
 # bake
-com="docker buildx bake -f docker-compose.yaml $platform_option $tag_option people $@"
+com="docker buildx bake -f docker-bake.hcl $platform_option $tag_option $@"
 export BASE_IMAGE=$base_name
 echo $com
-eval $com
+eval $com;
+
+if [[ $? -ne 0 ]]; then
+    exit 1
+fi
+
+#com="docker buildx bake -f docker-compose.yaml $platform_option $tag_option $@"
+#export BASE_IMAGE=$base_name
+#echo $com
+#eval $com
 
 # reset buildx builder to default
 docker buildx use default
