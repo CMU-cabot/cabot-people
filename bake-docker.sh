@@ -118,11 +118,11 @@ fi
 
 # replace ros Dockerfile FROM instruction to replace base image
 # this isn't good, but cannot find alternative
-if [[ -e ./docker/docker_images ]]; then
+if [[ -e ./cabot-common/docker/docker_images ]]; then
     while read -r line; do
         sed 's=FROM.*=ARG\ FROM_IMAGE\
     FROM\ $FROM_IMAGE=' "$line" > "$line.tmp"
-    done < <(find ./docker/docker_images/ -wholename "*/$ROS_DISTRO/*/Dockerfile")
+    done < <(find ./cabot-common/docker/docker_images/ -wholename "*/$ROS_DISTRO/*/Dockerfile")
 fi
 
 # tag option
