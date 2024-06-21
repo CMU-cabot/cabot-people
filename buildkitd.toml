@@ -1,0 +1,7 @@
+[registry."registry:5000"]
+http = true
+insecure = true
+
+## should be 1 to avoid memory shortage issue with 32GB RAM (needs to check with a larger RAM)
+[worker.oci]
+  max-parallelism = 1
