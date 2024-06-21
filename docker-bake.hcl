@@ -22,6 +22,19 @@ variable "REGISTRY" {
   default = "registry"
 }
 
+variable "L4T_IMAGE" {
+  default = "nvcr.io/nvidia/l4t-base:r35.1.0"
+#  default = "nvcr.io/nvidia/l4t-base:r36.2.0"
+}
+
+variable "OPENCV_V" {
+  default = "4.5.4"
+}
+
+variable "L4T_CUDA" {
+  default = "11-4"
+}
+
 group "default" {
   targets = [
     "base",
@@ -33,17 +46,21 @@ group "default" {
     "ros-desktop-custom-opencv-amd64",
     "ros-desktop-custom-opencv-open3d-amd64",
     "ros-desktop-custom-opencv-open3d-mesa-amd64",
+    "opencv-arm64",
+    "opencv-ros-base-arm64",
+    "opencv-ros-custom-arm64",
+    "opencv-ros-custom-open3d-arm64",
+    "final",
   ]
 }
 
 #### COMMON
 
 target "base" {
-  context    = "./docker/base"
-  dockerfile-ineline = <<EOF
+  context    = "."
+  dockerfile-inline = <<EOF
 FROM --platform=linux/amd64 nvidia/cuda:11.7.1-cudnn8-devel-ubuntu22.04 as build-amd64
-FROM --platform=linux/arm64 nvcr.io/nvidia/l4t-base:r36.2.0 as build-arm64
-# FROM --platform=linux/arm64 nvcr.io/nvidia/l4t-base:r35.1.0 as build-arm64
+FROM --platform=linux/arm64 ${L4T_IMAGE} as build-arm64
 FROM build-$TARGETARCH
 EOF
   platforms  = "${PLATFORMS}"
@@ -78,10 +95,12 @@ target "ros-core-amd64" {
     camera = ["realsense", "framos"]
   }
   name       = "${camera}-ros-core-amd64"
-  context    = "./docker/docker_images/ros/${ROS_DISTRO}/ubuntu/${UBUNTU_DISTRO}/ros-core"
+  context    = "./cabot-common/docker/docker_images/ros/${ROS_DISTRO}/ubuntu/${UBUNTU_DISTRO}/ros-core"
   dockerfile = "Dockerfile.tmp"
-  contexts   = { "${REGISTRY}/${BASE_IMAGE}:${camera}-amd64" = "target:${camera}-base" }
-  args       = { FROM_IMAGE = "${REGISTRY}/${BASE_IMAGE}:${camera}-amd64" }
+  contexts   = { "${REGISTRY}/${BASE_IMAGE}:${camera}" = "target:${camera}-base" }
+  args       = {
+    FROM_IMAGE = "${REGISTRY}/${BASE_IMAGE}:${camera}"
+  }
   tags       = [ "${REGISTRY}/${BASE_IMAGE}:${camera}-${ROS_DISTRO}-amd64" ]
 }
 
@@ -91,10 +110,12 @@ target "ros-base-amd64" {
     camera = ["realsense", "framos"]
   }
   name       = "${camera}-ros-base-amd64"
-  context    = "./docker/docker_images/ros/${ROS_DISTRO}/ubuntu/${UBUNTU_DISTRO}/ros-base"
+  context    = "./cabot-common/docker/docker_images/ros/${ROS_DISTRO}/ubuntu/${UBUNTU_DISTRO}/ros-base"
   dockerfile = "Dockerfile.tmp"
   contexts   = { "${REGISTRY}/${BASE_IMAGE}:${camera}-${ROS_DISTRO}-amd64" = "target:${camera}-ros-core-amd64" }
-  args       = { FROM_IMAGE = "${REGISTRY}/${BASE_IMAGE}:${camera}-${ROS_DISTRO}-amd64" }
+  args       = {
+    FROM_IMAGE = "${REGISTRY}/${BASE_IMAGE}:${camera}-${ROS_DISTRO}-amd64"
+  }
   tags       = [ "${REGISTRY}/${BASE_IMAGE}:${camera}-${ROS_DISTRO}-base-amd64" ]
 }
 
@@ -104,10 +125,12 @@ target "ros-desktop-amd64" {
     camera = ["realsense", "framos"]
   }
   name       = "${camera}-ros-desktop-amd64"
-  context    = "./docker/docker_images/ros/${ROS_DISTRO}/ubuntu/${UBUNTU_DISTRO}/desktop"
+  context    = "./cabot-common/docker/docker_images/ros/${ROS_DISTRO}/ubuntu/${UBUNTU_DISTRO}/desktop"
   dockerfile = "Dockerfile.tmp"
   contexts   = { "${REGISTRY}/${BASE_IMAGE}:${camera}-${ROS_DISTRO}-base-amd64" = "target:${camera}-ros-base-amd64" }
-  args       = { FROM_IMAGE = "${REGISTRY}/${BASE_IMAGE}:${camera}-${ROS_DISTRO}-base-amd64" }
+  args       = {
+    FROM_IMAGE = "${REGISTRY}/${BASE_IMAGE}:${camera}-${ROS_DISTRO}-base-amd64"
+  }
   tags       = [ "${REGISTRY}/${BASE_IMAGE}:${camera}-${ROS_DISTRO}-desktop-amd64" ]
 }
 
@@ -120,7 +143,9 @@ target "ros-desktop-custom-amd64" {
   context    = "./cabot-common/docker/humble-custom"
   dockerfile = "Dockerfile"
   contexts   = { "${REGISTRY}/${BASE_IMAGE}:${camera}-${ROS_DISTRO}-desktop-amd64" = "target:${camera}-ros-desktop-amd64" }
-  args       = { FROM_IMAGE = "${REGISTRY}/${BASE_IMAGE}:${camera}-${ROS_DISTRO}-desktop-amd64" }
+  args       = {
+    FROM_IMAGE = "${REGISTRY}/${BASE_IMAGE}:${camera}-${ROS_DISTRO}-desktop-amd64"
+  }
   tags       = [ "${REGISTRY}/${BASE_IMAGE}:${camera}-${ROS_DISTRO}-desktop-custom-amd64" ]
 }
 
@@ -133,7 +158,9 @@ target "ros-desktop-custom-opencv-amd64" {
   context    = "./docker/opencv"
   dockerfile = "Dockerfile"
   contexts   = { "${REGISTRY}/${BASE_IMAGE}:${camera}-${ROS_DISTRO}-desktop-custom-amd64" = "target:${camera}-ros-desktop-custom-amd64" }
-  args       = { FROM_IMAGE = "${REGISTRY}/${BASE_IMAGE}:${camera}-${ROS_DISTRO}-desktop-custom-amd64" }
+  args       = {
+    FROM_IMAGE = "${REGISTRY}/${BASE_IMAGE}:${camera}-${ROS_DISTRO}-desktop-custom-amd64"
+  }
   tags       = [ "${REGISTRY}/${BASE_IMAGE}:${camera}-${ROS_DISTRO}-desktop-custom-opencv-amd64" ]
 }
 
@@ -146,7 +173,9 @@ target "ros-desktop-custom-opencv-open3d-amd64" {
   context    = "./docker/open3d"
   dockerfile = "Dockerfile"
   contexts   = { "${REGISTRY}/${BASE_IMAGE}:${camera}-${ROS_DISTRO}-desktop-custom-opencv-amd64" = "target:${camera}-ros-desktop-custom-opencv-amd64" }
-  args       = { FROM_IMAGE = "${REGISTRY}/${BASE_IMAGE}:${camera}-${ROS_DISTRO}-desktop-custom-opencv-amd64" }
+  args       = {
+    FROM_IMAGE = "${REGISTRY}/${BASE_IMAGE}:${camera}-${ROS_DISTRO}-desktop-custom-opencv-amd64"
+  }
   tags       = [ "${REGISTRY}/${BASE_IMAGE}:${camera}-${ROS_DISTRO}-desktop-custom-opencv-open3d-amd64" ]
 }
 
@@ -159,15 +188,101 @@ target "ros-desktop-custom-opencv-open3d-mesa-amd64" {
   context    = "./cabot-common/docker/mesa"
   dockerfile = "Dockerfile"
   contexts   = { "${REGISTRY}/${BASE_IMAGE}:${camera}-${ROS_DISTRO}-desktop-custom-opencv-open3d-amd64" = "target:${camera}-ros-desktop-custom-opencv-open3d-amd64" }
-  args       = { FROM_IMAGE = "${REGISTRY}/${BASE_IMAGE}:${camera}-${ROS_DISTRO}-desktop-custom-opencv-open3d-amd64" }
+  args       = {
+    FROM_IMAGE = "${REGISTRY}/${BASE_IMAGE}:${camera}-${ROS_DISTRO}-desktop-custom-opencv-open3d-amd64"
+  }
   tags       = [ "${REGISTRY}/${BASE_IMAGE}:${camera}-${ROS_DISTRO}-desktop-custom-opencv-open3d-mesa-amd64" ]
 }
 
-/*
+
 #### ARM64
 
-target "ros-arm64-common" {
+target "ros-common-arm64" {
   platforms  = [ "linux/arm64" ]
   output     = [ "type=registry" ]
 }
-*/
+
+target "opencv-arm64" {
+  inherits   = [ "ros-common-arm64" ]
+  matrix     = {
+    camera = ["realsense", "framos"]
+  }
+  name       = "${camera}-opencv-arm64"
+  context    = "./docker/opencv"
+  dockerfile = "Dockerfile.jetson"
+  contexts   = { "${REGISTRY}/${BASE_IMAGE}:${camera}" = "target:${camera}-base" }
+  args       = {
+    FROM_IMAGE = "${REGISTRY}/${BASE_IMAGE}:${camera}",
+    OPENCV_V   = "${OPENCV_V}",
+    CUDA_V     = "${L4T_CUDA}",
+  }
+  tags       = [ "${REGISTRY}/${BASE_IMAGE}:${camera}-opencv-arm64" ]
+}
+
+target "opencv-ros-base-arm64" {
+  inherits   = [ "ros-common-arm64" ]
+  matrix     = {
+    camera = ["realsense", "framos"]
+  }
+  name       = "${camera}-opencv-ros-base-arm64"
+  context    = "./cabot-common/docker/jetson-humble-base-src"
+  dockerfile = "Dockerfile"
+  contexts   = { "${REGISTRY}/${BASE_IMAGE}:${camera}-opencv-arm64" = "target:${camera}-opencv-arm64" }
+  args       = {
+    FROM_IMAGE = "${REGISTRY}/${BASE_IMAGE}:${camera}-opencv-arm64"
+  }
+  tags       = [ "${REGISTRY}/${BASE_IMAGE}:${camera}-opencv-${ROS_DISTRO}-base-arm64" ]
+}
+
+target "opencv-ros-custom-arm64" {
+  inherits   = [ "ros-common-arm64" ]
+  matrix     = {
+    camera = ["realsense", "framos"]
+  }
+  name       = "${camera}-opencv-ros-custom-arm64"
+  context    = "./docker/jetson-humble-custom"
+  dockerfile = "Dockerfile.${camera}"
+  contexts   = { "${REGISTRY}/${BASE_IMAGE}:${camera}-opencv-${ROS_DISTRO}-base-arm64" = "target:${camera}-opencv-ros-base-arm64" }
+  args       = {
+    FROM_IMAGE = "${REGISTRY}/${BASE_IMAGE}:${camera}-opencv-${ROS_DISTRO}-base-arm64"
+  }
+  tags       = [ "${REGISTRY}/${BASE_IMAGE}:${camera}-opencv-${ROS_DISTRO}-custom-arm64" ]
+}
+
+target "opencv-ros-custom-open3d-arm64" {
+  inherits   = [ "ros-common-arm64" ]
+  matrix     = {
+    camera = ["realsense", "framos"]
+  }
+  name       = "${camera}-opencv-ros-custom-open3d-arm64"
+  context    = "./docker/open3d"
+  dockerfile = "Dockerfile.jetson"
+  contexts   = { "${REGISTRY}/${BASE_IMAGE}:${camera}-opencv-${ROS_DISTRO}-custom-arm64" = "target:${camera}-opencv-ros-custom-arm64" }
+  args       = {
+    FROM_IMAGE = "${REGISTRY}/${BASE_IMAGE}:${camera}-opencv-${ROS_DISTRO}-custom-arm64"
+  }
+  tags       = [ "${REGISTRY}/${BASE_IMAGE}:${camera}-opencv-${ROS_DISTRO}-custom-open3d-arm64" ]
+}
+
+
+### integration
+
+target "final" {
+  matrix     = {
+    camera = ["realsense", "framos"]
+  }
+  name       = "${camera}-final"
+  context    = "."
+  contexts   = {
+    "${REGISTRY}/${BASE_IMAGE}:${camera}-${ROS_DISTRO}-desktop-custom-opencv-open3d-mesa-amd64" = "target:${camera}-ros-desktop-custom-opencv-open3d-mesa-amd64",
+    "${REGISTRY}/${BASE_IMAGE}:${camera}-opencv-${ROS_DISTRO}-custom-open3d-arm64" = "target:${camera}-opencv-ros-custom-open3d-arm64",
+  }
+  dockerfile-inline = <<EOF
+FROM --platform=linux/amd64 "${REGISTRY}/${BASE_IMAGE}:${camera}-${ROS_DISTRO}-desktop-custom-opencv-open3d-mesa-amd64" as build-amd64
+FROM --platform=linux/arm64 ${REGISTRY}/${BASE_IMAGE}:${camera}-opencv-${ROS_DISTRO}-custom-open3d-arm64" as build-arm64
+FROM build-$TARGETARCH
+EOF
+  platforms  = "${PLATFORMS}"
+  tags       = [ "${REGISTRY}/${BASE_IMAGE}:${camera}-final" ]
+  output     = [ "type=registry" ]
+}
