@@ -2,8 +2,13 @@ variable "PLATFORMS" {
   default = ["linux/arm64", "linux/amd64"]
 }
 
+# can be overriden by env variable
 variable "CAMERAS" {
-  default = ["realsense", "framos"]
+  default = "realsense,framos"
+}
+
+variable "CAMERAS_" {
+  default = split(",", "${CAMERAS}")
 }
 
 variable "ROS_DISTRO" {
@@ -70,7 +75,7 @@ EOF
 
 target "camera-base" {
   matrix     = {
-    camera = ["realsense", "framos"]
+    camera = "${CAMERAS_}"
   }
   name       = "${camera}-base"
   platforms  = "${PLATFORMS}"
@@ -92,7 +97,7 @@ target "ros-common-amd64" {
 target "ros-core-amd64" {
   inherits   = [ "ros-common-amd64" ]
   matrix     = {
-    camera = ["realsense", "framos"]
+    camera = "${CAMERAS_}"
   }
   name       = "${camera}-ros-core-amd64"
   context    = "./cabot-common/docker/docker_images/ros/${ROS_DISTRO}/ubuntu/${UBUNTU_DISTRO}/ros-core"
@@ -107,7 +112,7 @@ target "ros-core-amd64" {
 target "ros-base-amd64" {
   inherits   = [ "ros-common-amd64" ]
   matrix     = {
-    camera = ["realsense", "framos"]
+    camera = "${CAMERAS_}"
   }
   name       = "${camera}-ros-base-amd64"
   context    = "./cabot-common/docker/docker_images/ros/${ROS_DISTRO}/ubuntu/${UBUNTU_DISTRO}/ros-base"
@@ -122,7 +127,7 @@ target "ros-base-amd64" {
 target "ros-desktop-amd64" {
   inherits   = [ "ros-common-amd64" ]
   matrix     = {
-    camera = ["realsense", "framos"]
+    camera = "${CAMERAS_}"
   }
   name       = "${camera}-ros-desktop-amd64"
   context    = "./cabot-common/docker/docker_images/ros/${ROS_DISTRO}/ubuntu/${UBUNTU_DISTRO}/desktop"
@@ -137,7 +142,7 @@ target "ros-desktop-amd64" {
 target "ros-desktop-custom-amd64" {
   inherits   = [ "ros-common-amd64" ]
   matrix     = {
-    camera = ["realsense", "framos"]
+    camera = "${CAMERAS_}"
   }
   name       = "${camera}-ros-desktop-custom-amd64"
   context    = "./cabot-common/docker/humble-custom"
@@ -152,7 +157,7 @@ target "ros-desktop-custom-amd64" {
 target "ros-desktop-custom-opencv-amd64" {
   inherits   = [ "ros-common-amd64" ]
   matrix     = {
-    camera = ["realsense", "framos"]
+    camera = "${CAMERAS_}"
   }
   name       = "${camera}-ros-desktop-custom-opencv-amd64"
   context    = "./docker/opencv"
@@ -167,7 +172,7 @@ target "ros-desktop-custom-opencv-amd64" {
 target "ros-desktop-custom-opencv-open3d-amd64" {
   inherits   = [ "ros-common-amd64" ]
   matrix     = {
-    camera = ["realsense", "framos"]
+    camera = "${CAMERAS_}"
   }
   name       = "${camera}-ros-desktop-custom-opencv-open3d-amd64"
   context    = "./docker/open3d"
@@ -182,7 +187,7 @@ target "ros-desktop-custom-opencv-open3d-amd64" {
 target "ros-desktop-custom-opencv-open3d-mesa-amd64" {
   inherits   = [ "ros-common-amd64" ]
   matrix     = {
-    camera = ["realsense", "framos"]
+    camera = "${CAMERAS_}"
   }
   name       = "${camera}-ros-desktop-custom-opencv-open3d-mesa-amd64"
   context    = "./cabot-common/docker/mesa"
@@ -205,7 +210,7 @@ target "ros-common-arm64" {
 target "opencv-arm64" {
   inherits   = [ "ros-common-arm64" ]
   matrix     = {
-    camera = ["realsense", "framos"]
+    camera = "${CAMERAS_}"
   }
   name       = "${camera}-opencv-arm64"
   context    = "./docker/opencv"
@@ -222,7 +227,7 @@ target "opencv-arm64" {
 target "opencv-ros-base-arm64" {
   inherits   = [ "ros-common-arm64" ]
   matrix     = {
-    camera = ["realsense", "framos"]
+    camera = "${CAMERAS_}"
   }
   name       = "${camera}-opencv-ros-base-arm64"
   context    = "./cabot-common/docker/jetson-humble-base-src"
@@ -237,7 +242,7 @@ target "opencv-ros-base-arm64" {
 target "opencv-ros-custom-arm64" {
   inherits   = [ "ros-common-arm64" ]
   matrix     = {
-    camera = ["realsense", "framos"]
+    camera = "${CAMERAS_}"
   }
   name       = "${camera}-opencv-ros-custom-arm64"
   context    = "./docker/jetson-humble-custom"
@@ -252,7 +257,7 @@ target "opencv-ros-custom-arm64" {
 target "opencv-ros-custom-open3d-arm64" {
   inherits   = [ "ros-common-arm64" ]
   matrix     = {
-    camera = ["realsense", "framos"]
+    camera = "${CAMERAS_}"
   }
   name       = "${camera}-opencv-ros-custom-open3d-arm64"
   context    = "./docker/open3d"
@@ -269,7 +274,7 @@ target "opencv-ros-custom-open3d-arm64" {
 
 target "final" {
   matrix     = {
-    camera = ["realsense", "framos"]
+    camera = "${CAMERAS_}"
   }
   name       = "${camera}-final"
   context    = "."
@@ -278,8 +283,8 @@ target "final" {
     "${REGISTRY}/${BASE_IMAGE}:${camera}-opencv-${ROS_DISTRO}-custom-open3d-arm64" = "target:${camera}-opencv-ros-custom-open3d-arm64",
   }
   dockerfile-inline = <<EOF
-FROM --platform=linux/amd64 "${REGISTRY}/${BASE_IMAGE}:${camera}-${ROS_DISTRO}-desktop-custom-opencv-open3d-mesa-amd64" as build-amd64
-FROM --platform=linux/arm64 ${REGISTRY}/${BASE_IMAGE}:${camera}-opencv-${ROS_DISTRO}-custom-open3d-arm64" as build-arm64
+FROM --platform=linux/amd64 ${REGISTRY}/${BASE_IMAGE}:${camera}-${ROS_DISTRO}-desktop-custom-opencv-open3d-mesa-amd64 as build-amd64
+FROM --platform=linux/arm64 ${REGISTRY}/${BASE_IMAGE}:${camera}-opencv-${ROS_DISTRO}-custom-open3d-arm64 as build-arm64
 FROM build-$TARGETARCH
 EOF
   platforms  = "${PLATFORMS}"

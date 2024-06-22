@@ -32,6 +32,7 @@ function help {
     echo ""
     echo "-h                    show this help"
     echo "-b <base_name>        bake with base_name"
+    echo "-c <camera>           realsense or framos"
     echo "-i                    image build for debug - shorthand for -l and -P with host platform"
     echo "-l                    build using local registry"
     echo "-P <platform>         specify platform"
@@ -44,8 +45,9 @@ base_name=cabot-gpu-base
 image_name=cabot-people
 local=0
 tags=
+camera=
 
-while getopts "hb:ilP:t:" arg; do
+while getopts "hb:c:ilP:t:" arg; do
     case $arg in
     h)
         help
@@ -53,6 +55,9 @@ while getopts "hb:ilP:t:" arg; do
         ;;
     b)
         base_name=${OPTARG}
+        ;;
+    c)
+        camera=${OPTARG}
         ;;
     i)
         if [[ $(uname -m) = "x86_64" ]]; then
@@ -125,7 +130,14 @@ if [[ -e ./cabot-common/docker/docker_images ]]; then
     done < <(find ./cabot-common/docker/docker_images/ -wholename "*/$ROS_DISTRO/*/Dockerfile")
 fi
 
+# camera option
+camera_option=
+if [[ -n $camera ]]; then
+   camera_option='CAMERAS="$camera"'
+fi
+
 # tag option
+tag_option=
 if [[ -n $tags ]]; then
     tag_option="--set=*.tags=${REGISTRY}/${image_name}:${tags}"
 fi
@@ -137,7 +149,7 @@ if [[ -n $platform ]]; then
 fi
 
 # bake
-com="docker buildx bake -f docker-bake.hcl $platform_option $tag_option $@"
+com="$camera_option docker buildx bake -f docker-bake.hcl $platform_option $tag_option $@"
 export BASE_IMAGE=$base_name
 echo $com
 eval $com;
