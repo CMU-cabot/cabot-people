@@ -2,7 +2,7 @@ repositories:
   cabot-common:
     type: git
     url: https://github.com/CMU-cabot/cabot-common
-    version: main
+    version: daisukes/docker-buildx-bake-test
 
   docker/jetson-humble-custom/people:
     # not distributed
