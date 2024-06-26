@@ -6,3 +6,19 @@ scikit-learn==1.2.1
 scipy==1.10.0
 pandas==1.5.3
 transforms3d==0.4.1
+
+#Pytorch with CUDA11.7
+torch==2.0.1
+torchvision==0.15.2 
+torchaudio==2.0.2
+
+# AgentFormer
+tensorboard
+glob2
+six
+pyyaml
+easydict
+
+# SocialGAN
+attrdict
+Pillow
