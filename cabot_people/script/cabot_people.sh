@@ -64,6 +64,11 @@ function red {
     echo $@
     echo -en "\033[0m"  ## reset color
 }
+function green {
+    echo -en "\033[32m"  ## green
+    echo $@
+    echo -en "\033[0m"  ## reset color
+}
 function blue {
     echo -en "\033[36m"  ## blue
     echo $@
@@ -92,6 +97,8 @@ debug=0
 command=''
 commandpost='&'
 
+: ${CABOT_ENABLE_LIDAR_PROCESSING:=0}
+: ${CABOT_DISABLE_PEOPLE:=0}
 : ${CABOT_GAZEBO:=0}
 : ${CABOT_USE_REALSENSE:=0}
 : ${CABOT_SHOW_PEOPLE_RVIZ:=0}
@@ -121,6 +128,9 @@ depth_fps=$CABOT_CAMERA_DEPTH_FPS
 resolution=$CABOT_CAMERA_RESOLUTION
 
 opencv_dnn_ver=$CABOT_DETECT_VERSION
+
+process_lidar=$CABOT_ENABLE_LIDAR_PROCESSING
+disable_people=$CABOT_DISABLE_PEOPLE
 
 camera_type=1
 check_required=0
@@ -316,6 +326,13 @@ echo "Depth FPS     : $depth_fps"
 echo "Resolution    : $width x $height"
 echo "Obstacle      : $obstacle"
 
+if [ $process_lidar -eq 1 ]; then
+    green "LiDAR processing enabled!"
+fi
+if [ $disable_people -eq 1 ]; then
+    green "People module disabled! But cameras are still on!"
+fi
+
 
 if [ $publish_tf -eq 1 ]; then
     eval "$command ros2 run tf2_ros static_transform_publisher 0 0 0 0 0 $roll map ${camera_link_frame} $commandpost"
@@ -399,90 +416,95 @@ if [ $realsense_camera -eq 1 ]; then
     fi
 fi
 
-opt_predict=''
 
-if [ $detection -eq 1 ]; then
-    ### launch people detect
-    map_frame='map'
-    depth_registered_topic='aligned_depth_to_color/image_raw'
-    if [ $gazebo -eq 1 ]; then
-        depth_registered_topic='depth/image_raw'
-    fi
-        
-    if [ $opencv_dnn_ver -ge 2 ]; then
-        use_composite=0
+### people, obstacle detection and tracking modules
 
-        # do not use nodelet if it is on gazebo
-        if [ $gazebo -eq 0 ] && [ $opencv_dnn_ver -eq 3 ]; then
-            sleep 2
-            use_composite=1
+if [ $disable_people -eq 0 ]; then
+    opt_predict=''
+
+    if [ $detection -eq 1 ]; then
+        ### launch people detect
+        map_frame='map'
+        depth_registered_topic='aligned_depth_to_color/image_raw'
+        if [ $gazebo -eq 1 ]; then
+            depth_registered_topic='depth/image_raw'
         fi
-        # cpp
-        com="$command ros2 launch track_people_cpp detect_darknet.launch.py \
-                      namespace:=$namespace \
-                      map_frame:=$map_frame \
-                      camera_link_frame:=$camera_link_frame \
-                      use_composite:=$use_composite \
-                      depth_registered_topic:=$depth_registered_topic \
-                      jetpack5_workaround:=$jetpack5_workaround \
-                      $commandpost"
-        echo $com
-        eval $com
-        pids+=($!)
-    else
-        # python
-        launch_file="track_people_py detect_darknet.launch.py"
+            
+        if [ $opencv_dnn_ver -ge 2 ]; then
+            use_composite=0
+
+            # do not use nodelet if it is on gazebo
+            if [ $gazebo -eq 0 ] && [ $opencv_dnn_ver -eq 3 ]; then
+                sleep 2
+                use_composite=1
+            fi
+            # cpp
+            com="$command ros2 launch track_people_cpp detect_darknet.launch.py \
+                        namespace:=$namespace \
+                        map_frame:=$map_frame \
+                        camera_link_frame:=$camera_link_frame \
+                        use_composite:=$use_composite \
+                        depth_registered_topic:=$depth_registered_topic \
+                        jetpack5_workaround:=$jetpack5_workaround \
+                        $commandpost"
+            echo $com
+            eval $com
+            pids+=($!)
+        else
+            # python
+            launch_file="track_people_py detect_darknet.launch.py"
+            echo "launch $launch_file"
+            com="$command ros2 launch $launch_file \
+                        namespace:=$namespace \
+                        map_frame:=$map_frame \
+                        camera_link_frame:=$camera_link_frame \
+                        depth_registered_topic:=$depth_registered_topic \
+                        jetpack5_workaround:=$jetpack5_workaround \
+                        $commandpost"
+            echo $com
+            eval $com
+            pids+=($!)
+        fi
+
+    fi
+
+    if [ $tracking -eq 1 ]; then
+        ### launch people track
+        launch_file="track_people_py track_sort_3d.launch.py"
         echo "launch $launch_file"
         com="$command ros2 launch $launch_file \
-                      namespace:=$namespace \
-                      map_frame:=$map_frame \
-                      camera_link_frame:=$camera_link_frame \
-                      depth_registered_topic:=$depth_registered_topic \
-                      jetpack5_workaround:=$jetpack5_workaround \
-                      $commandpost"
+                    jetpack5_workaround:=$jetpack5_workaround \
+                    $commandpost"
+        echo $com
+        eval $com
+        pids+=($!)
+
+        ### launch people predict
+        opt_predict=''
+        if [ $gazebo -eq 1 ] && [ $publish_sim_people -eq 1 ]; then
+            opt_predict='publish_simulator_people:=true'
+        fi
+        launch_file="track_people_py predict_kf.launch.py"
+        echo "launch $launch_file"
+        com="$command ros2 launch $launch_file $opt_predict \
+                    jetpack5_workaround:=$jetpack5_workaround \
+                    $commandpost"
         echo $com
         eval $com
         pids+=($!)
     fi
 
-fi
-
-if [ $tracking -eq 1 ]; then
-    ### launch people track
-    launch_file="track_people_py track_sort_3d.launch.py"
-    echo "launch $launch_file"
-    com="$command ros2 launch $launch_file \
-                  jetpack5_workaround:=$jetpack5_workaround \
-                  $commandpost"
-    echo $com
-    eval $com
-    pids+=($!)
-
-    ### launch people predict
-    opt_predict=''
-    if [ $gazebo -eq 1 ] && [ $publish_sim_people -eq 1 ]; then
-        opt_predict='publish_simulator_people:=true'
+    ### obstacle detect/track
+    if [ $obstacle -eq 1 ]; then
+        launch_file="track_people_cpp track_obstacles.launch.py"
+        echo "launch $launch_file"
+        com="$command ros2 launch $launch_file \
+                    jetpack5_workaround:=$jetpack5_workaround \
+                    $commandpost"
+        echo $com
+        eval $com
+        pids+=($!)
     fi
-    launch_file="track_people_py predict_kf.launch.py"
-    echo "launch $launch_file"
-    com="$command ros2 launch $launch_file $opt_predict \
-                  jetpack5_workaround:=$jetpack5_workaround \
-                  $commandpost"
-    echo $com
-    eval $com
-    pids+=($!)
-fi
-
-### obstacle detect/track
-if [ $obstacle -eq 1 ]; then
-    launch_file="track_people_cpp track_obstacles.launch.py"
-    echo "launch $launch_file"
-    com="$command ros2 launch $launch_file \
-                  jetpack5_workaround:=$jetpack5_workaround \
-                  $commandpost"
-    echo $com
-    eval $com
-    pids+=($!)
 fi
 
 ## wait until it is terminated by the user
