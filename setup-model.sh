@@ -32,6 +32,12 @@ else
     dc_dir=$scriptdir
 fi
 
+arch=$(uname -m)
+if [ $arch = "x86_64" ] && [ -z `which nvidia-smi` ]; then
+    echo "You do not need model on NUC"
+    exit 1
+fi
+
 cd $scriptdir/track_people_py/models
 
 if [ ! -e "yolov4.cfg" ]; then
@@ -57,7 +63,6 @@ fi
 
 
 if [ ! -e "rtmdet/end2end.engine" ]; then
-    arch=$(uname -m)
     if [ $arch != "x86_64" ] && [ $arch != "aarch64" ]; then
         echo "Unknown architecture: $arch"
         exit 1
@@ -140,7 +145,6 @@ else
 fi
 
 if [ ! -e "rtmdet-ins/end2end.engine" ]; then
-    arch=$(uname -m)
     if [ $arch != "x86_64" ] && [ $arch != "aarch64" ]; then
         echo "Unknown architecture: $arch"
         exit 1
