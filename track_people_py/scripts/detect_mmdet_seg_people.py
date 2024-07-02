@@ -39,8 +39,8 @@ class DetectMMDetSegPeople(AbsDetectPeople):
         super().__init__(device)
 
         # load detect model
-        self.model_input_width = self.declare_parameter('model_input_width', 416).value
-        self.model_input_height = self.declare_parameter('model_input_height', 416).value
+        self.model_input_width = self.declare_parameter('model_input_width', 640).value
+        self.model_input_height = self.declare_parameter('model_input_height', 640).value
         detect_model_dir = self.declare_parameter('detect_model_dir', '').value
 
         try:
