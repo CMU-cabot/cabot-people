@@ -82,7 +82,8 @@ if [ ! -e "rtmdet/end2end.engine" ]; then
 
     # setting for input image size
     # model_input_size=416
-    model_input_size=640
+    model_input_size=512
+    # model_input_size=640
 
     # settings for RTMDet-tiny model
     model_url=https://download.openmmlab.com/mmdetection/v3.0/rtmdet/rtmdet_tiny_8xb32-300e_coco/rtmdet_tiny_8xb32-300e_coco_20220902_112414-78e30dcc.pth
@@ -164,7 +165,8 @@ if [ ! -e "rtmdet-ins/end2end.engine" ]; then
 
     # setting for input image size
     # model_input_size=416
-    model_input_size=640
+    model_input_size=512
+    # model_input_size=640
 
     # settings for RTMDet-Ins-tiny model
     model_url=https://download.openmmlab.com/mmdetection/v3.0/rtmdet/rtmdet-ins_tiny_8xb32-300e_coco/rtmdet-ins_tiny_8xb32-300e_coco_20221130_151727-ec670f7e.pth

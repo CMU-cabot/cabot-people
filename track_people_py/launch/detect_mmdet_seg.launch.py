@@ -85,8 +85,8 @@ def generate_launch_description():
 
         DeclareLaunchArgument('jetpack5_workaround', default_value='false'),
 
-        DeclareLaunchArgument('model_input_width', default_value='640'),
-        DeclareLaunchArgument('model_input_height', default_value='640'),
+        DeclareLaunchArgument('model_input_width', default_value='512'),
+        DeclareLaunchArgument('model_input_height', default_value='512'),
 
         # overwrite parameters
         SetParameter(name='map_frame', value=map_frame),
