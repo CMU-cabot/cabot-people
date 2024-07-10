@@ -23,6 +23,6 @@ model = dict(
         nms_pre=1000,
         min_bbox_size=0,
         score_thr=0.25,
-        nms=dict(type='nms', iou_threshold=0.5),
+        nms=dict(type='nms', iou_threshold=0.4),
         max_per_img=100)
 )

@@ -80,7 +80,8 @@ protected:
 
   bool debug_;
   bool parallel_;
-  bool is_ready_;
+  bool is_model_ready_;
+  bool is_camera_ready_;
 
   // config parameters
   double detection_threshold_;

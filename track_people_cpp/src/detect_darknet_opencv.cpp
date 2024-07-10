@@ -50,6 +50,7 @@ DetectDarknetOpencv::DetectDarknetOpencv(rclcpp::NodeOptions options)
   std::vector<float> scores;
   std::vector<cv::Rect> boxes;
   model_->detect(dummy, classIds, scores, boxes, detection_threshold_, 0.4);
+  is_model_ready_ = true;
   RCLCPP_INFO(this->get_logger(), "Model Loaded");
 }
 

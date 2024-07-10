@@ -37,7 +37,8 @@ AbstractDetectPeople::AbstractDetectPeople(const std::string & node_name, rclcpp
   detect_count_(0),
   depth_time_(0),
   depth_count_(0),
-  is_ready_(false),
+  is_model_ready_(false),
+  is_camera_ready_(false),
   people_freq_(NULL),
   camera_freq_(NULL)
 {
@@ -114,7 +115,7 @@ void AbstractDetectPeople::camera_info_cb(const sensor_msgs::msg::CameraInfo::Sh
   center_y_ = info->k[5];
   camera_info_sub_.reset();
   RCLCPP_INFO(this->get_logger(), "Found camera_info topic.");
-  is_ready_ = true;
+  is_camera_ready_ = true;
 }
 
 /*
@@ -124,7 +125,7 @@ void AbstractDetectPeople::rgb_depth_img_cb(
   const sensor_msgs::msg::Image::SharedPtr & rgb_msg_ptr,
   const sensor_msgs::msg::Image::SharedPtr & depth_msg_ptr)
 {
-  if (!is_ready_) {return;}
+  if (!is_model_ready_ || !is_camera_ready_) {return;}
 
   try {
     DetectData dd;
@@ -200,7 +201,7 @@ void AbstractDetectPeople::rgb_depth_img_cb(
  */
 void AbstractDetectPeople::fps_loop_cb()
 {
-  if (!is_ready_) {return;}
+  if (!is_model_ready_ || !is_camera_ready_) {return;}
 
   if (parallel_) {
     DetectData dd;
@@ -222,6 +223,10 @@ void AbstractDetectPeople::fps_loop_cb()
       }
     }
   } else {
+    if (temp_dd_ == nullptr) {
+      return;
+    }
+
     if (people_freq_ != NULL) {
       people_freq_->tick();
     }
@@ -241,6 +246,8 @@ void AbstractDetectPeople::fps_loop_cb()
  */
 void AbstractDetectPeople::detect_loop_cb()
 {
+  if (!is_model_ready_ || !is_camera_ready_) {return;}
+
   DetectData dd;
   {
     std::lock_guard<std::mutex> lock(queue_ready_mutex_);
@@ -271,6 +278,8 @@ void AbstractDetectPeople::detect_loop_cb()
  */
 void AbstractDetectPeople::depth_loop_cb()
 {
+  if (!is_model_ready_ || !is_camera_ready_) {return;}
+
   DetectData dd;
   {
     std::lock_guard<std::mutex> lock(queue_detect_mutex_);

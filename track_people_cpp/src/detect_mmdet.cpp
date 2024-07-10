@@ -34,6 +34,7 @@ DetectMMDet::DetectMMDet(rclcpp::NodeOptions options)
   RCLCPP_INFO(this->get_logger(), "model : %s", detect_model_directory_.c_str());
   model_ = std::make_shared<mmdeploy::Model>(detect_model_directory_);
   detector_ = std::make_shared<mmdeploy::Detector>(*model_, mmdeploy::Device{"cuda", 0});
+  is_model_ready_ = true;
   RCLCPP_INFO(this->get_logger(), "Model Loaded");
 }
 

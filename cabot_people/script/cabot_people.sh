@@ -417,127 +417,62 @@ if [ $detection -eq 1 ]; then
     fi
 
     # read segment model input size from rtmdet-ins/pipeline.json
-    segment_model_input_size=''
+    segment_model_option=''
     if [ $cabot_detect_ver -eq 7 ] || [ $cabot_detect_ver -eq 8 ] || [ $cabot_detect_ver -eq 9 ]; then
         segment_model_input_size=$(jq '.pipeline.tasks[0].transforms[] | select(.type=="Resize").size[0]' $scriptdir/../../track_people_py/models/rtmdet-ins/pipeline.json)
         echo "input image size for segmentation model $segment_model_input_size"
+        segment_model_option="model_input_width:=$segment_model_input_size model_input_height:=$segment_model_input_size"
     fi
 
-    if [ $cabot_detect_ver -eq 1 ]; then
-        # python
-        launch_file="track_people_py detect_darknet.launch.py"
-        echo "launch $launch_file"
-        com="$command ros2 launch $launch_file \
-                      namespace:=$namespace \
-                      map_frame:=$map_frame \
-                      camera_link_frame:=$camera_link_frame \
-                      depth_registered_topic:=$depth_registered_topic \
-                      publish_detect_image:=$publish_detect_image \
-                      jetpack5_workaround:=$jetpack5_workaround \
-                      $commandpost"
-        echo $com
-        eval $com
-        pids+=($!)
-    elif [ $cabot_detect_ver -eq 2 ] || [ $cabot_detect_ver -eq 3 ]; then
-        use_composite=0
+    if [ $cabot_detect_ver -ge 1 ] && [ $cabot_detect_ver -le 3 ]; then
+        launch_file="detect_darknet.launch.py"
+    elif [ $cabot_detect_ver -ge 4 ] && [ $cabot_detect_ver -le 6 ]; then
+        launch_file="detect_mmdet.launch.py"
+    elif [ $cabot_detect_ver -ge 7 ] && [ $cabot_detect_ver -le 9 ]; then
+        launch_file="detect_mmdet_seg.launch.py"
+    else
+        red "detect implementation should be from 1 to 9"
+        exit
+    fi
 
-        # do not use nodelet if it is on gazebo
-        if [ $gazebo -eq 0 ] && [ $cabot_detect_ver -eq 3 ]; then
-            sleep 2
-            use_composite=1
-        fi
-        # cpp
-        com="$command ros2 launch track_people_cpp detect_darknet.launch.py \
-                      namespace:=$namespace \
-                      map_frame:=$map_frame \
-                      camera_link_frame:=$camera_link_frame \
-                      use_composite:=$use_composite \
-                      depth_registered_topic:=$depth_registered_topic \
-                      publish_detect_image:=$publish_detect_image \
-                      jetpack5_workaround:=$jetpack5_workaround \
-                      $commandpost"
-        echo $com
-        eval $com
-        pids+=($!)
-    elif [ $cabot_detect_ver -eq 4 ]; then
+    if [ $cabot_detect_ver -eq 1 ] || [ $cabot_detect_ver -eq 4 ] || [ $cabot_detect_ver -eq 7 ]; then
         # python
-        launch_file="track_people_py detect_mmdet.launch.py"
-        echo "launch $launch_file"
-        com="$command ros2 launch $launch_file \
+        echo "launch track_people_py $launch_file"
+        com="$command ros2 launch track_people_py $launch_file \
                       namespace:=$namespace \
                       map_frame:=$map_frame \
                       camera_link_frame:=$camera_link_frame \
                       depth_registered_topic:=$depth_registered_topic \
                       publish_detect_image:=$publish_detect_image \
                       jetpack5_workaround:=$jetpack5_workaround \
-                      $commandpost"
-        echo $com
-        eval $com
-        pids+=($!)
-    elif [ $cabot_detect_ver -eq 5 ] || [ $cabot_detect_ver -eq 6 ]; then
-        use_composite=0
-
-        # do not use nodelet if it is on gazebo
-        if [ $gazebo -eq 0 ] && [ $cabot_detect_ver -eq 6 ]; then
-            sleep 2
-            use_composite=1
-        fi
-        # cpp
-        com="$command ros2 launch track_people_cpp detect_mmdet.launch.py \
-                      namespace:=$namespace \
-                      map_frame:=$map_frame \
-                      camera_link_frame:=$camera_link_frame \
-                      use_composite:=$use_composite \
-                      depth_registered_topic:=$depth_registered_topic \
-                      publish_detect_image:=$publish_detect_image \
-                      jetpack5_workaround:=$jetpack5_workaround \
-                      $commandpost"
-        echo $com
-        eval $com
-        pids+=($!)
-    elif [ $cabot_detect_ver -eq 7 ]; then
-        # python
-        launch_file="track_people_py detect_mmdet_seg.launch.py"
-        echo "launch $launch_file"
-        com="$command ros2 launch $launch_file \
-                      namespace:=$namespace \
-                      map_frame:=$map_frame \
-                      camera_link_frame:=$camera_link_frame \
-                      depth_registered_topic:=$depth_registered_topic \
-                      publish_detect_image:=$publish_detect_image \
-                      jetpack5_workaround:=$jetpack5_workaround \
-                      model_input_width:=$segment_model_input_size \
-                      model_input_height:=$segment_model_input_size \
-                      $commandpost"
-        echo $com
-        eval $com
-        pids+=($!)
-    elif [ $cabot_detect_ver -eq 8 ] || [ $cabot_detect_ver -eq 9 ]; then
-        use_composite=0
-
-        # do not use nodelet if it is on gazebo
-        if [ $gazebo -eq 0 ] && [ $cabot_detect_ver -eq 9 ]; then
-            sleep 2
-            use_composite=1
-        fi
-        # cpp
-        com="$command ros2 launch track_people_cpp detect_mmdet_seg.launch.py \
-                      namespace:=$namespace \
-                      map_frame:=$map_frame \
-                      camera_link_frame:=$camera_link_frame \
-                      use_composite:=$use_composite \
-                      depth_registered_topic:=$depth_registered_topic \
-                      publish_detect_image:=$publish_detect_image \
-                      jetpack5_workaround:=$jetpack5_workaround \
-                      model_input_width:=$segment_model_input_size \
-                      model_input_height:=$segment_model_input_size \
+                      $segment_model_option \
                       $commandpost"
         echo $com
         eval $com
         pids+=($!)
     else
-        red "detect implementation should be from 1 to 9"
-        exit
+        use_composite=0
+
+        # do not use nodelet if it is on gazebo
+        if [ $gazebo -eq 0 ] && { [ $cabot_detect_ver -eq 3 ] || [ $cabot_detect_ver -eq 6 ] || [ $cabot_detect_ver -eq 9 ]; }; then
+            sleep 2
+            use_composite=1
+        fi
+        # cpp
+        echo "launch track_people_cpp $launch_file"
+        com="$command ros2 launch track_people_cpp $launch_file \
+                      namespace:=$namespace \
+                      map_frame:=$map_frame \
+                      camera_link_frame:=$camera_link_frame \
+                      use_composite:=$use_composite \
+                      depth_registered_topic:=$depth_registered_topic \
+                      publish_detect_image:=$publish_detect_image \
+                      jetpack5_workaround:=$jetpack5_workaround \
+                      $segment_model_option \
+                      $commandpost"
+        echo $com
+        eval $com
+        pids+=($!)
     fi
 fi
 
