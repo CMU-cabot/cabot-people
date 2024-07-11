@@ -1,13 +1,17 @@
 import signal
 import sys
+import queue
+import threading
+import numpy as np
+from sklearn.cluster import DBSCAN
 
 import rclpy
 from rclpy.node import Node
-import numpy as np
 
 from std_msgs.msg import Header
-from sensor_msgs.msg import PointCloud2, PointField
+from sensor_msgs.msg import PointCloud2
 from sensor_msgs_py import point_cloud2
+from cabot_msgs.msg import PoseLog
 
 import open3d as o3d
 
@@ -16,22 +20,65 @@ class ScanReceiver(Node):
     def __init__(self):
         super().__init__('scan_receiver')
         self.scan_sub = self.create_subscription(
-                PointCloud2, 
-                '/velodyne_points',
-                self.scan_cb,
-                10)
+            PointCloud2, 
+            '/velodyne_points_cropped',
+            self.scan_cb,
+            10
+        )
+        self.scan_sub = self.create_subscription(
+            PoseLog, 
+            '/cabot/pose_log',
+            self.pose_cb,
+            10
+        )
 
-        self.pointcloud = None
+        self.pointcloud = np.array([])
+        self.pointcloud_prev = np.array([])
+        self.pointcloud_complete = np.array([])
 
-        self.ring_limit = self.declare_parameter('ring_limit', -1).value
-        self.scan_max_range = self.declare_parameter('scan_max_range', 100).value
+        self.pose = None
+        self.prev_pose = None
+        self.curr_pose = None
+        self.curr_time = 0
+        self.prev_time = 0
+
+        self._ring_limit = self.declare_parameter('ring_limit', -1).value
+        self._scan_max_range = self.declare_parameter('scan_max_range', 100).value
+        self._history_window = self.declare_parameter('history_window', 8).value
+        self._future_window = self.declare_parameter('future_window', 8).value
+        self._low_level_pos_threshold = self.declare_parameter('low_level_pos_threshold', 0.25).value
+        self._high_level_pos_threshold = self.declare_parameter('high_level_pos_threshold', 1).value
+        self._high_level_vel_threshold = self.declare_parameter('high_level_vel_threshold', 1).value
+        self._high_level_ori_threshold = self.declare_parameter('high_level_ori_threshold', 1).value
+
+        self.pointcloud_history = queue.Queue(self._history_window)
+        self.pointcloud_history_np = []  # list of numpys
+        self.is_history_complete = False
+
+        self.is_queue_occupied= False
+
         return
 
     def scan_cb(self, msg):
         # Stores pointcloud when the node receives one.
 
+        if self.pose is None:
+            return
+
+        self.curr_pose = self.pose
+        self.curr_time = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
+        dt = self.curr_time - self.prev_time
+
+        print("-----Pose and time ------")
+        print(self.curr_pose)
+        print(self.prev_pose)
+        print(self.curr_time)
+        print(self.prev_time)
+
         # Pointcloud format
         # (x, y, z, intensity, ring number [e.g. 0-15])
+        # Pointcloud complete format
+        # (x, y, z, intensity, ring, group id, group center x, group center y, vel_x, vel_y)
         parsed_pointcloud = point_cloud2.read_points(msg, skip_nans=True)
         num_raw_pt = len(parsed_pointcloud)
         if num_raw_pt > 0:
@@ -43,35 +90,103 @@ class ScanReceiver(Node):
                     validation_array[i] = 1
             self.pointcloud = self.pointcloud[validation_array == 1]
         else:
-            self.pointcloud = None
-        print(self.pointcloud)
+            self.pointcloud = np.array([])
+
+        self.pointcloud_complete = self._calc_pointcloud_group_vel(
+                                            self.pointcloud_prev, 
+                                            self.pointcloud, 
+                                            self.prev_pose, 
+                                            self.curr_pose,
+                                            dt)
+        self.pointcloud_prev = self.pointcloud_complete 
+        self.prev_pose = self.curr_pose
+        self.prev_time = self.curr_time
+
+        # queue lock
+        while self.is_queue_occupied:
+            continue
+        self.is_queue_occupied = True
+        if self.pointcloud_history.qsize() == self._history_window :
+            self.is_history_complete = True
+            # pop the oldest point cloud from the queue
+            tmp = self.pointcloud_history.get(block=False)
+        self.pointcloud_history.put(self.pointcloud, block=False)
+        self.is_queue_occupied = False
+        
         return
+    
+    def pose_cb(self, msg):
+        self.pose = msg.pose
+        return
+    
+    def _calc_pointcloud_group_vel(self, prev_ptcloud, curr_ptcloud, prev_pose, curr_pose):
+        # This function uses small threshold, distane based clustering to assign groups.
+        # Then compare the assigned groups to previous groups to get pointcloud velocities.
+
+        num_prev = len(prev_ptcloud)
+        num_curr = len(curr_ptcloud)
+        if num_prev == 0:
+            complete_ptcloud = np.array([])
+        else:
+            complete_ptcloud = np.array([])
+        return complete_ptcloud
 
     def _is_valid_pt(self, elem):
         # test if ring specified
-        if not (self.ring_limit == -1):
+        if not (self._ring_limit == -1):
             ring = elem[4]
-            if not ring == self.ring_limit:
+            if not ring == self._ring_limit:
                 return False
 
         # test if point distance passes max range
-        if self.scan_max_range < 100:
+        if self._scan_max_range < 100:
             x = elem[0]
             y = elem[1]
             dist = np.sqrt(x*x + y*y)
-            if dist > self.scan_max_range:
+            if dist > self._scan_max_range:
                 return False
 
         return True
+    
+    def _copy_pointcloud(self):
+        # Copy the point cloud from queue to an array for processing later
+
+        # queue lock
+        while self.is_queue_occupied:
+            continue
+        self.is_queue_occupied = True
+        self.pointcloud_history_np = list(self.pointcloud_history.queue)
+        self.is_queue_occupied = False
+        return
+    
+    def process_loop(self):
+        # The main loop that performs:
+        # 1. Grouping of point clouds
+        # 2. Generate group representations
+        # 3. Run predictions on representations
+        # 4. Publish current and predicted representations
+
+        while True:
+            if not self.is_history_complete:
+                continue
+            try:
+                self._copy_pointcloud()
+            except KeyboardInterrupt:
+                self.get_logger().info("Loop terminated")
+                break
+        return
 
 
 def main():
     rclpy.init()
     scan_receiver = ScanReceiver()
+    process_thread = threading.Thread(target=scan_receiver.process_loop)
+    process_thread.start()
 
     try:
         rclpy.spin(scan_receiver)
     except:
+        process_thread.join()
         scan_receiver.get_logger().info("Shutting down")
 
     scan_receiver.destroy_node()
