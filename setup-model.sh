@@ -86,12 +86,12 @@ if [ ! -e "rtmdet/end2end.engine" ]; then
     # model_input_size=640
 
     # settings for RTMDet-tiny model
-    model_url=https://download.openmmlab.com/mmdetection/v3.0/rtmdet/rtmdet_tiny_8xb32-300e_coco/rtmdet_tiny_8xb32-300e_coco_20220902_112414-78e30dcc.pth
-    mmdet_config_filename=rtmdet_tiny_8xb32-300e_coco_reduce-postprocess.py
+    # model_url=https://download.openmmlab.com/mmdetection/v3.0/rtmdet/rtmdet_tiny_8xb32-300e_coco/rtmdet_tiny_8xb32-300e_coco_20220902_112414-78e30dcc.pth
+    # mmdet_config_filename=rtmdet_tiny_8xb32-300e_coco_reduce-postprocess.py
 
     # settings for RTMDet-s model
-    # model_url=https://download.openmmlab.com/mmdetection/v3.0/rtmdet/rtmdet_s_8xb32-300e_coco/rtmdet_s_8xb32-300e_coco_20220905_161602-387a891e.pth
-    # mmdet_config_filename=rtmdet_s_8xb32-300e_coco_reduce-postprocess.py
+    model_url=https://download.openmmlab.com/mmdetection/v3.0/rtmdet/rtmdet_s_8xb32-300e_coco/rtmdet_s_8xb32-300e_coco_20220905_161602-387a891e.pth
+    mmdet_config_filename=rtmdet_s_8xb32-300e_coco_reduce-postprocess.py
 
     # settings for RTMDet-m model
     # model_url=https://download.openmmlab.com/mmdetection/v3.0/rtmdet/rtmdet_m_8xb32-300e_coco/rtmdet_m_8xb32-300e_coco_20220719_112220-229f527c.pth
@@ -169,12 +169,12 @@ if [ ! -e "rtmdet-ins/end2end.engine" ]; then
     # model_input_size=640
 
     # settings for RTMDet-Ins-tiny model
-    model_url=https://download.openmmlab.com/mmdetection/v3.0/rtmdet/rtmdet-ins_tiny_8xb32-300e_coco/rtmdet-ins_tiny_8xb32-300e_coco_20221130_151727-ec670f7e.pth
-    mmdet_config_filename=rtmdet-ins_tiny_8xb32-300e_coco_reduce-postprocess.py
+    # model_url=https://download.openmmlab.com/mmdetection/v3.0/rtmdet/rtmdet-ins_tiny_8xb32-300e_coco/rtmdet-ins_tiny_8xb32-300e_coco_20221130_151727-ec670f7e.pth
+    # mmdet_config_filename=rtmdet-ins_tiny_8xb32-300e_coco_reduce-postprocess.py
 
     # settings for RTMDet-Ins-s model
-    # model_url=https://download.openmmlab.com/mmdetection/v3.0/rtmdet/rtmdet-ins_s_8xb32-300e_coco/rtmdet-ins_s_8xb32-300e_coco_20221121_212604-fdc5d7ec.pth
-    # mmdet_config_filename=rtmdet-ins_s_8xb32-300e_coco_reduce-postprocess.py
+    model_url=https://download.openmmlab.com/mmdetection/v3.0/rtmdet/rtmdet-ins_s_8xb32-300e_coco/rtmdet-ins_s_8xb32-300e_coco_20221121_212604-fdc5d7ec.pth
+    mmdet_config_filename=rtmdet-ins_s_8xb32-300e_coco_reduce-postprocess.py
 
     # settings for RTMDet-Ins-m model
     # model_url=https://download.openmmlab.com/mmdetection/v3.0/rtmdet/rtmdet-ins_m_8xb32-300e_coco/rtmdet-ins_m_8xb32-300e_coco_20221123_001039-6eba602e.pth

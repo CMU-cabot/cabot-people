@@ -415,13 +415,40 @@ if [ $detection -eq 1 ]; then
     if [ $gazebo -eq 1 ]; then
         depth_registered_topic='depth/image_raw'
     fi
+    min_bbox_size=50.0
 
-    # read segment model input size from rtmdet-ins/pipeline.json
+    # overwrite mmdeploy model by environment variables
+    mmdeploy_model_option=''
     segment_model_option=''
-    if [ $cabot_detect_ver -eq 7 ] || [ $cabot_detect_ver -eq 8 ] || [ $cabot_detect_ver -eq 9 ]; then
-        segment_model_input_size=$(jq '.pipeline.tasks[0].transforms[] | select(.type=="Resize").size[0]' $scriptdir/../../track_people_py/models/rtmdet-ins/pipeline.json)
-        echo "input image size for segmentation model $segment_model_input_size"
-        segment_model_option="model_input_width:=$segment_model_input_size model_input_height:=$segment_model_input_size"
+    if [ $cabot_detect_ver -ge 4 ] && [ $cabot_detect_ver -le 9 ]; then
+        mmdeploy_model_dir=/tmp/mmdeploy_model
+
+        # copy mmdeploy model
+        rm -rf $mmdeploy_model_dir
+        if [ $cabot_detect_ver -ge 4 ] && [ $cabot_detect_ver -le 6 ]; then
+            cp -r $scriptdir/../../track_people_py/models/rtmdet $mmdeploy_model_dir
+        else
+            cp -r $scriptdir/../../track_people_py/models/rtmdet-ins $mmdeploy_model_dir
+        fi
+
+        # read input size
+        mmdeploy_input_size=$(jq ".pipeline.tasks[0].transforms[] | select(.type==\"Resize\").size[0]" $mmdeploy_model_dir/pipeline.json)
+
+        # calculate min bbox size for mmdeploy model input 
+        int_min_bbox_size=$(echo "$min_bbox_size / 1" | bc)
+        max_width_height=$(($width>$height ? $width : $height))
+        resized_min_bbox_size=$(echo "scale=2; $min_bbox_size * ($mmdeploy_input_size / $max_width_height)" | bc)
+        int_resized_min_bbox_size=$(echo "$resized_min_bbox_size / 1" | bc)
+
+        # set score_thr, min_bbox_size in pipeline.json
+        cat $mmdeploy_model_dir/pipeline.json | jq ".pipeline.tasks[-1].params.score_thr|=${CABOT_DETECT_PEOPLE_CONF_THRES}" | jq ".pipeline.tasks[-1].params.min_bbox_size|=$int_resized_min_bbox_size" > $mmdeploy_model_dir/pipeline.json.tmp
+        mv $mmdeploy_model_dir/pipeline.json.tmp $mmdeploy_model_dir/pipeline.json
+
+        # create mmdeploy launch options
+        mmdeploy_model_option="detect_model_dir:=$mmdeploy_model_dir"
+        if [ $cabot_detect_ver -ge 7 ] && [ $cabot_detect_ver -le 9 ]; then
+            segment_model_option="model_input_width:=$mmdeploy_input_size model_input_height:=$mmdeploy_input_size"
+        fi
     fi
 
     if [ $cabot_detect_ver -ge 1 ] && [ $cabot_detect_ver -le 3 ]; then
@@ -443,8 +470,10 @@ if [ $detection -eq 1 ]; then
                       map_frame:=$map_frame \
                       camera_link_frame:=$camera_link_frame \
                       depth_registered_topic:=$depth_registered_topic \
+                      minimum_detection_size_threshold:=$min_bbox_size \
                       publish_detect_image:=$publish_detect_image \
                       jetpack5_workaround:=$jetpack5_workaround \
+                      $mmdeploy_model_option \
                       $segment_model_option \
                       $commandpost"
         echo $com
@@ -466,8 +495,10 @@ if [ $detection -eq 1 ]; then
                       camera_link_frame:=$camera_link_frame \
                       use_composite:=$use_composite \
                       depth_registered_topic:=$depth_registered_topic \
+                      minimum_detection_size_threshold:=$min_bbox_size \
                       publish_detect_image:=$publish_detect_image \
                       jetpack5_workaround:=$jetpack5_workaround \
+                      $mmdeploy_model_option \
                       $segment_model_option \
                       $commandpost"
         echo $com

@@ -52,6 +52,7 @@ def generate_launch_description():
     publish_simulator_people = LaunchConfiguration('publish_simulator_people')
     publish_detect_image = LaunchConfiguration('publish_detect_image')
     detection_threshold = LaunchConfiguration('detection_threshold')
+    minimum_detection_size_threshold = LaunchConfiguration('minimum_detection_size_threshold')
 
     # ToDo: workaround https://github.com/CMU-cabot/cabot/issues/86
     jetpack5_workaround = LaunchConfiguration('jetpack5_workaround')
@@ -79,6 +80,7 @@ def generate_launch_description():
         DeclareLaunchArgument('publish_simulator_people', default_value='false'),
         DeclareLaunchArgument('publish_detect_image', default_value='false'),
         DeclareLaunchArgument('detection_threshold', default_value=EnvironmentVariable('CABOT_DETECT_PEOPLE_CONF_THRES', default_value='0.6')),
+        DeclareLaunchArgument('minimum_detection_size_threshold', default_value='50.0'),
 
         DeclareLaunchArgument('jetpack5_workaround', default_value='false'),
 
@@ -94,7 +96,7 @@ def generate_launch_description():
         SetParameter(name='publish_simulator_people', value=publish_simulator_people),
         SetParameter(name='publish_detect_image', value=publish_detect_image),
         SetParameter(name='detection_threshold', value=detection_threshold),
-        SetParameter(name='minimum_detection_size_threshold', value=50.0),
+        SetParameter(name='minimum_detection_size_threshold', value=minimum_detection_size_threshold),
         SetParameter(name='detect_config_file', value=yolov4_cfg),
         SetParameter(name='detect_weight_file', value=yolov4_weights),
         SetParameter(name='detect_label_file', value=coco_names),
