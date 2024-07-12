@@ -432,13 +432,20 @@ if [ $detection -eq 1 ]; then
         fi
 
         # read input size
-        mmdeploy_input_size=$(jq ".pipeline.tasks[0].transforms[] | select(.type==\"Resize\").size[0]" $mmdeploy_model_dir/pipeline.json)
+        mmdeploy_input_width=$(jq ".pipeline.tasks[0].transforms[] | select(.type==\"Resize\").size[0]" $mmdeploy_model_dir/pipeline.json)
+        mmdeploy_input_height=$(jq ".pipeline.tasks[0].transforms[] | select(.type==\"Resize\").size[1]" $mmdeploy_model_dir/pipeline.json)
 
-        # calculate min bbox size for mmdeploy model input 
+        # resize min bbox size by mmdeploy model input width and height
         int_min_bbox_size=$(echo "$min_bbox_size / 1" | bc)
-        max_width_height=$(($width>$height ? $width : $height))
-        resized_min_bbox_size=$(echo "scale=2; $min_bbox_size * ($mmdeploy_input_size / $max_width_height)" | bc)
-        int_resized_min_bbox_size=$(echo "$resized_min_bbox_size / 1" | bc)
+
+        resized_min_bbox_width=$(echo "scale=2; $int_min_bbox_size * ($mmdeploy_input_width / $width)" | bc)
+        int_resized_min_bbox_width=$(echo "$resized_min_bbox_width / 1" | bc)
+
+        resized_min_bbox_height=$(echo "scale=2; $int_min_bbox_size * ($mmdeploy_input_height / $height)" | bc)
+        int_resized_min_bbox_height=$(echo "$resized_min_bbox_height / 1" | bc)
+
+        # set smaller value of resized min bbox size as min_bbox_size for mmdeploy model
+        int_resized_min_bbox_size=$(($int_resized_min_bbox_width<$int_resized_min_bbox_height ? $int_resized_min_bbox_width : $int_resized_min_bbox_height))
 
         # set score_thr, min_bbox_size in pipeline.json
         cat $mmdeploy_model_dir/pipeline.json | jq ".pipeline.tasks[-1].params.score_thr|=${CABOT_DETECT_PEOPLE_CONF_THRES}" | jq ".pipeline.tasks[-1].params.min_bbox_size|=$int_resized_min_bbox_size" > $mmdeploy_model_dir/pipeline.json.tmp
@@ -447,7 +454,7 @@ if [ $detection -eq 1 ]; then
         # create mmdeploy launch options
         mmdeploy_model_option="detect_model_dir:=$mmdeploy_model_dir"
         if [ $cabot_detect_ver -ge 7 ] && [ $cabot_detect_ver -le 9 ]; then
-            segment_model_option="model_input_width:=$mmdeploy_input_size model_input_height:=$mmdeploy_input_size"
+            segment_model_option="model_input_width:=$mmdeploy_input_width model_input_height:=$mmdeploy_input_height"
         fi
     fi
 

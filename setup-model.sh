@@ -81,9 +81,15 @@ if [ ! -e "rtmdet/end2end.engine" ]; then
     fi
 
     # setting for input image size
-    # model_input_size=416
-    model_input_size=512
-    # model_input_size=640
+    model_input_height=384
+    # model_input_height=416
+    # model_input_height=512
+    # model_input_height=640
+    if [ $model_input_height -eq 384 ]; then
+        model_input_width=640
+    else
+        model_input_width=$model_input_height
+    fi
 
     # settings for RTMDet-tiny model
     # model_url=https://download.openmmlab.com/mmdetection/v3.0/rtmdet/rtmdet_tiny_8xb32-300e_coco/rtmdet_tiny_8xb32-300e_coco_20220902_112414-78e30dcc.pth
@@ -98,7 +104,7 @@ if [ ! -e "rtmdet/end2end.engine" ]; then
     # mmdet_config_filename=rtmdet_m_8xb32-300e_coco_reduce-postprocess.py
 
     # deploy RTMDet model
-    mmdeploy_config_filename=detection_tensorrt-fp16_static-${model_input_size}x${model_input_size}.py
+    mmdeploy_config_filename=detection_tensorrt-fp16_static-${model_input_height}x${model_input_width}.py
     model_filename=$(basename $model_url)
     if [ ! -e "rtmdet/$model_filename" ]; then
         echo "Downloading rtmdet/$model_filename"
@@ -129,7 +135,7 @@ if [ ! -e "rtmdet/end2end.engine" ]; then
             /opt/mmdeploy/demo/resources \
             --model rtmdet/end2end.engine \
             --device cuda:0 \
-            --shape ${model_input_size}x${model_input_size} &&
+            --shape ${model_input_height}x${model_input_width} &&
 
         echo 'run mmdeploy SDK for mmdetection (mmdeploy/demo/csrc/cpp/detector.cxx)...' &&
         /usr/local/bin/detector /home/developer/people_ws/src/track_people_py/models/rtmdet /opt/mmdeploy/demo/resources/det.jpg --device cuda &&
@@ -164,9 +170,15 @@ if [ ! -e "rtmdet-ins/end2end.engine" ]; then
     fi
 
     # setting for input image size
-    # model_input_size=416
-    model_input_size=512
-    # model_input_size=640
+    model_input_height=384
+    # model_input_height=416
+    # model_input_height=512
+    # model_input_height=640
+    if [ $model_input_height -eq 384 ]; then
+        model_input_width=640
+    else
+        model_input_width=$model_input_height
+    fi
 
     # settings for RTMDet-Ins-tiny model
     # model_url=https://download.openmmlab.com/mmdetection/v3.0/rtmdet/rtmdet-ins_tiny_8xb32-300e_coco/rtmdet-ins_tiny_8xb32-300e_coco_20221130_151727-ec670f7e.pth
@@ -181,7 +193,7 @@ if [ ! -e "rtmdet-ins/end2end.engine" ]; then
     # mmdet_config_filename=rtmdet-ins_m_8xb32-300e_coco_reduce-postprocess.py
 
     # deploy RTMDet-Ins model
-    mmdeploy_config_filename=instance-seg_rtmdet-ins_tensorrt-fp16_static-${model_input_size}x${model_input_size}.py
+    mmdeploy_config_filename=instance-seg_rtmdet-ins_tensorrt-fp16_static-${model_input_height}x${model_input_width}.py
     model_filename=$(basename $model_url)
     if [ ! -e "rtmdet-ins/$model_filename" ]; then
         echo "Downloading rtmdet-ins/$model_filename"
@@ -218,7 +230,7 @@ if [ ! -e "rtmdet-ins/end2end.engine" ]; then
             /opt/mmdeploy/demo/resources \
             --model rtmdet-ins/end2end.engine \
             --device cuda:0 \
-            --shape ${model_input_size}x${model_input_size} &&
+            --shape ${model_input_height}x${model_input_width} &&
 
         echo 'run mmdeploy SDK for mmdetection (mmdeploy/demo/csrc/cpp/detector.cxx)...' &&
         /usr/local/bin/detector /home/developer/people_ws/src/track_people_py/models/rtmdet-ins /opt/mmdeploy/demo/resources/det.jpg --device cuda &&
