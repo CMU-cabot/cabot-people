@@ -326,16 +326,6 @@ function build_x86_64 {
             return 1
         fi
 
-        docker compose -f docker-compose-people-setup-model.yaml build \
-            --build-arg FROM_IMAGE=$image \
-            --build-arg UID=$UID \
-            --build-arg TZ=$time_zone \
-            $option \
-            people-setup-model
-        if [[ $? -ne 0 ]]; then
-            return 1
-        fi
-
         docker compose -f docker-compose-test-rs3.yaml build \
             --build-arg FROM_IMAGE=$image \
             --build-arg UID=$UID \
@@ -353,16 +343,6 @@ function build_x86_64 {
             --build-arg TZ=$time_zone \
             $option \
             people-framos
-        if [[ $? -ne 0 ]]; then
-            return 1
-        fi
-
-        docker compose -f docker-compose-people-setup-model.yaml build \
-            --build-arg FROM_IMAGE=$image \
-            --build-arg UID=$UID \
-            --build-arg TZ=$time_zone \
-            $option \
-            people-setup-model
         if [[ $? -ne 0 ]]; then
             return 1
         fi
@@ -510,18 +490,6 @@ function build_aarch64 {
             --build-arg TZ=$time_zone \
             $option \
             people-jetson
-
-        if [[ $? -ne 0 ]]; then
-            return 1
-        fi
-
-        docker compose -f docker-compose-people-setup-model.yaml build \
-            --build-arg FROM_IMAGE=$image \
-            --build-arg UID=$UID \
-            --build-arg TZ=$time_zone \
-            $option \
-            people-jetson-setup-model
-
         if [[ $? -ne 0 ]]; then
             return 1
         fi
@@ -532,6 +500,9 @@ function build_aarch64 {
             --build-arg TZ=$time_zone \
             $option \
             rs1 rs2 rs3 track
+        if [[ $? -ne 0 ]]; then
+            return 1
+        fi
     elif [[ $CAMERA_IMAGE == 'framos' ]]; then
         local image=${prefix}_l4t-framos-opencv-humble-custom-mmdeploy-open3d
         docker compose -f docker-compose-jetson.yaml build \
@@ -540,18 +511,6 @@ function build_aarch64 {
             --build-arg TZ=$time_zone \
             $option \
             people-framos-jetson
-
-        if [[ $? -ne 0 ]]; then
-            return 1
-        fi
-
-        docker compose -f docker-compose-people-setup-model.yaml build \
-            --build-arg FROM_IMAGE=$image \
-            --build-arg UID=$UID \
-            --build-arg TZ=$time_zone \
-            $option \
-            people-jetson-setup-model
-
         if [[ $? -ne 0 ]]; then
             return 1
         fi
@@ -562,6 +521,9 @@ function build_aarch64 {
             --build-arg TZ=$time_zone \
             $option \
             rs1-framos-camera rs1-framos-detection rs2-framos-camera rs2-framos-detection rs3-framos-camera rs3-framos-detection track-framos
+        if [[ $? -ne 0 ]]; then
+            return 1
+        fi
     fi
 }
 

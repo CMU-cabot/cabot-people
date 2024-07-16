@@ -20,6 +20,39 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+function check_people_service() {
+    local arch=$1
+    local dc_file=$2
+
+    # find available people service
+    if [ $arch = "x86_64" ]; then
+        people_service=people
+        docker compose -f $dc_file run --rm $people_service bash -c "exit"
+        if [[ $? -ne 0 ]]; then
+            people_service=people-framos
+            docker compose -f $dc_file run --rm $people_service bash -c "exit"
+            if [[ $? -ne 0 ]]; then
+                return 1
+            fi
+        fi
+    elif [ $arch = "aarch64" ]; then
+        people_service=people-jetson
+        docker compose -f $dc_file run --rm $people_service bash -c "exit"
+        if [[ $? -ne 0 ]]; then
+            people_service=people-framos-jetson
+            docker compose -f $dc_file run --rm $people_service bash -c "exit"
+            if [[ $? -ne 0 ]]; then
+                return 1
+            fi
+        fi
+    else
+        echo "Unknown architecture: $arch"
+        return 1
+    fi
+    echo "$people_service"
+    return 0
+}
+
 pwd=`pwd`
 scriptdir=`dirname $0`
 cd $scriptdir
@@ -62,19 +95,35 @@ else
 fi
 
 
-if [ ! -e "rtmdet/end2end.engine" ]; then
-    if [ $arch != "x86_64" ] && [ $arch != "aarch64" ]; then
-        echo "Unknown architecture: $arch"
-        exit 1
+if [ $arch = "x86_64" ]; then
+    # find docker compose file in cabot directory at first
+    dc_file=$dc_dir/docker-compose-common.yaml
+    if [ ! -e $dc_file ]; then
+        # find docker compose file in cabot-people directory
+        dc_file=$dc_dir/docker-compose.yaml
+        if [ ! -e $dc_file ]; then
+            echo "docker compose file is not found"
+            exit 1
+        fi
     fi
-    dc_file=$dc_dir/docker-compose-people-setup-model.yaml
-    if [ $arch = "x86_64" ]; then
-        people_service=people-setup-model
-    elif [ $arch = "aarch64" ]; then
-        people_service=people-jetson-setup-model
+elif [ $arch = "aarch64" ]; then
+    # find docker compose file in cabot directory at first
+    dc_file=$dc_dir/docker-compose-jetson-common.yaml
+    if [ ! -e $dc_file ]; then
+        # find docker compose file in cabot-people directory
+        dc_file=$dc_dir/docker-compose-jetson.yaml
+        if [ ! -e $dc_file ]; then
+            echo "docker compose file is not found"
+            exit 1
+        fi
     fi
+else
+    echo "Unknown architecture: $arch"
+    exit 1
+fi
 
-    docker compose -f $dc_file run --rm $people_service bash -c "exit"
+if [ ! -e "rtmdet/end2end.engine" ]; then
+    people_service=$(check_people_service "$arch" "$dc_file")
     if [[ $? -ne 0 ]]; then
         echo "build docker at first to prepare rtmdet model"
         exit 1
@@ -152,18 +201,7 @@ else
 fi
 
 if [ ! -e "rtmdet-ins/end2end.engine" ]; then
-    if [ $arch != "x86_64" ] && [ $arch != "aarch64" ]; then
-        echo "Unknown architecture: $arch"
-        exit 1
-    fi
-    dc_file=$dc_dir/docker-compose-people-setup-model.yaml
-    if [ $arch = "x86_64" ]; then
-        people_service=people-setup-model
-    elif [ $arch = "aarch64" ]; then
-        people_service=people-jetson-setup-model
-    fi
-
-    docker compose -f $dc_file run --rm $people_service bash -c "exit"
+    people_service=$(check_people_service "$arch" "$dc_file")
     if [[ $? -ne 0 ]]; then
         echo "build docker at first to prepare rtmdet-ins model"
         exit 1

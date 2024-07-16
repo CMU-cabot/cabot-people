@@ -19,19 +19,19 @@
 
 - assume you have docker (Nvidia docker) and docker compose
 - make sure you have a PC with a NVIDIA GPU, or a Jeston (Xavier, Orin, Xavier NX)
-- run one of the following the script to build image and workspaces
+- run one of the following scripts to build image
 
 ```
-./build-docker.sh -p -i -w              # build image and workspaces for RealSense
-./build-docker.sh -p -i -w -c framos    # build image and workspaces for FRAMOS
-./build-docker.sh -p -i -w -c all       # build image and workspaces for RealSense and FRAMOS
+./build-docker.sh -p -i              # build image for RealSense
+./build-docker.sh -p -i -c framos    # build image for FRAMOS
+./build-docker.sh -p -i -c all       # build image for RealSense and FRAMOS
 ```
 
-- run the script to prepare people detection models after you build image
+- After you build image, run scripts to prepare people detection models and build workspaces
 
 ```
-./setup-model.sh
-./build-docker.sh -w
+./setup-model.sh                     # prepare people detection models
+./build-docker.sh -w                 # build workspaces
 ```
 
 ### Bringup Realsense(s), detection, and tracking
