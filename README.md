@@ -11,27 +11,21 @@
 
 ### Preparation
 
-- run the script to download dependencies
+- run the script to download yolov4 model and dependencies
 
 ```
+./setup-model.sh
 ./setup-dependency.sh
 ```
 
 - assume you have docker (Nvidia docker) and docker compose
 - make sure you have a PC with a NVIDIA GPU, or a Jeston (Xavier, Orin, Xavier NX)
-- run one of the following scripts to build image
+- run one of the following scripts to build image and workspaces
 
 ```
-./build-docker.sh -p -i              # build image for RealSense
-./build-docker.sh -p -i -c framos    # build image for FRAMOS
-./build-docker.sh -p -i -c all       # build image for RealSense and FRAMOS
-```
-
-- After you build image, run scripts to prepare people detection models and build workspaces
-
-```
-./setup-model.sh                     # prepare people detection models
-./build-docker.sh -w                 # build workspaces
+./build-docker.sh -p -i -w              # build image and workspaces for RealSense
+./build-docker.sh -p -i -w -c framos    # build image and workspaces for FRAMOS
+./build-docker.sh -p -i -w -c all       # build image and workspaces for RealSense and FRAMOS
 ```
 
 ### Bringup Realsense(s), detection, and tracking

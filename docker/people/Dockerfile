@@ -35,6 +35,7 @@ RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 RUN apt update && \
 	apt install -y --no-install-recommends \
 	git \
+	bc \
 	jq \
         libfreetype6-dev \
         libglu1-mesa-dev \
@@ -93,8 +94,9 @@ RUN pip3 install --no-cache-dir \
 
 COPY ./launch.sh \
      ./launch-core.sh \
-	./resetusb.sh ./resetrs.sh /
-
+     ./resetusb.sh ./resetrs.sh \
+     ./setup-mmdeploy-model.sh /
+ 
 # setup for display
 ENV USERNAME developer
 

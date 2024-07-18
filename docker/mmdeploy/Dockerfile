@@ -111,7 +111,7 @@ RUN cd /opt && \
 ENV LD_LIBRARY_PATH=${BACKUP_LD_LIBRARY_PATH}
 
 # install mmdetection requirements
-RUN pip3 install --no-cache-dir pycocotools==2.0.7 shapely==2.0.4
+RUN pip3 install --no-cache-dir pycocotools==2.0.7 shapely==2.0.4 texttable==1.7.0
 
 # install mmdetection
 RUN cd /opt && \
@@ -180,7 +180,7 @@ COPY --from=cache /usr/mmdeploy_runtime /opt/mmdeploy_runtime
 ENV PYTHONPATH=/opt/mmdeploy_runtime/lib:$PYTHONPATH
 
 # install mmdetection requirements
-RUN pip3 install --no-cache-dir pycocotools==2.0.7 shapely==2.0.4
+RUN pip3 install --no-cache-dir pycocotools==2.0.7 shapely==2.0.4 texttable==1.7.0
 # install mmdetection
 COPY --from=cache /usr/local/lib/python3.10/dist-packages/mmdet /usr/local/lib/python3.10/dist-packages/mmdet
 COPY --from=cache /usr/local/lib/python3.10/dist-packages/mmdet-3.3.0.dist-info /usr/local/lib/python3.10/dist-packages/mmdet-3.3.0.dist-info

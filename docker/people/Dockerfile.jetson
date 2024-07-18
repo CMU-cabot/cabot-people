@@ -11,6 +11,7 @@ ENV LANG=en_US.UTF-8
 
 RUN apt update && \
         apt install -y --no-install-recommends \
+        bc \
         jq \
         && \
         apt clean && \
@@ -20,7 +21,7 @@ COPY requirements.txt /
 RUN pip3 install --no-cache-dir \
         -r /requirements.txt
 
-COPY ./launch.sh ./resetusb.sh ./resetrs.sh ./resetframos.sh /
+COPY ./launch.sh ./resetusb.sh ./resetrs.sh ./resetframos.sh ./setup-mmdeploy-model.sh /
 
 # debug
 # RUN apt update && apt-get install -y --no-install-recommends gdb

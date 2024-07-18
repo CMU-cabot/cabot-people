@@ -27,6 +27,14 @@ args=("$@")
 WS=$HOME/people_ws
 
 if [ "$1" == "build" ]; then
+    echo "Setup mmdeploy model"
+    /setup-mmdeploy-model.sh $WS/src/track_people_py/models
+    if [ $? -ne 0 ]; then
+        echo "Failed to setup mmdeploy model"
+        exit 1
+    fi
+
+    echo "Build workspace"
     cd $WS
     colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release
     exit $?
