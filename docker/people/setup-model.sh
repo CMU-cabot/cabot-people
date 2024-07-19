@@ -43,10 +43,43 @@ shift $((OPTIND-1))
 model_dir=$1
 
 if [ -z "$model_dir" ]; then
-    echo "please specify model directory"
+    echo "Please specify model directory"
     exit 1
 fi
 cd $model_dir
+
+if [ ! -e "yolov4.cfg" ]; then
+    echo "Downloading yolov4.cfg"
+    wget https://raw.githubusercontent.com/AlexeyAB/darknet/yolov4/cfg/yolov4.cfg
+    if [ $? -ne 0 ]; then
+        echo "Failed to download yolov4.cfg"
+        exit 1
+    fi
+else
+    echo "You already have yolov4.cfg"
+fi
+
+if [ ! -e "yolov4.weights" ]; then
+    echo "Downloading yolov4.weights"
+    wget https://github.com/AlexeyAB/darknet/releases/download/darknet_yolo_v3_optimal/yolov4.weights
+    if [ $? -ne 0 ]; then
+        echo "Failed to download yolov4.weights"
+        exit 1
+    fi
+else
+    echo "You already have yolov4.weights"
+fi
+
+if [ ! -e "coco.names" ]; then
+    echo "Downloading coco.names"
+    wget https://raw.githubusercontent.com/AlexeyAB/darknet/yolov4/cfg/coco.names
+    if [ $? -ne 0 ]; then
+        echo "Failed to download coco.names"
+        exit 1
+    fi
+else
+    echo "You already have coco.names"
+fi
 
 if [ ! -e "rtmdet/end2end.engine" ]; then
     # setting for input image size
@@ -78,6 +111,10 @@ if [ ! -e "rtmdet/end2end.engine" ]; then
     if [ ! -e "rtmdet/$model_filename" ]; then
         echo "Downloading rtmdet/$model_filename"
         wget -P rtmdet $model_url
+        if [ $? -ne 0 ]; then
+            echo "Failed to download $model_url"
+            exit 1
+        fi
     else
         echo "You already have rtmdet/$model_filename"
     fi
@@ -147,6 +184,10 @@ if [ ! -e "rtmdet-ins/end2end.engine" ]; then
     if [ ! -e "rtmdet-ins/$model_filename" ]; then
         echo "Downloading rtmdet-ins/$model_filename"
         wget -P rtmdet-ins $model_url
+        if [ $? -ne 0 ]; then
+            echo "Failed to download $model_url"
+            exit 1
+        fi
     else
         echo "You already have rtmdet-ins/$model_filename"
     fi

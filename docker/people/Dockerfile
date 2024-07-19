@@ -95,7 +95,7 @@ RUN pip3 install --no-cache-dir \
 COPY ./launch.sh \
      ./launch-core.sh \
      ./resetusb.sh ./resetrs.sh \
-     ./setup-mmdeploy-model.sh /
+     ./setup-model.sh /
  
 # setup for display
 ENV USERNAME developer

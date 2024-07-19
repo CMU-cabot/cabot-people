@@ -11,10 +11,9 @@
 
 ### Preparation
 
-- run the script to download yolov4 model and dependencies
+- run the script to download dependencies
 
 ```
-./setup-model.sh
 ./setup-dependency.sh
 ```
 

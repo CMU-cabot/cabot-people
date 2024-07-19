@@ -27,10 +27,10 @@ args=("$@")
 WS=$HOME/people_ws
 
 if [ "$1" == "build" ]; then
-    echo "Setup mmdeploy model"
-    /setup-mmdeploy-model.sh $WS/src/track_people_py/models
+    echo "Setup model"
+    /setup-model.sh $WS/src/track_people_py/models
     if [ $? -ne 0 ]; then
-        echo "Failed to setup mmdeploy model"
+        echo "Failed to setup model"
         exit 1
     fi
 
