@@ -8,7 +8,7 @@ ENV CUSTOM_DIR=/opt/custom_ws
 
 RUN mkdir -p $CUSTOM_DIR/src
 COPY ./people $CUSTOM_DIR/src
-RUN	cp -r /usr/src/librealsense2/wrappers/ros2 $CUSTOM_DIR/src
+RUN	cp -r /usr/src/librealsense2/wrappers/ros2 $CUSTOM_DIR/src/
 
 WORKDIR $CUSTOM_DIR
 

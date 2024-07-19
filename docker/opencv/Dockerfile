@@ -79,7 +79,7 @@ RUN mkdir -p src/opencv/build && cd src/opencv && \
 	unzip ${OPENCV_V}.zip && rm ${OPENCV_V}.zip && \
 	cd build && \
 	cmake \
-	-D BUILD_LIST=core,cudev,dnn,imgproc,imgcodecs,calib3d,highgui,python3 \
+	-D BUILD_LIST=core,cudev,dnn,imgproc,imgcodecs,calib3d,highgui,python3,video,videoio \
 	-D CMAKE_BUILD_TYPE=RELEASE \
 	-D CMAKE_INSTALL_PREFIX=/usr/local \
 	-D INSTALL_PYTHON_EXAMPLES=OFF \

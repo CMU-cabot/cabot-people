@@ -1,6 +1,4 @@
-#!/bin/bash
-
-# Copyright (c) 2021  IBM Corporation
+# Copyright (c) 2023  Carnegie Mellon University, IBM Corporation, and others
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -19,30 +17,17 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
+_base_ = ['./detection_tensorrt_static-640x640.py']
 
-ulimit -S -c 0
+onnx_config = dict(input_shape=(640, 384))
 
-args=("$@")
-
-WS=$HOME/people_ws
-
-if [ "$1" == "build" ]; then
-    echo "Setup model"
-    /setup-model.sh $WS/src/track_people_py/models
-    if [ $? -ne 0 ]; then
-        echo "Failed to setup model"
-        exit 1
-    fi
-
-    echo "Build workspace"
-    cd $WS
-    colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release
-    exit $?
-else
-    echo "Skip building workscape"
-fi
-
-source install/setup.bash
-
-cd $WS/src/cabot_people/script
-exec ./cabot_people.sh ${args[@]}
+backend_config = dict(
+    common_config=dict(fp16_mode=True),
+    model_inputs=[
+        dict(
+            input_shapes=dict(
+                input=dict(
+                    min_shape=[1, 3, 384, 640],
+                    opt_shape=[1, 3, 384, 640],
+                    max_shape=[1, 3, 384, 640])))
+    ])

@@ -7,7 +7,7 @@ ENV ROS_DISTRO=humble
 ENV CUSTOM_DIR=/opt/custom_ws
 
 RUN mkdir -p $CUSTOM_DIR/src
-COPY ./people ./realsense_ros $CUSTOM_DIR/src
+COPY ./people ./realsense_ros $CUSTOM_DIR/src/
 
 WORKDIR $CUSTOM_DIR
 

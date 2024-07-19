@@ -1,4 +1,4 @@
-// Copyright (c) 2021  Carnegie Mellon University
+// Copyright (c) 2023  Carnegie Mellon University, IBM Corporation, and others
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -17,13 +17,11 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
-//
-// Author: Daisuke Sato <daisukes@cmu.edu>
 
-#ifndef DETECT_DARKNET_OPENCV_HPP_
-#define DETECT_DARKNET_OPENCV_HPP_
+#ifndef DETECT_MMDet_HPP_
+#define DETECT_MMDet_HPP_
 
-#include <opencv2/dnn.hpp>
+#include <mmdeploy/detector.hpp>
 
 #include "abstract_detect_people.hpp"
 
@@ -31,24 +29,21 @@
 namespace track_people_cpp
 {
 
-class DetectDarknetOpencv : public AbstractDetectPeople
+class DetectMMDet : public AbstractDetectPeople
 {
 public:
-  explicit DetectDarknetOpencv(rclcpp::NodeOptions options);
+  explicit DetectMMDet(rclcpp::NodeOptions options);
 
 private:
   void process_detect(DetectData & dd);
 
-  cv::dnn::Net darknet_;
-
-  std::shared_ptr<cv::dnn::DetectionModel> model_;
+  std::shared_ptr<mmdeploy::Model> model_;
+  std::shared_ptr<mmdeploy::Detector> detector_;
 
   // config parameters
-  std::string detect_config_filename_;
-  std::string detect_weight_filename_;
-  std::string detect_label_filename_;
+  std::string detect_model_directory_;
 };
 
 }  // namespace track_people_cpp
 
-#endif  // DETECT_DARKNET_OPENCV_HPP_
+#endif  // DETECT_MMDet_HPP_

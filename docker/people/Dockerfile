@@ -19,7 +19,7 @@
 # SOFTWARE.
 
 ARG PREFIX
-ARG FROM_IMAGE=${PREFIX}__jammy-cuda11.7.1-cudnn8-devel-realsense-humble-custom-opencv-open3d-mesa
+ARG FROM_IMAGE=${PREFIX}__jammy-cuda11.8.0-cudnn8-devel-realsense-humble-custom-opencv-mmdeploy-open3d-mesa
 
 FROM $FROM_IMAGE AS build
 ARG ROS_DISTRO=humble \
@@ -35,6 +35,8 @@ RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 RUN apt update && \
 	apt install -y --no-install-recommends \
 	git \
+	bc \
+	jq \
         libfreetype6-dev \
         libglu1-mesa-dev \
 	python-tk \
@@ -92,8 +94,9 @@ RUN pip3 install --no-cache-dir \
 
 COPY ./launch.sh \
      ./launch-core.sh \
-	./resetusb.sh ./resetrs.sh /
-
+     ./resetusb.sh ./resetrs.sh \
+     ./setup-model.sh /
+ 
 # setup for display
 ENV USERNAME developer
 

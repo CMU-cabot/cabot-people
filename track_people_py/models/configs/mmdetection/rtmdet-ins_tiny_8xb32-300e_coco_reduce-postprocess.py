@@ -1,6 +1,4 @@
-#!/bin/bash
-
-# Copyright (c) 2021  IBM Corporation
+# Copyright (c) 2023  Carnegie Mellon University, IBM Corporation, and others
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -19,30 +17,12 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
-
-ulimit -S -c 0
-
-args=("$@")
-
-WS=$HOME/people_ws
-
-if [ "$1" == "build" ]; then
-    echo "Setup model"
-    /setup-model.sh $WS/src/track_people_py/models
-    if [ $? -ne 0 ]; then
-        echo "Failed to setup model"
-        exit 1
-    fi
-
-    echo "Build workspace"
-    cd $WS
-    colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release
-    exit $?
-else
-    echo "Skip building workscape"
-fi
-
-source install/setup.bash
-
-cd $WS/src/cabot_people/script
-exec ./cabot_people.sh ${args[@]}
+_base_ = '/opt/mmdetection/configs/rtmdet/rtmdet-ins_tiny_8xb32-300e_coco.py'
+model = dict(
+    test_cfg=dict(
+        nms_pre=1000,
+        min_bbox_size=0,
+        score_thr=0.25,
+        nms=dict(type='nms', iou_threshold=0.4),
+        max_per_img=100)
+)
