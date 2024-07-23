@@ -104,6 +104,7 @@ commandpost='&'
 : ${CABOT_DETECT_VERSION:=3}
 : ${CABOT_DETECT_PEOPLE_CONF_THRES:=0.6}
 : ${CABOT_DETECT_PEOPLE_CLEAR_TIME:=0.2}
+: ${CABOT_LOW_OBSTABLE_DETECT_VERSION:=0}
 : ${CABOT_HEADLESS:=0}
 if [[ $CABOT_HEADLESS -eq 1 ]]; then
     CABOT_SHOW_PEOPLE_RVIZ=0
@@ -126,6 +127,8 @@ depth_fps=$CABOT_CAMERA_DEPTH_FPS
 resolution=$CABOT_CAMERA_RESOLUTION
 
 cabot_detect_ver=$CABOT_DETECT_VERSION
+
+cabot_low_obstacle_detect_ver=$CABOT_LOW_OBSTABLE_DETECT_VERSION
 
 camera_type=1
 check_required=0
@@ -542,6 +545,28 @@ fi
 
 ### obstacle detect/track
 if [ $obstacle -eq 1 ]; then
+    launch_file="track_people_cpp detect_obstacles.launch.py sensor_id:=velodyne scan_topic:=/scan"
+    echo "launch $launch_file"
+    com="$command ros2 launch $launch_file \
+                  sensor_id:=velodyne \
+                  scan_topic:=/scan \
+                  $commandpost"
+    echo $com
+    eval $com
+    pids+=($!)
+
+    if [ $cabot_low_obstacle_detect_ver -gt 0 ]; then
+        launch_file="track_people_cpp detect_obstacles.launch.py sensor_id:=livox scan_topic:=/livox_scan"
+        echo "launch $launch_file"
+        com="$command ros2 launch $launch_file \
+                    sensor_id:=livox \
+                    scan_topic:=/livox_scan \
+                    $commandpost"
+        echo $com
+        eval $com
+        pids+=($!)
+    fi
+
     launch_file="track_people_cpp track_obstacles.launch.py"
     echo "launch $launch_file"
     com="$command ros2 launch $launch_file \
