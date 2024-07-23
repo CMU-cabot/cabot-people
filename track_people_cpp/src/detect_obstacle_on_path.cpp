@@ -45,8 +45,11 @@ DetectObstacleOnPath::DetectObstacleOnPath(rclcpp::NodeOptions options)
 
   rclcpp::SensorDataQoS sensor_qos;
 
+  sensor_id_ = this->declare_parameter("sensor_id", sensor_id_);
+  scan_topic_ = this->declare_parameter("scan_topic", scan_topic_);
+
   scan_sub_ = this->create_subscription<sensor_msgs::msg::LaserScan>(
-    "/scan", sensor_qos, std::bind(&DetectObstacleOnPath::scanCallback, this, std::placeholders::_1));
+    scan_topic_, sensor_qos, std::bind(&DetectObstacleOnPath::scanCallback, this, std::placeholders::_1));
   plan_sub_ = this->create_subscription<nav_msgs::msg::Path>(
     "/plan", 10, std::bind(&DetectObstacleOnPath::planCallback, this, std::placeholders::_1));
   obstacle_pub_ = this->create_publisher<track_people_msgs::msg::TrackedBoxes>("people/detected_boxes", 10);
@@ -69,7 +72,7 @@ DetectObstacleOnPath::DetectObstacleOnPath(rclcpp::NodeOptions options)
 void DetectObstacleOnPath::update()
 {
   track_people_msgs::msg::TrackedBoxes boxes;
-  boxes.camera_id = "scan";
+  boxes.camera_id = sensor_id_;
   boxes.header.frame_id = map_frame_name_;
   boxes.header.stamp = last_scan_->header.stamp;
 
