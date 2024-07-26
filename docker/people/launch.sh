@@ -27,11 +27,16 @@ args=("$@")
 WS=$HOME/people_ws
 
 if [ "$1" == "build" ]; then
-    echo "Setup model"
-    /setup-model.sh $WS/src/track_people_py/models
-    if [ $? -ne 0 ]; then
-        echo "Failed to setup model"
-        exit 1
+    arch=$(uname -m)
+    if { [ $arch = "x86_64" ] && [ -n "$(which nvidia-smi)" ]; } || [ $arch = "aarch64" ]; then
+        echo "Setup model"
+        /setup-model.sh $WS/src/track_people_py/models
+        if [ $? -ne 0 ]; then
+            echo "Failed to setup model"
+            exit 1
+        fi
+    else
+        echo "Skip setup model. GPU is not detected."
     fi
 
     echo "Build workspace"
