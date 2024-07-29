@@ -27,6 +27,7 @@ args=("$@")
 WS=$HOME/people_ws
 
 if [ "$1" == "build" ]; then
+    echo "Build workspace"
     cd $WS
     colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release
     exit $?
