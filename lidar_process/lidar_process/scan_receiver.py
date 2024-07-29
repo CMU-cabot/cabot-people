@@ -13,6 +13,10 @@ from sensor_msgs.msg import PointCloud2
 from sensor_msgs_py import point_cloud2
 from cabot_msgs.msg import PoseLog
 
+import tf_transformations
+import tf2_ros
+from cabot_msgs.srv import LookupTransform
+
 import open3d as o3d
 
 class ScanReceiver(Node):
@@ -51,6 +55,13 @@ class ScanReceiver(Node):
         self._high_level_vel_threshold = self.declare_parameter('high_level_vel_threshold', 1).value
         self._high_level_ori_threshold = self.declare_parameter('high_level_ori_threshold', 1).value
 
+        self.lookup_transform_service = self.create_client(LookupTransform, '/lookup_transform')
+
+        # Test
+        self.lidar_to_map = self.lookup_transform('velodyne', 'map')
+        print('-----Transform-----')
+        print(self.lidar_to_map)
+
         self.pointcloud_history = queue.Queue(self._history_window)
         self.pointcloud_history_np = []  # list of numpys
         self.is_history_complete = False
@@ -58,6 +69,46 @@ class ScanReceiver(Node):
         self.is_queue_occupied= False
 
         return
+    
+    def lookup_transform(self, source, target):
+        # Look up and return tf transformation from source frame to target frame
+
+        self.get_logger().info(f"lookup_transform({source}, {target})")
+        req = LookupTransform.Request()
+        req.target_frame = target
+        req.source_frame = source
+        if not self.lookup_transform_service.wait_for_service(timeout_sec=1.0):
+            raise Exception("lookup transform service is not available")
+        
+        # Borrowed from BufferProxy in cabot-navigation/cabot_ui/cabot_ui/navigation.py
+        future = self.lookup_transform_service.call_async(req)
+        rclpy.spin_until_future_complete(self, future)
+
+        """
+        event = threading.Event()
+
+        def unblock(future):
+            nonlocal event
+            event.set()
+        future.add_done_callback(unblock)
+        # Check future.done() before waiting on the event.
+        # The callback might have been added after the future is completed,
+        # resulting in the event never being set.
+        if not future.done():
+            if not event.wait(10.0):
+                # Timed out. remove_pending_request() to free resources
+                self.lookup_transform_service.remove_pending_request(future)
+                raise Exception("timeout")
+        if future.exception() is not None:
+            raise future.exception()
+        """
+
+        # sync call end here
+
+        result = future.result()
+        if result.error.error > 0:
+            raise Exception(result.error.error_string)
+        return result.transform
 
     def scan_cb(self, msg):
         # Stores pointcloud when the node receives one.
@@ -68,12 +119,6 @@ class ScanReceiver(Node):
         self.curr_pose = self.pose
         self.curr_time = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
         dt = self.curr_time - self.prev_time
-
-        print("-----Pose and time ------")
-        print(self.curr_pose)
-        print(self.prev_pose)
-        print(self.curr_time)
-        print(self.prev_time)
 
         # Pointcloud format
         # (x, y, z, intensity, ring number [e.g. 0-15])
