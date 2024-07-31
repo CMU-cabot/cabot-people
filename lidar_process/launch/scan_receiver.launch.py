@@ -66,9 +66,9 @@ def generate_launch_description():
             #arguments=["--ros-args", "--log-level", "debug"]
         ),
 
-        #Node(
-        #    package="cabot_common",
-        #    executable="lookup_transform_service_node",
-        #    name="lookup_transform_service_node",
-        #),
+        Node(
+            package="cabot_common",
+            executable="lookup_transform_service_node",
+            name="lookup_transform_service_node",
+        ),
     ])

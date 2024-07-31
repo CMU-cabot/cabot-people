@@ -4,17 +4,19 @@ import queue
 import threading
 import numpy as np
 from sklearn.cluster import DBSCAN
+from scipy.spatial.transform import Rotation
 
 import rclpy
 from rclpy.node import Node
 
 from std_msgs.msg import Header
-from sensor_msgs.msg import PointCloud2
+from sensor_msgs.msg import PointCloud2, PointField
 from sensor_msgs_py import point_cloud2
 from cabot_msgs.msg import PoseLog
 
-import tf_transformations
-import tf2_ros
+from rclpy.executors import MultiThreadedExecutor
+from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
+
 from cabot_msgs.srv import LookupTransform
 
 import open3d as o3d
@@ -23,17 +25,29 @@ class ScanReceiver(Node):
 
     def __init__(self):
         super().__init__('scan_receiver')
+
+        state_update_callback_group = MutuallyExclusiveCallbackGroup()
+        transform_lookup_callback_group = MutuallyExclusiveCallbackGroup()
         self.scan_sub = self.create_subscription(
             PointCloud2, 
             '/velodyne_points_cropped',
             self.scan_cb,
-            10
+            10,
+            callback_group = state_update_callback_group
         )
         self.scan_sub = self.create_subscription(
             PoseLog, 
             '/cabot/pose_log',
             self.pose_cb,
-            10
+            10,
+            callback_group = state_update_callback_group
+        )
+        
+        self.pcl_debug_pub = self.create_publisher(
+            PointCloud2,
+            "/map_velodyne_points",
+            10,
+            callback_group = transform_lookup_callback_group
         )
 
         self.pointcloud = np.array([])
@@ -57,16 +71,9 @@ class ScanReceiver(Node):
 
         self.lookup_transform_service = self.create_client(LookupTransform, '/lookup_transform')
 
-        # Test
-        self.lidar_to_map = self.lookup_transform('velodyne', 'map')
-        print('-----Transform-----')
-        print(self.lidar_to_map)
-
         self.pointcloud_history = queue.Queue(self._history_window)
         self.pointcloud_history_np = []  # list of numpys
         self.is_history_complete = False
-
-        self.is_queue_occupied= False
 
         return
     
@@ -74,6 +81,7 @@ class ScanReceiver(Node):
         # Look up and return tf transformation from source frame to target frame
 
         self.get_logger().info(f"lookup_transform({source}, {target})")
+
         req = LookupTransform.Request()
         req.target_frame = target
         req.source_frame = source
@@ -82,7 +90,9 @@ class ScanReceiver(Node):
         
         # Borrowed from BufferProxy in cabot-navigation/cabot_ui/cabot_ui/navigation.py
         future = self.lookup_transform_service.call_async(req)
+        print("stuck here")
         rclpy.spin_until_future_complete(self, future)
+        print("not stuck here")
 
         """
         event = threading.Event()
@@ -104,7 +114,6 @@ class ScanReceiver(Node):
         """
 
         # sync call end here
-
         result = future.result()
         if result.error.error > 0:
             raise Exception(result.error.error_string)
@@ -120,11 +129,14 @@ class ScanReceiver(Node):
         self.curr_time = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
         dt = self.curr_time - self.prev_time
 
+        self.get_logger().info("pcl received")
+
         # Pointcloud format
         # (x, y, z, intensity, ring number [e.g. 0-15])
         # Pointcloud complete format
         # (x, y, z, intensity, ring, group id, group center x, group center y, vel_x, vel_y)
         parsed_pointcloud = point_cloud2.read_points(msg, skip_nans=True)
+
         num_raw_pt = len(parsed_pointcloud)
         if num_raw_pt > 0:
             self.pointcloud = np.zeros((num_raw_pt, len(parsed_pointcloud[0])))
@@ -137,6 +149,17 @@ class ScanReceiver(Node):
         else:
             self.pointcloud = np.array([])
 
+        # transform pointcloud to map frame
+        self.get_logger().info("lidar transform start")
+        lidar_to_map = self.lookup_transform('velodyne', 'map')
+        self.get_logger().info("transform received")
+        transformed_cloud = self._do_transform(self.pointcloud, lidar_to_map, msg.header)
+        self.get_logger().info("lidar transform end")
+
+        print("--------pcl debug--------")
+        print(self.pointcloud[0])
+        print(transformed_cloud[0])
+
         self.pointcloud_complete = self._calc_pointcloud_group_vel(
                                             self.pointcloud_prev, 
                                             self.pointcloud, 
@@ -147,16 +170,11 @@ class ScanReceiver(Node):
         self.prev_pose = self.curr_pose
         self.prev_time = self.curr_time
 
-        # queue lock
-        while self.is_queue_occupied:
-            continue
-        self.is_queue_occupied = True
         if self.pointcloud_history.qsize() == self._history_window :
             self.is_history_complete = True
             # pop the oldest point cloud from the queue
             tmp = self.pointcloud_history.get(block=False)
         self.pointcloud_history.put(self.pointcloud, block=False)
-        self.is_queue_occupied = False
         
         return
     
@@ -164,7 +182,54 @@ class ScanReceiver(Node):
         self.pose = msg.pose
         return
     
-    def _calc_pointcloud_group_vel(self, prev_ptcloud, curr_ptcloud, prev_pose, curr_pose):
+    def _do_transform(self, pointcloud, transform, header=None):
+        # This function transforms the pointcloud in msg to the transformation defined in
+        # transform. Transform is obtained by calling lookup_transform.
+        # If header is provided, transformed pointclouds will be published
+
+        pointcloud_coord = pointcloud[:, :3]
+
+        # implementation inspired by 
+        # https://robotics.stackexchange.com/questions/109924/alternative-to-tf2-sensor-msgs-do-transform-cloud-in-ros-2humble-for-point-clo
+        t = np.eye(4)
+        q = transform.transform.rotation
+        x = transform.transform.translation
+        t[:3, :3] = Rotation.from_quat([q.x, q.y, q.z, q.w]).as_matrix()
+        t[:3, 3] = [x.x, x.y, x.z]
+
+        print(len(pointcloud_coord))
+
+        pointcloud_new = np.ones((len(pointcloud_coord), 4))
+        pointcloud_new[:, :3] = pointcloud_coord
+        pointcloud_new = np.matmul(t, pointcloud_new.T)
+        print("DEBUG0")
+        pointcloud_new[0, :] = np.divide(pointcloud_new[0, :], pointcloud_new[3, :])
+        pointcloud_new[1, :] = np.divide(pointcloud_new[1, :], pointcloud_new[3, :])
+        pointcloud_new[2, :] = np.divide(pointcloud_new[2, :], pointcloud_new[3, :])
+        pointcloud_new = pointcloud_new.T
+
+        pointcloud_rst = pointcloud
+        pointcloud_rst[:, :3] = pointcloud_new[:, :3]
+
+        print("DEBUG1")
+
+        # for debug/visualization purpose
+        if not header is None:
+            fields = [
+                PointField(name="x", offset=0, datatype=PointField.FLOAT32, count=1),
+                PointField(name="y", offset=4, datatype=PointField.FLOAT32, count=1),
+                PointField(name="z", offset=8, datatype=PointField.FLOAT32, count=1),
+            ]
+            pointcloud_map_header = header
+            pointcloud_map_header.frame_id = "map"
+            pointcloud_map = point_cloud2.create_cloud(pointcloud_map_header, fields, pointcloud_new[:, :3])
+            self.pcl_debug_pub.publish(pointcloud_map)
+
+        print("DEBUG2")
+
+        return pointcloud_rst
+    
+    def _calc_pointcloud_group_vel(self, prev_ptcloud, curr_ptcloud, prev_pose, curr_pose, dt):
         # This function uses small threshold, distane based clustering to assign groups.
         # Then compare the assigned groups to previous groups to get pointcloud velocities.
 
@@ -196,12 +261,7 @@ class ScanReceiver(Node):
     def _copy_pointcloud(self):
         # Copy the point cloud from queue to an array for processing later
 
-        # queue lock
-        while self.is_queue_occupied:
-            continue
-        self.is_queue_occupied = True
         self.pointcloud_history_np = list(self.pointcloud_history.queue)
-        self.is_queue_occupied = False
         return
     
     def process_loop(self):
@@ -213,6 +273,8 @@ class ScanReceiver(Node):
 
         while True:
             if not self.is_history_complete:
+                loop_rate = self.create_rate(1, self.get_clock())
+                loop_rate.sleep()
                 continue
             try:
                 self._copy_pointcloud()
@@ -225,13 +287,14 @@ class ScanReceiver(Node):
 def main():
     rclpy.init()
     scan_receiver = ScanReceiver()
-    process_thread = threading.Thread(target=scan_receiver.process_loop)
-    process_thread.start()
+    #process_thread = threading.Thread(target=scan_receiver.process_loop)
+    #process_thread.start()
 
     try:
-        rclpy.spin(scan_receiver)
-    except:
-        process_thread.join()
+        executor = MultiThreadedExecutor()
+        rclpy.spin(scan_receiver, executor)
+    except KeyboardInterrupt:
+        #process_thread.join()
         scan_receiver.get_logger().info("Shutting down")
 
     scan_receiver.destroy_node()
