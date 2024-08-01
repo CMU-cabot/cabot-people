@@ -64,6 +64,11 @@ class ScanReceiver(Node):
         self._scan_max_range = self.declare_parameter('scan_max_range', 100).value
         self._history_window = self.declare_parameter('history_window', 8).value
         self._future_window = self.declare_parameter('future_window', 8).value
+        # samples needed to be considered core points for DBSCAN clustering
+        self._low_level_core_samples = self.declare_parameter('low_level_core_samples', 5).value
+        # threshold values for DBSCAN
+        # low level is used for denoising and calculating velocities
+        # high level is used for pedestrian grouping
         self._low_level_pos_threshold = self.declare_parameter('low_level_pos_threshold', 0.25).value
         self._high_level_pos_threshold = self.declare_parameter('high_level_pos_threshold', 1).value
         self._high_level_vel_threshold = self.declare_parameter('high_level_vel_threshold', 1).value
@@ -162,7 +167,7 @@ class ScanReceiver(Node):
 
         self.pointcloud_complete = self._calc_pointcloud_group_vel(
                                             self.pointcloud_prev, 
-                                            self.pointcloud, 
+                                            transformed_cloud, 
                                             self.prev_pose, 
                                             self.curr_pose,
                                             dt)
@@ -181,6 +186,23 @@ class ScanReceiver(Node):
     def pose_cb(self, msg):
         self.pose = msg.pose
         return
+    
+    def _is_valid_pt(self, elem):
+        # test if ring specified
+        if not (self._ring_limit == -1):
+            ring = elem[4]
+            if not ring == self._ring_limit:
+                return False
+
+        # test if point distance passes max range
+        if self._scan_max_range < 100:
+            x = elem[0]
+            y = elem[1]
+            dist = np.sqrt(x*x + y*y)
+            if dist > self._scan_max_range:
+                return False
+
+        return True
     
     def _do_transform(self, pointcloud, transform, header=None):
         # This function transforms the pointcloud in msg to the transformation defined in
@@ -232,31 +254,114 @@ class ScanReceiver(Node):
     def _calc_pointcloud_group_vel(self, prev_ptcloud, curr_ptcloud, prev_pose, curr_pose, dt):
         # This function uses small threshold, distane based clustering to assign groups.
         # Then compare the assigned groups to previous groups to get pointcloud velocities.
+        #
+        # returns pointcloud with low level group (pedestrian/object) information
+        # and estimated velocities
+        print("----------Pose & time info----------")
+        print(prev_pose)
+        print(curr_pose)
+        print(dt)
 
         num_prev = len(prev_ptcloud)
         num_curr = len(curr_ptcloud)
-        if num_prev == 0:
-            complete_ptcloud = np.array([])
-        else:
-            complete_ptcloud = np.array([])
+        complete_ptcloud = np.zeros((num_curr, 10))
+        complete_ptcloud[:, :5] = curr_ptcloud
+        ptcloud_pos = curr_ptcloud[:, :3]
+        # z coordinates are not used for now, so use _
+        (group, 
+         group_x, 
+         group_y, 
+         _, 
+         unique_group, 
+         unique_group_x, 
+         unique_group_y, 
+         _) = self._get_groups_and_centers(ptcloud_pos)
+        complete_ptcloud[:, 5] = group
+        complete_ptcloud[:, 6] = group_x
+        complete_ptcloud[:, 7] = group_y
+
+        # delete noise
+        complete_ptcloud = complete_ptcloud[group != -1]
+
+        #If no prior pointclouds are available then leave the velocity columns 8 and 9 to be 0
+        if num_prev > 0:
+            # estimate velocities for low level groups and use that as velocities of pointclouds
+            group_prev = prev_ptcloud[:, 5]
+            group_x_prev = prev_ptcloud[:, 6]
+            group_y_prev = prev_ptcloud[:, 7]
+            num_prev_group = len(group_prev)
+
+            # compress prev groups to get unique information
+            unique_group_prev = np.unique(group_prev)
+            unique_group_x_prev = np.zeros(num_prev_group)
+            unique_group_y_prev = np.zeros(num_prev_group)
+            for i, l in enumerate(unique_group_prev):
+                unique_group_x_prev[i] = group_x_prev[group_prev == l][0]
+                unique_group_y_prev[i] = group_y_prev[group_prev == l][0]
+
+            # TODO
+            # get matching pairs from curr unique groups and prev unique groups
+            # for each pair: estimate a velocity and propagate the velocity to point clouds
+
         return complete_ptcloud
+    
+    def _get_groups_and_centers(self, ptcloud):
+        # performs low level clustering to obtains small clusters around objects/pedestrians
+        # this is used to estimate the speed of the objects/pedestrians
+        #
+        # returns groups ids (or pedestrian/object ids) and the coordinates of the cluster centers
+        # size is the same as the number of points in ptcloud
+        #
+        # also returns unique group ids (labels), and coordinates
+        #
+        # Note: very heuristics based, may not be a great pedestrian detector.
+        num_pts = len(ptcloud)
+        group_x = np.zeros(num_pts)
+        group_y = np.zeros(num_pts)
+        group_z = np.zeros(num_pts)
+        group = self._get_groups(
+                    ptcloud, 
+                    self._low_level_pos_threshold, 
+                    self._low_level_core_samples
+                    )
+        labels = np.unique(group)
+        num_labels = len(labels)
+        group_x_unique = np.zeros(num_labels)
+        group_y_unique = np.zeros(num_labels)
+        group_z_unique = np.zeros(num_labels)
 
-    def _is_valid_pt(self, elem):
-        # test if ring specified
-        if not (self._ring_limit == -1):
-            ring = elem[4]
-            if not ring == self._ring_limit:
-                return False
+        for i, l in enumerate(labels):
+            # ignore noise (with group labels -1)
+            if l == -1:
+                continue
+            group_x_val = np.mean(ptcloud[group == l, 0])
+            group_y_val = np.mean(ptcloud[group == l, 1])
+            group_z_val = np.mean(ptcloud[group == l, 2])
+            group_x_unique[i] = group_x_val
+            group_y_unique[i] = group_y_val
+            group_z_unique[i] = group_z_val
+            group_x[group == l] = group_x_val
+            group_y[group == l] = group_y_val
+            group_z[group == l] = group_z_val
 
-        # test if point distance passes max range
-        if self._scan_max_range < 100:
-            x = elem[0]
-            y = elem[1]
-            dist = np.sqrt(x*x + y*y)
-            if dist > self._scan_max_range:
-                return False
-
-        return True
+        # [:1] means excluding noise group (first element is always -1)
+        assert(labels[0] == -1)
+        return (group, 
+                group_x, 
+                group_y, 
+                group_z, 
+                labels[1:], 
+                group_x_unique[1:], 
+                group_y_unique[1:], 
+                group_z_unique[1:])
+    
+    def _get_groups(self, data, threshold, core_samples):
+        # performs DBSCAN and clusters according to threshold and 
+        # number of sample points for the cluster cores
+        #
+        # returns the indexed labels with the same size as data
+        clusters = DBSCAN(eps=threshold, min_samples=core_samples).fit(data)
+        return clusters.labels_
     
     def _copy_pointcloud(self):
         # Copy the point cloud from queue to an array for processing later
