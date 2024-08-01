@@ -26,6 +26,7 @@ def generate_launch_description():
     history_window = LaunchConfiguration('history_window')
     future_window = LaunchConfiguration('future_window')
     low_level_pos_threshold = LaunchConfiguration('low_level_pos_threshold')
+    low_level_core_samples = LaunchConfiguration('low_level_core_samples')
     high_level_pos_threshold = LaunchConfiguration('high_level_pos_threshold')
     high_level_vel_threshold = LaunchConfiguration('high_level_vel_threshold')
     high_level_ori_threshold = LaunchConfiguration('high_level_ori_threshold')
@@ -42,6 +43,7 @@ def generate_launch_description():
         DeclareLaunchArgument('history_window', default_value='8'),
         DeclareLaunchArgument('future_window', default_value='8'),
         DeclareLaunchArgument('low_level_pos_threshold', default_value='0.25'),
+        DeclareLaunchArgument('low_level_core_samples', default_value='5'),
         DeclareLaunchArgument('high_level_pos_threshold', default_value='1'),
         DeclareLaunchArgument('high_level_vel_threshold', default_value='1'),
         DeclareLaunchArgument('high_level_ori_threshold', default_value='1'),
@@ -51,10 +53,11 @@ def generate_launch_description():
         SetParameter(name='scan_max_range', value=scan_max_range),
         SetParameter(name='history_window', value=history_window),
         SetParameter(name='future_window', value=future_window),
-        SetParameter('low_level_pos_threshold', value=low_level_pos_threshold),
-        SetParameter('high_level_pos_threshold', value=high_level_pos_threshold),
-        SetParameter('high_level_vel_threshold', value=high_level_vel_threshold),
-        SetParameter('high_level_ori_threshold', value=high_level_ori_threshold),
+        SetParameter(name='low_level_pos_threshold', value=low_level_pos_threshold),
+        SetParameter(name='low_level_core_samples', value=low_level_core_samples),
+        SetParameter(name='high_level_pos_threshold', value=high_level_pos_threshold),
+        SetParameter(name='high_level_vel_threshold', value=high_level_vel_threshold),
+        SetParameter(name='high_level_ori_threshold', value=high_level_ori_threshold),
 
         Node(
             package="lidar_process",
