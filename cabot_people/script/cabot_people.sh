@@ -423,6 +423,21 @@ if [ $realsense_camera -eq 1 ]; then
     fi
 fi
 
+if [ $process_lidar -eq 1 ]; then
+    ### launch people track
+    launch_file="lidar_process scan_receiver.launch.py"
+    echo "launch $launch_file"
+    com="$command ros2 launch $launch_file \
+                ring_limit:=7 \
+                scan_max_range:=10 \
+                low_level_pos_threshold:=0.3 \
+                low_level_core_samples:=5 \
+                $commandpost"
+    echo $com
+    eval $com
+    pids+=($!)
+fi
+
 
 if [ $disable_people -eq 0 ]; then
     if [ $detection -eq 1 ]; then
