@@ -19,6 +19,7 @@
 # SOFTWARE.
 
 from abc import ABCMeta, abstractmethod
+import math
 import time
 import queue
 import threading
@@ -26,7 +27,6 @@ import threading
 import cv2
 from cv_bridge import CvBridge, CvBridgeError
 from geometry_msgs.msg import PoseStamped
-from matplotlib import pyplot as plt
 from message_filters import ApproximateTimeSynchronizer
 import message_filters
 import numpy as np
@@ -61,7 +61,6 @@ class AbsDetectPeople(rclpy.node.Node):
 
         # constant parameters
         self.lookup_transform_duration = 1
-        self.vis_detect_image = False
 
         # load detect model
         self.detection_threshold = self.declare_parameter('detection_threshold', 0.6).value
@@ -75,6 +74,7 @@ class AbsDetectPeople(rclpy.node.Node):
         self.depth_registered_topic_name = self.declare_parameter('depth_registered_topic', 'aligned_depth_to_color/image_raw').value
         self.depth_unit_meter = self.declare_parameter('depth_unit_meter', False).value
         self.target_fps = self.declare_parameter('target_fps', 15.0).value
+        self.publish_detect_image = self.declare_parameter('publish_detect_image', False).value
 
         self.enable_detect_people = True
         self.toggle_srv = self.create_service(SetBool, 'enable_detect_people', self.enable_detect_people_cb)
@@ -95,6 +95,8 @@ class AbsDetectPeople(rclpy.node.Node):
         self.rgb_depth_img_synch = ApproximateTimeSynchronizer([self.rgb_image_sub, self.depth_image_sub], queue_size=10, slop=1.0/self.target_fps)
         self.rgb_depth_img_synch.registerCallback(self.rgb_depth_img_cb)
         self.detected_boxes_pub = self.create_publisher(TrackedBoxes, '/people/detected_boxes', 1)
+        if self.publish_detect_image:
+            self.detect_image_pub = self.create_publisher(Image, 'detect_image', 1)
 
         self.prev_img_time_sec = 0
 
@@ -251,7 +253,7 @@ class AbsDetectPeople(rclpy.node.Node):
             time.sleep(0.01)
             return
 
-        detect_results = self.post_process(input_depth_image, frame_resized, boxes_res)
+        detect_results, detect_results_masks = self.post_process(input_depth_image, frame_resized, boxes_res)
 
         input_pose_transform = self.pose2transform(input_pose.pose)
 
@@ -259,6 +261,8 @@ class AbsDetectPeople(rclpy.node.Node):
             # delete small detections
             small_detection = np.where(detect_results[:, 3]-detect_results[:, 1] < self.minimum_detection_size_threshold)[0]
             detect_results = np.delete(detect_results, small_detection, axis=0)
+            if detect_results_masks is not None:
+                detect_results_masks = np.delete(detect_results_masks, small_detection, axis=0)
 
         center3d_list = []
         center_bird_eye_global_list = []
@@ -278,11 +282,15 @@ class AbsDetectPeople(rclpy.node.Node):
                 box_center_ybr = box_ytl + int(box_height/4)*3
                 # self.get_logger().info("[box] detect_idx = " + str(detect_idx) + ", xtl = " + str(box_xtl) + ", ytl = " + str(box_ytl) + ", xbr = " + str(box_xbr) + ", ybr = " + str(box_ybr))
 
-                # create point cloud for box
+                # create point cloud for detected area
                 box_depth = np.zeros(input_depth_image.shape, input_depth_image.dtype)
-                box_depth[box_center_ytl:box_center_ybr, box_center_xtl:box_center_xbr] = input_depth_image[box_center_ytl:box_center_ybr, box_center_xtl:box_center_xbr]
+                if detect_results_masks is not None:
+                    box_depth = np.where(detect_results_masks[detect_idx], input_depth_image, box_depth)
+                else:
+                    box_depth[box_center_ytl:box_center_ybr, box_center_xtl:box_center_xbr] = input_depth_image[box_center_ytl:box_center_ybr, box_center_xtl:box_center_xbr]
                 box_depth[np.isnan(box_depth)] = 0
                 box_depth[np.isinf(box_depth)] = 0
+
                 box_points, box_colors = open3d_utils.generate_pointcloud(self.image_width, self.image_height, self.focal_length,
                                                                           self.center_x, self.center_y, input_rgb_image, box_depth,
                                                                           depth_unit_meter=self.depth_unit_meter)
@@ -333,10 +341,9 @@ class AbsDetectPeople(rclpy.node.Node):
 
         # self.get_logger().info("camera ID = " + self.camera_id + ", number of detected people = " + str(len(detect_results)))
         # return detect_results, center3d_list, center_bird_eye_global_list
-        self.pub_result(rgb_img_msg, input_pose, detect_results, center_bird_eye_global_list)
-        self.vis_result(input_rgb_image, detect_results)
+        self.pub_result(rgb_img_msg, input_rgb_image, input_pose, detect_results, detect_results_masks, center_bird_eye_global_list)
 
-    def pub_result(self, img_msg, pose, detect_results, center3d_list):
+    def pub_result(self, img_msg, input_rgb_image, pose, detect_results, detect_results_masks, center3d_list):
         # publish tracked boxes message
         detected_boxes_msg = TrackedBoxes()
         detected_boxes_msg.header.stamp = img_msg.header.stamp
@@ -361,19 +368,22 @@ class AbsDetectPeople(rclpy.node.Node):
             detected_boxes_msg.tracked_boxes.append(detected_box)
         self.detected_boxes_pub.publish(detected_boxes_msg)
 
-    def vis_result(self, input_rgb_image, detect_results):
-        # visualization result in image
-        if self.vis_detect_image:
-            vis_rgb_image = input_rgb_image.copy()
+        if self.publish_detect_image:
+            detect_image = input_rgb_image.copy()
             for idx_bbox, bbox in enumerate(detect_results):
                 xmin, ymin, xmax, ymax = int(bbox[0]), int(bbox[1]), int(bbox[2]), int(bbox[3])
-                cv2.rectangle(vis_rgb_image, (xmin, ymin), (xmax, ymax), color=(255, 0, 0), thickness=2)
+                cv2.rectangle(detect_image, (xmin, ymin), (xmax, ymax), color=(0, 0, 255), thickness=2)
+            if detect_results_masks is not None:
+                for idx_mask, mask in enumerate(detect_results_masks):
+                    blue, green, red = cv2.split(detect_image)
+                    if mask.shape == detect_image.shape[:2]:  # rtmdet-inst
+                        mask_img = blue
+                    else:  # maskrcnn
+                        x0 = int(max(math.floor(bbox[0]) - 1, 0))
+                        y0 = int(max(math.floor(bbox[1]) - 1, 0))
+                        mask_img = blue[y0:y0 + mask.shape[0], x0:x0 + mask.shape[1]]
+                    cv2.bitwise_or(mask, mask_img, mask_img)
+                    detect_image = cv2.merge([blue, green, red])
 
-            plt.figure(1)
-            plt.cla()
-            ax = plt.gca()
-            ax.set_title("detected people in image, camera="+self.camera_id)
-            ax.grid(False)
-            plt.imshow(cv2.resize(vis_rgb_image, None, fx=0.5, fy=0.5))
-            plt.draw()
-            plt.pause(0.00000000001)
+            detect_image_msg = self.bridge.cv2_to_imgmsg(detect_image, "bgr8")
+            self.detect_image_pub.publish(detect_image_msg)

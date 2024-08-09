@@ -17,35 +17,17 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
+_base_ = ['./instance-seg_rtmdet-ins_tensorrt_static-640x640.py']
 
-ARG FROM_IMAGE
+onnx_config = dict(input_shape=(416, 416))
 
-FROM $FROM_IMAGE AS build
-ARG UBUNTU_DISTRO=jammy
-ENV DEBIAN_FRONTEND="noninteractive"
-
-RUN apt update && \
-    apt install -y --no-install-recommends \
-        dirmngr \
-        gpg-agent \
-        software-properties-common \
-        curl \
-        wget \
-    && \
-    apt clean && \
-    rm -rf /var/lib/apt/lists/*
-
-# install Framos realsense
-RUN cd /tmp && \
-	wget https://www.framos.com/framos3d/D400e/Software/Latest/FRAMOS_D400e_Software_Package_Linux64_ARM_latest.tar.gz && \
-    tar xzf FRAMOS_D400e_Software_Package_Linux64_ARM_latest.tar.gz && \
-    cd FRAMOS_D400e_Software_Package && \
-    apt update && \
-    apt install -y --no-install-recommends \
-        ./FRAMOS_CameraSuite_*-Linux64_ARM.deb \
-        ./FRAMOS-librealsense2-*-Linux64_ARM.deb \
-    && \
-    apt clean && \
-    rm -rf /var/lib/apt/lists/* && \
-    cd ../ && \
-	rm -rf *
+backend_config = dict(
+    common_config=dict(fp16_mode=True),
+    model_inputs=[
+        dict(
+            input_shapes=dict(
+                input=dict(
+                    min_shape=[1, 3, 416, 416],
+                    opt_shape=[1, 3, 416, 416],
+                    max_shape=[1, 3, 416, 416])))
+    ])

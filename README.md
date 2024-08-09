@@ -11,16 +11,15 @@
 
 ### Preparation
 
-- run the script to download yolov4 model and dependencies
+- run the script to download dependencies
 
 ```
-./setup-model.sh
 ./setup-dependency.sh
 ```
 
 - assume you have docker (Nvidia docker) and docker compose
 - make sure you have a PC with a NVIDIA GPU, or a Jeston (Xavier, Orin, Xavier NX)
-- run one of the following the script to build image and workspaces
+- run one of the following scripts to build image and workspaces
 
 ```
 ./build-docker.sh -p -i -w              # build image and workspaces for RealSense

@@ -43,8 +43,8 @@ RUN cd /tmp && \
     cd FRAMOS_D400e_Software_Package && \
     apt update && \
     apt install -y --no-install-recommends \
-        ./FRAMOS_CameraSuite_4.10.1.0-Linux64_ARM.deb \
-        ./FRAMOS-librealsense2-2.50.12-Linux64_ARM.deb \
+        ./FRAMOS_CameraSuite_*-Linux64_ARM.deb \
+        ./FRAMOS-librealsense2-*-Linux64_ARM.deb \
     && \
     apt clean && \
     rm -rf /var/lib/apt/lists/* && \

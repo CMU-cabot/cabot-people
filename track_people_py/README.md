@@ -6,6 +6,10 @@ detect and track people
 
 detect people using OpenCV implementation of darknet in an RGB image and estimate position from a depth image
 
+## scripts/detect_mmdet_people.py
+
+detect people using MMDetection implementation in an RGB image and estimate position from a depth image
+
 ### yolov4 model
 
 `../tools/setup-model.sh` to download yolov4.cfg, yolov4.weights, coco.names files

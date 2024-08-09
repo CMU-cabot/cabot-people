@@ -95,6 +95,7 @@ commandpost='&'
 : ${CABOT_GAZEBO:=0}
 : ${CABOT_USE_REALSENSE:=0}
 : ${CABOT_SHOW_PEOPLE_RVIZ:=0}
+: ${CABOT_PUBLISH_DETECT_IMAGE:=0}
 : ${CABOT_REALSENSE_SERIAL:=}
 : ${CABOT_CAMERA_NAME:=camera}
 : ${CABOT_CAMERA_RGB_FPS:=30}
@@ -110,6 +111,10 @@ fi
 
 gazebo=$CABOT_GAZEBO
 show_rviz=$CABOT_SHOW_PEOPLE_RVIZ
+publish_detect_image=false
+if [[ $CABOT_PUBLISH_DETECT_IMAGE -eq 1 ]]; then
+    publish_detect_image=true
+fi
 realsense_camera=$CABOT_USE_REALSENSE
 serial_no=$CABOT_REALSENSE_SERIAL
 
@@ -120,7 +125,7 @@ rgb_fps=$CABOT_CAMERA_RGB_FPS
 depth_fps=$CABOT_CAMERA_DEPTH_FPS
 resolution=$CABOT_CAMERA_RESOLUTION
 
-opencv_dnn_ver=$CABOT_DETECT_VERSION
+cabot_detect_ver=$CABOT_DETECT_VERSION
 
 camera_type=1
 check_required=0
@@ -158,8 +163,10 @@ function usage {
     echo "-t <roll>                publish map camera_link tf"
     echo "-c [1-2]                 camera type"
     echo "   1: RealSense, 2: FRAMOS"
-    echo "-v [1-3]                 use specified opencv dnn implementation"
+    echo "-v [1-9]                 specify detect implementation"
     echo "   1: python-opencv, 2: cpp-opencv-node, 3: cpp-opencv-nodelet"
+    echo "   4: python-mmdet, 5: cpp-mmdet-node, 6: cpp-mmdet-nodelet"
+    echo "   7: python-mmdet-seg, 8: cpp-mmdet-seg-node, 9: cpp-mmdet-seg-nodelet"
     echo "-N <name space>          namespace for tracking"
     echo "-f <camera_link_frame>   specify camera link frame"
     echo "-F <fps>                 specify camera RGB fps"
@@ -217,7 +224,7 @@ while getopts "hdm:n:w:srVCt:pWc:v:N:f:KDF:P:S:R:Oa" arg; do
         camera_type=$OPTARG
         ;;
     v)
-        opencv_dnn_ver=$OPTARG
+        cabot_detect_ver=$OPTARG
         ;;
     N)
         namespace=$OPTARG
@@ -265,8 +272,8 @@ else
     exit
 fi
 
-if [ $camera_type -eq 2 ] && [ $opencv_dnn_ver -eq 3 ]; then
-    red "FRAMOS SDK does not support intra process communication yet, do not set CABOT_DETECT_VERSION=3"
+if [ $camera_type -eq 2 ] && { [ $cabot_detect_ver -eq 3 ] || [ $cabot_detect_ver -eq 6 ] || [ $cabot_detect_ver -eq 9 ]; }; then
+    red "FRAMOS SDK does not support intra process communication yet, do not set 3, 6, 9 for CABOT_DETECT_VERSION"
     exit
 fi
 
@@ -308,7 +315,7 @@ echo "Map           : $map"
 echo "Anchor        : $anchor"
 echo "Simulation    : $gazebo"
 echo "Camera type   : $camera_type"
-echo "DNN impl      : $opencv_dnn_ver"
+echo "Detect impl   : $cabot_detect_ver"
 echo "Namespace     : $namespace"
 echo "Camera frame  : $camera_link_frame"
 echo "RGB FPS       : $rgb_fps"
@@ -354,7 +361,7 @@ if [ $realsense_camera -eq 1 ]; then
     # work around to specify number string as string
     if [[ ! -z $serial_no ]]; then option="$option \"serial_no:='$serial_no'\""; fi
     use_intra_process_comms=false
-    if [ $opencv_dnn_ver -eq 3 ]; then
+    if [ $cabot_detect_ver -eq 3 ] || [ $cabot_detect_ver -eq 6 ] || [ $cabot_detect_ver -eq 9 ]; then
         use_intra_process_comms=true
     fi
     if [ $camera_type -eq 1 ]; then
@@ -408,43 +415,103 @@ if [ $detection -eq 1 ]; then
     if [ $gazebo -eq 1 ]; then
         depth_registered_topic='depth/image_raw'
     fi
-        
-    if [ $opencv_dnn_ver -ge 2 ]; then
-        use_composite=0
+    min_bbox_size=50.0
 
-        # do not use nodelet if it is on gazebo
-        if [ $gazebo -eq 0 ] && [ $opencv_dnn_ver -eq 3 ]; then
-            sleep 2
-            use_composite=1
+    # overwrite mmdeploy model by environment variables
+    mmdeploy_model_option=''
+    segment_model_option=''
+    if [ $cabot_detect_ver -ge 4 ] && [ $cabot_detect_ver -le 9 ]; then
+        mmdeploy_model_dir=/tmp/mmdeploy_model
+
+        # copy mmdeploy model
+        rm -rf $mmdeploy_model_dir
+        if [ $cabot_detect_ver -ge 4 ] && [ $cabot_detect_ver -le 6 ]; then
+            cp -r $scriptdir/../../track_people_py/models/rtmdet $mmdeploy_model_dir
+        else
+            cp -r $scriptdir/../../track_people_py/models/rtmdet-ins $mmdeploy_model_dir
         fi
-        # cpp
-        com="$command ros2 launch track_people_cpp detect_darknet.launch.py \
+
+        # read input size
+        mmdeploy_input_width=$(jq ".pipeline.tasks[0].transforms[] | select(.type==\"Resize\").size[0]" $mmdeploy_model_dir/pipeline.json)
+        mmdeploy_input_height=$(jq ".pipeline.tasks[0].transforms[] | select(.type==\"Resize\").size[1]" $mmdeploy_model_dir/pipeline.json)
+
+        # resize min bbox size by mmdeploy model input width and height
+        int_min_bbox_size=$(echo "$min_bbox_size / 1" | bc)
+
+        resized_min_bbox_width=$(echo "scale=2; $int_min_bbox_size * ($mmdeploy_input_width / $width)" | bc)
+        int_resized_min_bbox_width=$(echo "$resized_min_bbox_width / 1" | bc)
+
+        resized_min_bbox_height=$(echo "scale=2; $int_min_bbox_size * ($mmdeploy_input_height / $height)" | bc)
+        int_resized_min_bbox_height=$(echo "$resized_min_bbox_height / 1" | bc)
+
+        # set smaller value of resized min bbox size as min_bbox_size for mmdeploy model
+        int_resized_min_bbox_size=$(($int_resized_min_bbox_width<$int_resized_min_bbox_height ? $int_resized_min_bbox_width : $int_resized_min_bbox_height))
+
+        # set score_thr, min_bbox_size in pipeline.json
+        cat $mmdeploy_model_dir/pipeline.json | jq ".pipeline.tasks[-1].params.score_thr|=${CABOT_DETECT_PEOPLE_CONF_THRES}" | jq ".pipeline.tasks[-1].params.min_bbox_size|=$int_resized_min_bbox_size" > $mmdeploy_model_dir/pipeline.json.tmp
+        mv $mmdeploy_model_dir/pipeline.json.tmp $mmdeploy_model_dir/pipeline.json
+
+        # create mmdeploy launch options
+        mmdeploy_model_option="detect_model_dir:=$mmdeploy_model_dir"
+        if [ $cabot_detect_ver -ge 7 ] && [ $cabot_detect_ver -le 9 ]; then
+            segment_model_option="model_input_width:=$mmdeploy_input_width model_input_height:=$mmdeploy_input_height"
+        fi
+    fi
+
+    if [ $cabot_detect_ver -ge 1 ] && [ $cabot_detect_ver -le 3 ]; then
+        launch_file="detect_darknet.launch.py"
+    elif [ $cabot_detect_ver -ge 4 ] && [ $cabot_detect_ver -le 6 ]; then
+        launch_file="detect_mmdet.launch.py"
+    elif [ $cabot_detect_ver -ge 7 ] && [ $cabot_detect_ver -le 9 ]; then
+        launch_file="detect_mmdet_seg.launch.py"
+    else
+        red "detect implementation should be from 1 to 9"
+        exit
+    fi
+
+    if [ $cabot_detect_ver -eq 1 ] || [ $cabot_detect_ver -eq 4 ] || [ $cabot_detect_ver -eq 7 ]; then
+        # python
+        echo "launch track_people_py $launch_file"
+        com="$command ros2 launch track_people_py $launch_file \
                       namespace:=$namespace \
                       map_frame:=$map_frame \
                       camera_link_frame:=$camera_link_frame \
-                      use_composite:=$use_composite \
                       depth_registered_topic:=$depth_registered_topic \
+                      minimum_detection_size_threshold:=$min_bbox_size \
+                      publish_detect_image:=$publish_detect_image \
                       jetpack5_workaround:=$jetpack5_workaround \
+                      $mmdeploy_model_option \
+                      $segment_model_option \
                       $commandpost"
         echo $com
         eval $com
         pids+=($!)
     else
-        # python
-        launch_file="track_people_py detect_darknet.launch.py"
-        echo "launch $launch_file"
-        com="$command ros2 launch $launch_file \
+        use_composite=0
+
+        # do not use nodelet if it is on gazebo
+        if [ $gazebo -eq 0 ] && { [ $cabot_detect_ver -eq 3 ] || [ $cabot_detect_ver -eq 6 ] || [ $cabot_detect_ver -eq 9 ]; }; then
+            sleep 2
+            use_composite=1
+        fi
+        # cpp
+        echo "launch track_people_cpp $launch_file"
+        com="$command ros2 launch track_people_cpp $launch_file \
                       namespace:=$namespace \
                       map_frame:=$map_frame \
                       camera_link_frame:=$camera_link_frame \
+                      use_composite:=$use_composite \
                       depth_registered_topic:=$depth_registered_topic \
+                      minimum_detection_size_threshold:=$min_bbox_size \
+                      publish_detect_image:=$publish_detect_image \
                       jetpack5_workaround:=$jetpack5_workaround \
+                      $mmdeploy_model_option \
+                      $segment_model_option \
                       $commandpost"
         echo $com
         eval $com
         pids+=($!)
     fi
-
 fi
 
 if [ $tracking -eq 1 ]; then

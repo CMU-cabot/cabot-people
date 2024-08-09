@@ -33,6 +33,7 @@ find_package(diagnostic_updater REQUIRED)
 find_package(OpenCV REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(Open3D REQUIRED)
+find_package(MMDeploy REQUIRED)
 
 include_directories(
   include
@@ -59,11 +60,13 @@ set(dependencies
   EIGEN3
   Open3D
   OpenCV
+  MMDeploy
 )
 
 ## detect_darknet_opencv
 add_library(detect_darknet_opencv SHARED
-  src/detect_darknet_opencv.cpp
+src/abstract_detect_people.cpp
+src/detect_darknet_opencv.cpp
 )
 
 ament_target_dependencies(detect_darknet_opencv
@@ -80,6 +83,52 @@ rclcpp_components_register_node(
   PLUGIN "track_people_cpp::DetectDarknetOpencv"
   EXECUTABLE detect_darknet_opencv_node
   EXECUTOR MultiThreadedExecutor
+)
+
+
+## detect_mmdet
+add_library(detect_mmdet SHARED
+src/abstract_detect_people.cpp
+src/detect_mmdet.cpp
+)
+
+ament_target_dependencies(detect_mmdet
+  ${dependencies}
+)
+
+target_link_libraries(detect_mmdet
+  ${OpenCV_LIBRARIES}
+  ${Open3D_LIBRARIES}
+  mmdeploy
+)
+
+rclcpp_components_register_node(
+  detect_mmdet
+  PLUGIN "track_people_cpp::DetectMMDet"
+  EXECUTABLE detect_mmdet_node
+)
+
+
+## detect_mmdet_seg
+add_library(detect_mmdet_seg SHARED
+src/abstract_detect_people.cpp
+src/detect_mmdet_seg.cpp
+)
+
+ament_target_dependencies(detect_mmdet_seg
+  ${dependencies}
+)
+
+target_link_libraries(detect_mmdet_seg
+  ${OpenCV_LIBRARIES}
+  ${Open3D_LIBRARIES}
+  mmdeploy
+)
+
+rclcpp_components_register_node(
+  detect_mmdet_seg
+  PLUGIN "track_people_cpp::DetectMMDetSeg"
+  EXECUTABLE detect_mmdet_seg_node
 )
 
 
@@ -121,6 +170,8 @@ rclcpp_components_register_node(
 install(TARGETS
   # convert_obstacle_node
   detect_darknet_opencv
+  detect_mmdet
+  detect_mmdet_seg
   detect_obstacle_on_path
   EXPORT export_track_people_cpp
   RUNTIME DESTINATION bin
@@ -131,6 +182,8 @@ install(TARGETS
 install(DIRECTORY launch/ DESTINATION share/${PROJECT_NAME}/launch)
 
 ament_export_libraries(detect_darknet_opencv)
+ament_export_libraries(detect_mmdet)
+ament_export_libraries(detect_mmdet_seg)
 ament_export_targets(export_track_people_cpp HAS_LIBRARY_TARGET)
 ament_export_dependencies(${dependencies})
 

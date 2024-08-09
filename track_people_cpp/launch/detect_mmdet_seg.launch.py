@@ -1,4 +1,4 @@
-# Copyright (c) 2022  Carnegie Mellon University
+# Copyright (c) 2023  Carnegie Mellon University, IBM Corporation, and others
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -18,13 +18,11 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-import os
 from launch.logging import launch_config
 
 from launch import LaunchDescription
 from launch.actions import LogInfo
 from launch.actions import DeclareLaunchArgument
-from launch.actions import OpaqueFunction
 from launch.actions import SetEnvironmentVariable
 from launch.actions import RegisterEventHandler
 from launch.conditions import IfCondition
@@ -46,12 +44,6 @@ except ImportError:
     workaround = True
 
 
-def check_file_existence(context, file_subst):
-    file_path = file_subst.perform(context)
-    if not os.path.exists(file_path):
-        raise RuntimeError(f"File does not exist: {file_path} - please run ./setup-model.sh to download model files and build workspace again")
-
-
 def generate_launch_description():
     map_frame = LaunchConfiguration('map_frame')
     namespace = LaunchConfiguration('namespace')
@@ -71,15 +63,17 @@ def generate_launch_description():
     # ToDo: workaround https://github.com/CMU-cabot/cabot/issues/86
     jetpack5_workaround = LaunchConfiguration('jetpack5_workaround')
 
-    yolov4_cfg = PathJoinSubstitution([get_package_share_directory('track_people_py'), 'models', 'yolov4.cfg'])
-    yolov4_weights = PathJoinSubstitution([get_package_share_directory('track_people_py'), 'models', 'yolov4.weights'])
-    coco_names = PathJoinSubstitution([get_package_share_directory('track_people_py'), 'models', 'coco.names'])
+    detect_model_dir = LaunchConfiguration('detect_model_dir')
+    # model input size is necessary because is_resize_mask option is set as false for RTMDet-Ins to avoid performance issue
+    # https://github.com/open-mmlab/mmdeploy/issues/2445#issuecomment-1725109397
+    model_input_width = LaunchConfiguration('model_input_width')
+    model_input_height = LaunchConfiguration('model_input_height')
 
     return LaunchDescription([
         # save all log file in the directory where the launch.log file is saved
         SetEnvironmentVariable('ROS_LOG_DIR', launch_config.log_dir),
         # append prefix name to the log directory for convenience
-        LogInfo(msg=["no cabot_common"]) if workaround else RegisterEventHandler(OnShutdown(on_shutdown=[AppendLogDirPrefix("track_people_cpp-detect_darknet")])),
+        LogInfo(msg=["no cabot_common"]) if workaround else RegisterEventHandler(OnShutdown(on_shutdown=[AppendLogDirPrefix("track_people_cpp-detect_mmdet_seg")])),
 
         DeclareLaunchArgument('map_frame', default_value='map'),
         DeclareLaunchArgument('namespace', default_value='camera'),
@@ -98,6 +92,10 @@ def generate_launch_description():
 
         DeclareLaunchArgument('jetpack5_workaround', default_value='false'),
 
+        DeclareLaunchArgument('detect_model_dir', default_value=PathJoinSubstitution([get_package_share_directory('track_people_py'), 'models', 'rtmdet-ins'])),
+        DeclareLaunchArgument('model_input_width', default_value='512'),
+        DeclareLaunchArgument('model_input_height', default_value='512'),
+
         # overwrite parameters
         SetParameter(name='map_frame', value=map_frame),
         SetParameter(name='camera_id', value=namespace),
@@ -111,19 +109,15 @@ def generate_launch_description():
         SetParameter(name='publish_detect_image', value=publish_detect_image),
         SetParameter(name='detection_threshold', value=detection_threshold),
         SetParameter(name='minimum_detection_size_threshold', value=minimum_detection_size_threshold),
-        SetParameter(name='detect_config_file', value=yolov4_cfg),
-        SetParameter(name='detect_weight_file', value=yolov4_weights),
-        SetParameter(name='detect_label_file', value=coco_names),
-
-        OpaqueFunction(function=check_file_existence, args=[yolov4_cfg]),
-        OpaqueFunction(function=check_file_existence, args=[yolov4_weights]),
-        OpaqueFunction(function=check_file_existence, args=[coco_names]),
+        SetParameter(name='detect_model_dir', value=detect_model_dir),
+        SetParameter(name='model_input_width', value=model_input_width),
+        SetParameter(name='model_input_height', value=model_input_height),
 
         SetEnvironmentVariable(name='LD_PRELOAD', value='/usr/local/lib/libOpen3D.so', condition=IfCondition(jetpack5_workaround)),
         Node(
             package="track_people_cpp",
-            executable="detect_darknet_opencv_node",
-            name="detect_darknet_people_cpp",
+            executable="detect_mmdet_seg_node",
+            name="detect_mmdet_seg_people_cpp",
             namespace=namespace,
             condition=UnlessCondition(use_composite)
         ),
@@ -133,10 +127,9 @@ def generate_launch_description():
             composable_node_descriptions=[
                 ComposableNode(
                     package="track_people_cpp",
-                    plugin="track_people_cpp::DetectDarknetOpencv",
-                    name="detect_darknet_people_cpp",
+                    plugin="track_people_cpp::DetectMMDetSeg",
+                    name="detect_mmdet_seg_people_cpp",
                     namespace=namespace,
-                    extra_arguments=[{'use_intra_process_comms': True}],
                 ),
             ],
             condition=IfCondition(use_composite),

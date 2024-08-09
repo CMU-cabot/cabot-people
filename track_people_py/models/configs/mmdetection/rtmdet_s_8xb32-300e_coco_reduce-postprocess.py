@@ -17,35 +17,12 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
-
-ARG FROM_IMAGE
-
-FROM $FROM_IMAGE AS build
-ARG UBUNTU_DISTRO=jammy
-ENV DEBIAN_FRONTEND="noninteractive"
-
-RUN apt update && \
-    apt install -y --no-install-recommends \
-        dirmngr \
-        gpg-agent \
-        software-properties-common \
-        curl \
-        wget \
-    && \
-    apt clean && \
-    rm -rf /var/lib/apt/lists/*
-
-# install Framos realsense
-RUN cd /tmp && \
-	wget https://www.framos.com/framos3d/D400e/Software/Latest/FRAMOS_D400e_Software_Package_Linux64_ARM_latest.tar.gz && \
-    tar xzf FRAMOS_D400e_Software_Package_Linux64_ARM_latest.tar.gz && \
-    cd FRAMOS_D400e_Software_Package && \
-    apt update && \
-    apt install -y --no-install-recommends \
-        ./FRAMOS_CameraSuite_*-Linux64_ARM.deb \
-        ./FRAMOS-librealsense2-*-Linux64_ARM.deb \
-    && \
-    apt clean && \
-    rm -rf /var/lib/apt/lists/* && \
-    cd ../ && \
-	rm -rf *
+_base_ = '/opt/mmdetection/configs/rtmdet/rtmdet_s_8xb32-300e_coco.py'
+model = dict(
+    test_cfg=dict(
+        nms_pre=1000,
+        min_bbox_size=0,
+        score_thr=0.25,
+        nms=dict(type='nms', iou_threshold=0.4),
+        max_per_img=100)
+)
