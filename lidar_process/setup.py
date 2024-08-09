@@ -18,7 +18,7 @@ setup(
     zip_safe=True,
     maintainer='allanwangliqian',
     maintainer_email='allanwangliqian@gmail.com',
-    description='This package processes lidar scans into groups and predicrs groups',
+    description='This package processes lidar scans into groups and predicts groups',
     license='MIT',
     tests_require=['pytest'],
     entry_points={

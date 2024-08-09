@@ -13,12 +13,16 @@ from rclpy.node import Node
 from std_msgs.msg import Header
 from sensor_msgs.msg import PointCloud2, PointField
 from sensor_msgs_py import point_cloud2
+from visualization_msgs.msg import Marker, MarkerArray
+from geometry_msgs.msg import Pose, Point, Quaternion, Vector3
+from builtin_interfaces.msg import Duration
 from cabot_msgs.msg import PoseLog
 from . import pcl_to_numpy
+from . import utils
 
 from rclpy.executors import MultiThreadedExecutor
 from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
-from rclpy.qos import QoSProfile, QoSDurabilityPolicy
+from rclpy.qos import QoSProfile, QoSDurabilityPolicy, qos_profile_sensor_data
 
 from cabot_msgs.srv import LookupTransform
 
@@ -33,28 +37,33 @@ class ScanReceiver(Node):
         transform_lookup_callback_group = MutuallyExclusiveCallbackGroup()
         visualization_callback_group = MutuallyExclusiveCallbackGroup()
         transient_local_qos = QoSProfile(depth=1, durability=QoSDurabilityPolicy.TRANSIENT_LOCAL)
+        sensor_data_qos = qos_profile_sensor_data
 
         self.scan_sub = self.create_subscription(
             PointCloud2, 
             '/velodyne_points_cropped',
             self.scan_cb,
-            #qos_profile=transient_local_qos,
-            10,
+            qos_profile=sensor_data_qos,
             callback_group = state_update_callback_group
         )
         self.scan_sub = self.create_subscription(
             PoseLog, 
             '/cabot/pose_log',
             self.pose_cb,
-            #qos_profile=transient_local_qos,
-            10,
+            qos_profile=sensor_data_qos,
             callback_group = state_update_callback_group
         )
         
         self.pcl_debug_pub = self.create_publisher(
             PointCloud2,
             "/map_velodyne_points",
-            #qos_profile=transient_local_qos,
+            10,
+            callback_group = visualization_callback_group
+        )
+
+        self.entity_vis_pub = self.create_publisher(
+            MarkerArray,
+            "/vis_entities",
             10,
             callback_group = visualization_callback_group
         )
@@ -62,11 +71,11 @@ class ScanReceiver(Node):
         self.lookup_transform_service = self.create_client(
             LookupTransform, 
             '/lookup_transform', 
-            #qos_profile=transient_local_qos,
             callback_group=transform_lookup_callback_group
         )
 
 
+        self.pointcloud_header = None
         self.pointcloud = np.array([])
         self.pointcloud_prev = np.array([])
         self.pointcloud_complete = np.array([])
@@ -77,8 +86,9 @@ class ScanReceiver(Node):
         self.curr_time = 0
         self.prev_time = 0
 
+        self.namespace = self.declare_parameter('namespace', '').value
         self._ring_limit = self.declare_parameter('ring_limit', -1).value
-        self._scan_max_range = self.declare_parameter('scan_max_range', 100).value
+        self._scan_max_range = self.declare_parameter('scan_max_range', 15).value
         self._history_window = self.declare_parameter('history_window', 8).value
         self._future_window = self.declare_parameter('future_window', 8).value
         # samples needed to be considered core points for DBSCAN clustering
@@ -86,7 +96,7 @@ class ScanReceiver(Node):
         # threshold values for DBSCAN
         # low level is used for denoising and calculating velocities
         # high level is used for pedestrian grouping
-        self._low_level_pos_threshold = self.declare_parameter('low_level_pos_threshold', 0.25).value
+        self._low_level_pos_threshold = self.declare_parameter('low_level_pos_threshold', 0.5).value
         self._high_level_pos_threshold = self.declare_parameter('high_level_pos_threshold', 1).value
         self._high_level_vel_threshold = self.declare_parameter('high_level_vel_threshold', 1).value
         self._high_level_ori_threshold = self.declare_parameter('high_level_ori_threshold', 1).value
@@ -94,6 +104,10 @@ class ScanReceiver(Node):
         self.pointcloud_history = queue.Queue(self._history_window)
         self.pointcloud_history_np = []  # list of numpys
         self.is_history_complete = False
+
+        self.debug_visualiation = True
+        if self.debug_visualiation:
+            self.colors = utils.Colors()
 
         return
     
@@ -110,11 +124,8 @@ class ScanReceiver(Node):
         
         # Borrowed from BufferProxy in cabot-navigation/cabot_ui/cabot_ui/navigation.py
         future = self.lookup_transform_service.call_async(req)
-        print("stuck here")
-        rclpy.spin_until_future_complete(self, future)
-        print("not stuck here")
 
-        """
+        
         event = threading.Event()
 
         def unblock(future):
@@ -131,8 +142,7 @@ class ScanReceiver(Node):
                 raise Exception("timeout")
         if future.exception() is not None:
             raise future.exception()
-        """
-
+        
         # sync call end here
         result = future.result()
         if result.error.error > 0:
@@ -143,6 +153,7 @@ class ScanReceiver(Node):
         # Stores pointcloud when the node receives one.
 
         self.get_logger().info("pcl received")
+        self.pointcloud_header = msg.header
         start_time = time.time()
 
         if self.pose is None:
@@ -151,10 +162,15 @@ class ScanReceiver(Node):
         self.curr_pose = self.pose
         self.curr_time = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
         dt = self.curr_time - self.prev_time
+        self.prev_pose = self.curr_pose
+        self.prev_time = self.curr_time
+        if dt <= 0:
+            return
 
         # Pointcloud format
         # (x, y, z, intensity, ring number [e.g. 0-15])
         # Pointcloud complete format
+        # groups are low level groups used for estimating velocities
         # (x, y, z, intensity, ring, group id, group center x, group center y, vel_x, vel_y)
         parsed_pointcloud_1 = pcl_to_numpy.read_points_numpy(
             msg, 
@@ -165,7 +181,6 @@ class ScanReceiver(Node):
             field_names=['ring'], 
             skip_nans=True)
 
-        tmp_start_time = time.time()
         num_raw_pt = len(parsed_pointcloud_1)
         if num_raw_pt > 0:
             num_field_1 = len(parsed_pointcloud_1[0])
@@ -173,68 +188,30 @@ class ScanReceiver(Node):
             self.pointcloud = np.zeros((num_raw_pt, num_field_1 + num_field_2))
             self.pointcloud[:, :num_field_1] = parsed_pointcloud_1
             self.pointcloud[:, num_field_1:] = parsed_pointcloud_2
-            #for i, elem in enumerate(parsed_pointcloud):
-            #    self.pointcloud[i, :] = list(elem)
             self.pointcloud = self._filter_pointcloud(self.pointcloud)
-
-            # old, much slower ways to parse point clouds
-            """
-            for i, elem in enumerate(parsed_pointcloud):
-                self.pointcloud[i, :] = list(elem)
-            self.pointcloud = self._filter_pointcloud(self.pointcloud)
-            """
-            """
-            self.get_logger().info(f"type(parsed_pointcloud)={type(parsed_pointcloud[0])}")
-            self.pointcloud = parsed_pointcloud
-            points_array = np.array(parsed_pointcloud)
-            print("points_array=", points_array)
-            print("self.pointcloud=", self.pointcloud)
-            self.pointcloud = self._filter_pointcloud(self.pointcloud)
-            """
-            """
-            self.pointcloud = np.zeros((num_raw_pt, len(parsed_pointcloud[0])))
-            validation_array = np.zeros(num_raw_pt)
-            for i, elem in enumerate(parsed_pointcloud):
-                self.pointcloud[i, :] = list(elem)
-                if self._is_valid_pt(elem):
-                    validation_array[i] = 1
-            self.pointcloud = self.pointcloud[validation_array == 1]
-            """
         else:
             self.pointcloud = np.array([])
-        print(time.time() - tmp_start_time)
 
         # transform pointcloud to map frame
         lidar_to_map = self.lookup_transform('velodyne', 'map')
-        transformed_cloud = self._do_transform(self.pointcloud, lidar_to_map, msg.header)
+        transformed_cloud = self._do_transform(self.pointcloud, lidar_to_map)
 
-        print("--------pcl debug--------")
-        print(len(self.pointcloud))
         if len(self.pointcloud) > 0:
-            print(self.pointcloud[0])
-            print(transformed_cloud[0])
-
-            print("stuck here 1")
             self.pointcloud_complete = self._calc_pointcloud_group_vel(
                                                 self.pointcloud_prev, 
                                                 transformed_cloud, 
                                                 self.prev_pose, 
                                                 self.curr_pose,
                                                 dt)
-            print("not stuck here 1")
         else:
             self.pointcloud_complete = []
         self.pointcloud_prev = self.pointcloud_complete 
-        self.prev_pose = self.curr_pose
-        self.prev_time = self.curr_time
 
         if self.pointcloud_history.qsize() == self._history_window :
             self.is_history_complete = True
             # pop the oldest point cloud from the queue
             tmp = self.pointcloud_history.get(block=False)
-        print("stuck here 2")
         self.pointcloud_history.put(self.pointcloud, block=False)
-        print("not stuck here 2")
 
         print("This callback runs: {} seconds".format(time.time() - start_time))
         
@@ -245,6 +222,7 @@ class ScanReceiver(Node):
         return
     
     def _filter_pointcloud(self, pointcloud):
+        # This function prefilters pointclouds that do not meet the requirements
         if not (self._ring_limit == -1):
             condition = (pointcloud[:, 4] == self._ring_limit)
             pointcloud = pointcloud[condition == True]
@@ -253,24 +231,7 @@ class ScanReceiver(Node):
             pointcloud = pointcloud[condition == True]
         return pointcloud
     
-    def _is_valid_pt(self, elem):
-        # test if ring specified
-        if not (self._ring_limit == -1):
-            ring = elem[4]
-            if not ring == self._ring_limit:
-                return False
-
-        # test if point distance passes max range
-        if self._scan_max_range < 100:
-            x = elem[0]
-            y = elem[1]
-            dist = np.sqrt(x*x + y*y)
-            if dist > self._scan_max_range:
-                return False
-
-        return True
-    
-    def _do_transform(self, pointcloud, transform, header=None):
+    def _do_transform(self, pointcloud, transform):
         # This function transforms the pointcloud in msg to the transformation defined in
         # transform. Transform is obtained by calling lookup_transform.
         # If header is provided, transformed pointclouds will be published
@@ -299,13 +260,13 @@ class ScanReceiver(Node):
         pointcloud_rst[:, :3] = pointcloud_new[:, :3]
 
         # for debug/visualization purpose
-        if not header is None:
+        if self.debug_visualiation:
             fields = [
                 PointField(name="x", offset=0, datatype=PointField.FLOAT32, count=1),
                 PointField(name="y", offset=4, datatype=PointField.FLOAT32, count=1),
                 PointField(name="z", offset=8, datatype=PointField.FLOAT32, count=1),
             ]
-            pointcloud_map_header = header
+            pointcloud_map_header = self.pointcloud_header
             pointcloud_map_header.frame_id = "map"
             pointcloud_map = point_cloud2.create_cloud(pointcloud_map_header, fields, pointcloud_new[:, :3])
             self.pcl_debug_pub.publish(pointcloud_map)
@@ -322,9 +283,7 @@ class ScanReceiver(Node):
         assert(dt > 0)
 
         print("----------Pose & time info----------")
-        print(prev_pose)
-        print(curr_pose)
-        print(dt)
+        print("dt: {}".format(dt))
 
         num_prev = len(prev_ptcloud)
         num_curr = len(curr_ptcloud)
@@ -332,7 +291,6 @@ class ScanReceiver(Node):
         complete_ptcloud[:, :5] = curr_ptcloud
         ptcloud_pos = curr_ptcloud[:, :3]
         # z coordinates are not used for now, so use _
-        print("stuck here 3")
         (group, 
          group_x, 
          group_y, 
@@ -341,24 +299,38 @@ class ScanReceiver(Node):
          unique_group_x, 
          unique_group_y, 
          _) = self._get_groups_and_centers(ptcloud_pos)
-        print("not stuck here 3")
         complete_ptcloud[:, 5] = group
         complete_ptcloud[:, 6] = group_x
         complete_ptcloud[:, 7] = group_y
 
-        # delete noise
-        complete_ptcloud = complete_ptcloud[group != -1]
+        # A bit ad hoc, but if the obsacle is too big
+        # It is likely a static obstacle and should have 0 velocity
+        for i, gp_index in enumerate(unique_group):
+            gp_mask = (group == gp_index)
+            gp_x = group_x[gp_mask]
+            gp_y = group_y[gp_mask]
+            range_x = np.max(gp_x) - np.min(gp_x)
+            range_y = np.max(gp_y) - np.min(gp_y)
+            large_obs_threshold = 3
+            if (range_x > large_obs_threshold) or (range_y > large_obs_threshold):
+                unique_group[i] = -1
+                group[gp_mask] = -1
+                complete_ptcloud[gp_mask, 5] = -1 # -1 is not noise anymore, it means large obstacles
+
+        # Won't work if too mcuh time has passed
+        # Set zero velocities is this happens
+        too_much_time_threshold = 0.25 
 
         #If no prior pointclouds are available then leave the velocity columns 8 and 9 to be 0
-        if num_prev > 0:
+        if (num_prev > 0) and (dt < too_much_time_threshold):
             # estimate velocities for low level groups and use that as velocities of pointclouds
             group_prev = prev_ptcloud[:, 5]
             group_x_prev = prev_ptcloud[:, 6]
             group_y_prev = prev_ptcloud[:, 7]
-            num_prev_group = len(group_prev)
 
             # compress prev groups to get unique information
             unique_group_prev = np.unique(group_prev)
+            num_prev_group = len(unique_group_prev)
             unique_group_x_prev = np.zeros(num_prev_group)
             unique_group_y_prev = np.zeros(num_prev_group)
             for i, l in enumerate(unique_group_prev):
@@ -367,43 +339,120 @@ class ScanReceiver(Node):
 
             # get matching pairs from curr unique groups and prev unique groups
             # for each pair: estimate a velocity and propagate the velocity to point clouds
+            new_group_dist_threshold = 1
             for i, gp_index in enumerate(unique_group):
-                gp_mask = (group == gp_index)
-                gp_x = group_x[gp_mask]
-                gp_y = group_y[gp_mask]
-                range_x = np.max(gp_x) - np.min(gp_x)
-                range_y = np.max(gp_y) - np.min(gp_y)
-                # A bit ad hoc, but if the obsacle is too big
-                # It is likely a static obstacle and should have 0 velocity
-                large_obs_threshold = 5
-                if (range_x > large_obs_threshold) or (range_y > large_obs_threshold):
-                    continue
+                if gp_index != -1 :
+                    gp_mask = (group == gp_index)
 
-                # Assume the group that was closest before was the prior group
-                # If too far, then it is likely a new group
-                gp_center_x = unique_group_x[i]
-                gp_center_y = unique_group_y[i]
-                new_group_dist_threshold = 1
-                min_dist = np.inf
-                min_prev_x = None
-                min_prev_y = None
-                for j in range(len(unique_group_prev)):
-                    gp_prev_center_x = unique_group_x_prev[j]
-                    gp_prev_center_y = unique_group_y_prev[j]
-                    dist = np.sqrt((gp_center_x - gp_prev_center_x) ** 2 + 
-                                   (gp_center_y - gp_prev_center_y) ** 2)
-                    if dist < min_dist:
-                        min_dist = dist
-                        min_prev_x = gp_prev_center_x
-                        min_prev_y = gp_prev_center_y
+                    # Assume the group that was closest before was the prior group
+                    # If too far, then it is likely a new group
+                    gp_center_x = unique_group_x[i]
+                    gp_center_y = unique_group_y[i]
+                    
+                    min_dist = np.inf
+                    min_idx = None
+                    for j in range(num_prev_group):
+                        if unique_group_prev[j] != -1:
+                            gp_prev_center_x = unique_group_x_prev[j]
+                            gp_prev_center_y = unique_group_y_prev[j]
+                            dist = np.sqrt((gp_center_x - gp_prev_center_x) ** 2 + 
+                                        (gp_center_y - gp_prev_center_y) ** 2)
+                            if dist < min_dist:
+                                min_dist = dist
+                                min_idx = j
 
-                if min_dist < new_group_dist_threshold:
-                    group_vel_x = (gp_center_x - min_prev_x) / dt
-                    group_vel_y = (gp_center_y - min_prev_y) / dt
-                    complete_ptcloud[gp_mask, 8] = group_vel_x
-                    complete_ptcloud[gp_mask, 9] = group_vel_y
+                    if min_dist < new_group_dist_threshold:
+                        min_prev_x = unique_group_x_prev[min_idx]
+                        min_prev_y = unique_group_y_prev[min_idx]
+                        group_vel_x = (gp_center_x - min_prev_x) / dt
+                        group_vel_y = (gp_center_y - min_prev_y) / dt
+                        complete_ptcloud[gp_mask, 5] = unique_group_prev[min_idx]
+                        complete_ptcloud[gp_mask, 8] = group_vel_x
+                        complete_ptcloud[gp_mask, 9] = group_vel_y
+                    else:
+                        # assign new unique group id
+                        print("New id assigned: min_dist {}".format(min_dist))
+                        complete_ptcloud[gp_mask, 5] = np.max(unique_group_prev) + gp_index + 1
+        elif (dt > too_much_time_threshold):
+            self.get_logger().info("Too much time has passed since last velodyne message received!")
+        elif (num_prev == 0):
+            self.get_logger().info("Previous pointcloud is empty!")
+
+        # delete noise and large obstacles
+        complete_ptcloud = complete_ptcloud[complete_ptcloud[:, 5] != -1]
+
+        if self.debug_visualiation:
+            entity_labels = np.unique(complete_ptcloud[:, 5])
+            #print("Number of entities: {}".format(len(entity_labels)))
+            #print(entity_labels)
+            entity_idxes = complete_ptcloud[:, 5]
+            marker_array = MarkerArray()
+            marker_list = []
+            for i, l in enumerate(entity_labels):
+                entity_label = int(l)
+                entity_x = complete_ptcloud[entity_idxes == l, 6][0]
+                entity_y = complete_ptcloud[entity_idxes == l, 7][0]
+                marker, text_marker = self._create_entity_marker(entity_x, entity_y, entity_label)
+                marker_list.append(marker)
+                marker_list.append(text_marker)
+            marker_array.markers = marker_list
+            self.entity_vis_pub.publish(marker_array)
 
         return complete_ptcloud
+    
+    def _create_entity_marker(self, x, y, id):
+        marker = Marker()
+        marker.header = self.pointcloud_header
+        marker.header.frame_id = "map"
+        marker.ns = self.namespace
+        marker.id = id
+        marker.type = 2 # sphere
+        marker.action = 0 # add/modify
+
+        marker_pose = Pose()
+        marker_position = Point()
+        marker_orientation = Quaternion()
+        marker_position.x = x
+        marker_position.y = y
+        marker_position.z = 0.0
+        marker_orientation.x = 0.0
+        marker_orientation.y = 0.0
+        marker_orientation.z = 0.0
+        marker_orientation.w = 1.0
+        marker_pose.position = marker_position
+        marker_pose.orientation = marker_orientation
+        marker.pose = marker_pose
+
+        marker_size = 0.5
+        marker_scale = Vector3()
+        marker_scale.x = marker_size
+        marker_scale.y = marker_size
+        marker_scale.z = marker_size
+        marker.scale = marker_scale
+
+        marker.color = self.colors.get_color(id)
+        marker_lifetime = Duration()
+        marker_lifetime.sec = 1
+        marker_lifetime.nanosec = 0
+        marker.lifetime = marker_lifetime
+        marker.frame_locked = False
+
+        text_marker = Marker()
+        text_marker.header = marker.header
+        text_marker.ns = self.namespace
+        text_marker.id = -id
+        text_marker.type = 9 # text
+        text_marker.action = 0
+        text_marker.pose = Pose()
+        text_marker.pose.position.x = x + 1.0
+        text_marker.pose.position.y = y
+        text_marker.pose.orientation.w = 1.0
+        text_marker.scale = marker.scale
+        text_marker.color = self.colors.get_color(id, fixed=0)
+        text_marker.lifetime = marker.lifetime
+        text_marker.frame_locked = False
+        text_marker.text = str(id)
+        return marker, text_marker
     
     def _get_groups_and_centers(self, ptcloud):
         # performs low level clustering to obtains small clusters around objects/pedestrians
@@ -419,14 +468,11 @@ class ScanReceiver(Node):
         group_x = np.zeros(num_pts)
         group_y = np.zeros(num_pts)
         group_z = np.zeros(num_pts)
-        print("stuck here 4")
-        print(num_pts)
         group = self._get_groups(
                     ptcloud, 
                     self._low_level_pos_threshold, 
                     self._low_level_core_samples
                     )
-        print("not stuck here 4")
         labels = np.unique(group)
         num_labels = len(labels)
         group_x_unique = np.zeros(num_labels)
@@ -449,6 +495,9 @@ class ScanReceiver(Node):
 
         if labels[0] == -1:
             labels = labels[1:]
+            group_x_unique = group_x_unique[1:]
+            group_y_unique = group_y_unique[1:]
+            group_z_unique = group_z_unique[1:]
 
         return (group, 
             group_x, 

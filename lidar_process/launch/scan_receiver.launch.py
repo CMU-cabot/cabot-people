@@ -39,16 +39,17 @@ def generate_launch_description():
 
         DeclareLaunchArgument('namespace', default_value='lidar'),
         DeclareLaunchArgument('ring_limit', default_value='7'),
-        DeclareLaunchArgument('scan_max_range', default_value='100'),
+        DeclareLaunchArgument('scan_max_range', default_value='15'),
         DeclareLaunchArgument('history_window', default_value='8'),
         DeclareLaunchArgument('future_window', default_value='8'),
-        DeclareLaunchArgument('low_level_pos_threshold', default_value='0.25'),
+        DeclareLaunchArgument('low_level_pos_threshold', default_value='0.5'),
         DeclareLaunchArgument('low_level_core_samples', default_value='5'),
         DeclareLaunchArgument('high_level_pos_threshold', default_value='1'),
         DeclareLaunchArgument('high_level_vel_threshold', default_value='1'),
         DeclareLaunchArgument('high_level_ori_threshold', default_value='1'),
 
         # overwrite parameters
+        SetParameter(name='namespace', value=namespace),
         SetParameter(name='ring_limit', value=ring_limit),
         SetParameter(name='scan_max_range', value=scan_max_range),
         SetParameter(name='history_window', value=history_window),
