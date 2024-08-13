@@ -28,7 +28,7 @@ variable "REGISTRY" {
 }
 
 variable "L4T_IMAGE" {
-  default = "nvcr.io/nvidia/l4t-base:r35.1.0"
+  default = "nvcr.io/nvidia/l4t-base:35.3.1"
 #  default = "nvcr.io/nvidia/l4t-base:r36.2.0"
 }
 
@@ -49,12 +49,14 @@ group "default" {
     "ros-desktop-amd64",
     "ros-desktop-custom-amd64",
     "ros-desktop-custom-opencv-amd64",
-    "ros-desktop-custom-opencv-open3d-amd64",
-    "ros-desktop-custom-opencv-open3d-mesa-amd64",
+    "ros-desktop-custom-opencv-mmdeploy-amd64",
+    "ros-desktop-custom-opencv-mmdeploy-open3d-amd64",
+    "ros-desktop-custom-opencv-mmdeploy-open3d-mesa-amd64",
     "opencv-arm64",
     "opencv-ros-base-arm64",
     "opencv-ros-custom-arm64",
-    "opencv-ros-custom-open3d-arm64",
+    "opencv-ros-custom-mmdeploy-arm64",
+    "opencv-ros-custom-mmdeploy-open3d-arm64",
     "final",
   ]
 }
@@ -64,7 +66,7 @@ group "default" {
 target "base" {
   context    = "."
   dockerfile-inline = <<EOF
-FROM --platform=linux/amd64 nvidia/cuda:11.7.1-cudnn8-devel-ubuntu22.04 as build-amd64
+FROM --platform=linux/amd64 nvidia/cuda:11.8.0-cudnn8-devel-ubuntu22.04 as build-amd64
 FROM --platform=linux/arm64 ${L4T_IMAGE} as build-arm64
 FROM build-$TARGETARCH
 EOF
@@ -169,34 +171,49 @@ target "ros-desktop-custom-opencv-amd64" {
   tags       = [ "${REGISTRY}/${BASE_IMAGE}:${camera}-${ROS_DISTRO}-desktop-custom-opencv-amd64" ]
 }
 
-target "ros-desktop-custom-opencv-open3d-amd64" {
+target "ros-desktop-custom-opencv-mmdeploy-amd64" {
   inherits   = [ "ros-common-amd64" ]
   matrix     = {
     camera = "${CAMERAS_}"
   }
-  name       = "${camera}-ros-desktop-custom-opencv-open3d-amd64"
-  context    = "./docker/open3d"
+  name       = "${camera}-ros-desktop-custom-opencv-mmdeploy-amd64"
+  context    = "./docker/mmdeploy"
   dockerfile = "Dockerfile"
   contexts   = { "${REGISTRY}/${BASE_IMAGE}:${camera}-${ROS_DISTRO}-desktop-custom-opencv-amd64" = "target:${camera}-ros-desktop-custom-opencv-amd64" }
   args       = {
     FROM_IMAGE = "${REGISTRY}/${BASE_IMAGE}:${camera}-${ROS_DISTRO}-desktop-custom-opencv-amd64"
   }
-  tags       = [ "${REGISTRY}/${BASE_IMAGE}:${camera}-${ROS_DISTRO}-desktop-custom-opencv-open3d-amd64" ]
+  tags       = [ "${REGISTRY}/${BASE_IMAGE}:${camera}-${ROS_DISTRO}-desktop-custom-opencv-mmdeploy-amd64" ]
 }
 
-target "ros-desktop-custom-opencv-open3d-mesa-amd64" {
+target "ros-desktop-custom-opencv-mmdeploy-open3d-amd64" {
   inherits   = [ "ros-common-amd64" ]
   matrix     = {
     camera = "${CAMERAS_}"
   }
-  name       = "${camera}-ros-desktop-custom-opencv-open3d-mesa-amd64"
+  name       = "${camera}-ros-desktop-custom-opencv-mmdeploy-open3d-amd64"
+  context    = "./docker/open3d"
+  dockerfile = "Dockerfile"
+  contexts   = { "${REGISTRY}/${BASE_IMAGE}:${camera}-${ROS_DISTRO}-desktop-custom-opencv-mmdeploy-amd64" = "target:${camera}-ros-desktop-custom-opencv-mmdeploy-amd64" }
+  args       = {
+    FROM_IMAGE = "${REGISTRY}/${BASE_IMAGE}:${camera}-${ROS_DISTRO}-desktop-custom-opencv-mmdeploy-amd64"
+  }
+  tags       = [ "${REGISTRY}/${BASE_IMAGE}:${camera}-${ROS_DISTRO}-desktop-custom-opencv-mmdeploy-open3d-amd64" ]
+}
+
+target "ros-desktop-custom-opencv-mmdeploy-open3d-mesa-amd64" {
+  inherits   = [ "ros-common-amd64" ]
+  matrix     = {
+    camera = "${CAMERAS_}"
+  }
+  name       = "${camera}-ros-desktop-custom-opencv-mmdeploy-open3d-mesa-amd64"
   context    = "./cabot-common/docker/mesa"
   dockerfile = "Dockerfile"
-  contexts   = { "${REGISTRY}/${BASE_IMAGE}:${camera}-${ROS_DISTRO}-desktop-custom-opencv-open3d-amd64" = "target:${camera}-ros-desktop-custom-opencv-open3d-amd64" }
+  contexts   = { "${REGISTRY}/${BASE_IMAGE}:${camera}-${ROS_DISTRO}-desktop-custom-opencv-mmdeploy-open3d-amd64" = "target:${camera}-ros-desktop-custom-opencv-mmdeploy-open3d-amd64" }
   args       = {
-    FROM_IMAGE = "${REGISTRY}/${BASE_IMAGE}:${camera}-${ROS_DISTRO}-desktop-custom-opencv-open3d-amd64"
+    FROM_IMAGE = "${REGISTRY}/${BASE_IMAGE}:${camera}-${ROS_DISTRO}-desktop-custom-opencv-mmdeploy-open3d-amd64"
   }
-  tags       = [ "${REGISTRY}/${BASE_IMAGE}:${camera}-${ROS_DISTRO}-desktop-custom-opencv-open3d-mesa-amd64" ]
+  tags       = [ "${REGISTRY}/${BASE_IMAGE}:${camera}-${ROS_DISTRO}-desktop-custom-opencv-mmdeploy-open3d-mesa-amd64" ]
 }
 
 
@@ -254,19 +271,34 @@ target "opencv-ros-custom-arm64" {
   tags       = [ "${REGISTRY}/${BASE_IMAGE}:${camera}-opencv-${ROS_DISTRO}-custom-arm64" ]
 }
 
-target "opencv-ros-custom-open3d-arm64" {
+target "opencv-ros-custom-mmdeploy-arm64" {
   inherits   = [ "ros-common-arm64" ]
   matrix     = {
     camera = "${CAMERAS_}"
   }
-  name       = "${camera}-opencv-ros-custom-open3d-arm64"
-  context    = "./docker/open3d"
+  name       = "${camera}-opencv-ros-custom-mmdeploy-arm64"
+  context    = "./docker/mmdeploy"
   dockerfile = "Dockerfile.jetson"
   contexts   = { "${REGISTRY}/${BASE_IMAGE}:${camera}-opencv-${ROS_DISTRO}-custom-arm64" = "target:${camera}-opencv-ros-custom-arm64" }
   args       = {
     FROM_IMAGE = "${REGISTRY}/${BASE_IMAGE}:${camera}-opencv-${ROS_DISTRO}-custom-arm64"
   }
-  tags       = [ "${REGISTRY}/${BASE_IMAGE}:${camera}-opencv-${ROS_DISTRO}-custom-open3d-arm64" ]
+  tags       = [ "${REGISTRY}/${BASE_IMAGE}:${camera}-opencv-${ROS_DISTRO}-custom-mmdeploy-arm64" ]
+}
+
+target "opencv-ros-custom-mmdeploy-open3d-arm64" {
+  inherits   = [ "ros-common-arm64" ]
+  matrix     = {
+    camera = "${CAMERAS_}"
+  }
+  name       = "${camera}-opencv-ros-custom-mmdeploy-open3d-arm64"
+  context    = "./docker/open3d"
+  dockerfile = "Dockerfile.jetson"
+  contexts   = { "${REGISTRY}/${BASE_IMAGE}:${camera}-opencv-${ROS_DISTRO}-custom-mmdeploy-arm64" = "target:${camera}-opencv-ros-custom-mmdeploy-arm64" }
+  args       = {
+    FROM_IMAGE = "${REGISTRY}/${BASE_IMAGE}:${camera}-opencv-${ROS_DISTRO}-custom-mmdeploy-arm64"
+  }
+  tags       = [ "${REGISTRY}/${BASE_IMAGE}:${camera}-opencv-${ROS_DISTRO}-custom-mmdeploy-open3d-arm64" ]
 }
 
 
@@ -279,12 +311,12 @@ target "final" {
   name       = "${camera}-final"
   context    = "."
   contexts   = {
-    "${REGISTRY}/${BASE_IMAGE}:${camera}-${ROS_DISTRO}-desktop-custom-opencv-open3d-mesa-amd64" = "target:${camera}-ros-desktop-custom-opencv-open3d-mesa-amd64",
-    "${REGISTRY}/${BASE_IMAGE}:${camera}-opencv-${ROS_DISTRO}-custom-open3d-arm64" = "target:${camera}-opencv-ros-custom-open3d-arm64",
+    "${REGISTRY}/${BASE_IMAGE}:${camera}-${ROS_DISTRO}-desktop-custom-opencv-mmdeploy-open3d-mesa-amd64" = "target:${camera}-ros-desktop-custom-opencv-mmdeploy-open3d-mesa-amd64",
+    "${REGISTRY}/${BASE_IMAGE}:${camera}-opencv-${ROS_DISTRO}-custom-mmdeploy-open3d-arm64" = "target:${camera}-opencv-ros-custom-mmdeploy-open3d-arm64",
   }
   dockerfile-inline = <<EOF
-FROM --platform=linux/amd64 ${REGISTRY}/${BASE_IMAGE}:${camera}-${ROS_DISTRO}-desktop-custom-opencv-open3d-mesa-amd64 as build-amd64
-FROM --platform=linux/arm64 ${REGISTRY}/${BASE_IMAGE}:${camera}-opencv-${ROS_DISTRO}-custom-open3d-arm64 as build-arm64
+FROM --platform=linux/amd64 ${REGISTRY}/${BASE_IMAGE}:${camera}-${ROS_DISTRO}-desktop-custom-opencv-mmdeploy-open3d-mesa-amd64 as build-amd64
+FROM --platform=linux/arm64 ${REGISTRY}/${BASE_IMAGE}:${camera}-opencv-${ROS_DISTRO}-custom-mmdeploy-open3d-arm64 as build-arm64
 FROM build-$TARGETARCH
 EOF
   platforms  = "${PLATFORMS}"
