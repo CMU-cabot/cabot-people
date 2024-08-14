@@ -17,8 +17,10 @@ from visualization_msgs.msg import Marker, MarkerArray
 from geometry_msgs.msg import Pose, Point, Quaternion, Vector3
 from builtin_interfaces.msg import Duration
 from cabot_msgs.msg import PoseLog
+
 from . import pcl_to_numpy
 from . import utils
+from . import visualization
 
 from rclpy.executors import MultiThreadedExecutor
 from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
@@ -106,8 +108,6 @@ class ScanReceiver(Node):
         self.is_history_complete = False
 
         self.debug_visualiation = True
-        if self.debug_visualiation:
-            self.colors = utils.Colors()
 
         return
     
@@ -392,67 +392,24 @@ class ScanReceiver(Node):
                 entity_label = int(l)
                 entity_x = complete_ptcloud[entity_idxes == l, 6][0]
                 entity_y = complete_ptcloud[entity_idxes == l, 7][0]
-                marker, text_marker = self._create_entity_marker(entity_x, entity_y, entity_label)
+                entity_vx = complete_ptcloud[entity_idxes == l, 8][0]
+                entity_vy = complete_ptcloud[entity_idxes == l, 9][0]
+                print([entity_vx, entity_vy])
+                marker, text_marker, vel_marker = visualization.create_entity_marker_with_velocity(
+                    entity_x, 
+                    entity_y, 
+                    entity_vx, 
+                    entity_vy, 
+                    entity_label, 
+                    self.pointcloud_header, 
+                    self.namespace)
                 marker_list.append(marker)
                 marker_list.append(text_marker)
+                marker_list.append(vel_marker)
             marker_array.markers = marker_list
             self.entity_vis_pub.publish(marker_array)
 
         return complete_ptcloud
-    
-    def _create_entity_marker(self, x, y, id):
-        marker = Marker()
-        marker.header = self.pointcloud_header
-        marker.header.frame_id = "map"
-        marker.ns = self.namespace
-        marker.id = id
-        marker.type = 2 # sphere
-        marker.action = 0 # add/modify
-
-        marker_pose = Pose()
-        marker_position = Point()
-        marker_orientation = Quaternion()
-        marker_position.x = x
-        marker_position.y = y
-        marker_position.z = 0.0
-        marker_orientation.x = 0.0
-        marker_orientation.y = 0.0
-        marker_orientation.z = 0.0
-        marker_orientation.w = 1.0
-        marker_pose.position = marker_position
-        marker_pose.orientation = marker_orientation
-        marker.pose = marker_pose
-
-        marker_size = 0.5
-        marker_scale = Vector3()
-        marker_scale.x = marker_size
-        marker_scale.y = marker_size
-        marker_scale.z = marker_size
-        marker.scale = marker_scale
-
-        marker.color = self.colors.get_color(id)
-        marker_lifetime = Duration()
-        marker_lifetime.sec = 1
-        marker_lifetime.nanosec = 0
-        marker.lifetime = marker_lifetime
-        marker.frame_locked = False
-
-        text_marker = Marker()
-        text_marker.header = marker.header
-        text_marker.ns = self.namespace
-        text_marker.id = -id
-        text_marker.type = 9 # text
-        text_marker.action = 0
-        text_marker.pose = Pose()
-        text_marker.pose.position.x = x + 1.0
-        text_marker.pose.position.y = y
-        text_marker.pose.orientation.w = 1.0
-        text_marker.scale = marker.scale
-        text_marker.color = self.colors.get_color(id, fixed=0)
-        text_marker.lifetime = marker.lifetime
-        text_marker.frame_locked = False
-        text_marker.text = str(id)
-        return marker, text_marker
     
     def _get_groups_and_centers(self, ptcloud):
         # performs low level clustering to obtains small clusters around objects/pedestrians
