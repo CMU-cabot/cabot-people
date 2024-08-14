@@ -42,8 +42,21 @@ variable "L4T_CUDA" {
 
 group "default" {
   targets = [
+    "targets-amd64",
+    "targets-arm64",
+  ]
+}
+
+group "targets-common" {
+  targets = [
     "base",
     "camera-base",
+  ]
+}
+
+group "targets-amd64" {
+  targets = [
+    "targets-common",
     "ros-core-amd64",
     "ros-base-amd64",
     "ros-desktop-amd64",
@@ -52,12 +65,19 @@ group "default" {
     "ros-desktop-custom-opencv-mmdeploy-amd64",
     "ros-desktop-custom-opencv-mmdeploy-open3d-amd64",
     "ros-desktop-custom-opencv-mmdeploy-open3d-mesa-amd64",
+    "final-amd64",
+  ]
+}
+
+group "targets-arm64" {
+  targets = [
+    "targets-common",
     "opencv-arm64",
     "opencv-ros-base-arm64",
     "opencv-ros-custom-arm64",
     "opencv-ros-custom-mmdeploy-arm64",
     "opencv-ros-custom-mmdeploy-open3d-arm64",
-    "final",
+    "final-arm64",
   ]
 }
 
@@ -304,22 +324,38 @@ target "opencv-ros-custom-mmdeploy-open3d-arm64" {
 
 ### integration
 
-target "final" {
+target "final-amd64" {
   matrix     = {
     camera = "${CAMERAS_}"
   }
-  name       = "${camera}-final"
+  name       = "${camera}-final-amd64"
   context    = "."
   contexts   = {
     "${REGISTRY}/${BASE_IMAGE}:${camera}-${ROS_DISTRO}-desktop-custom-opencv-mmdeploy-open3d-mesa-amd64" = "target:${camera}-ros-desktop-custom-opencv-mmdeploy-open3d-mesa-amd64",
-    "${REGISTRY}/${BASE_IMAGE}:${camera}-opencv-${ROS_DISTRO}-custom-mmdeploy-open3d-arm64" = "target:${camera}-opencv-ros-custom-mmdeploy-open3d-arm64",
   }
   dockerfile-inline = <<EOF
 FROM --platform=linux/amd64 ${REGISTRY}/${BASE_IMAGE}:${camera}-${ROS_DISTRO}-desktop-custom-opencv-mmdeploy-open3d-mesa-amd64 as build-amd64
+FROM build-$TARGETARCH
+EOF
+  platforms  = [ "linux/amd64" ]
+  tags       = [ "${REGISTRY}/${BASE_IMAGE}:${camera}-final" ]
+  output     = [ "type=registry" ]
+}
+
+target "final-arm64" {
+  matrix     = {
+    camera = "${CAMERAS_}"
+  }
+  name       = "${camera}-final-arm64"
+  context    = "."
+  contexts   = {
+    "${REGISTRY}/${BASE_IMAGE}:${camera}-opencv-${ROS_DISTRO}-custom-mmdeploy-open3d-arm64" = "target:${camera}-opencv-ros-custom-mmdeploy-open3d-arm64",
+  }
+  dockerfile-inline = <<EOF
 FROM --platform=linux/arm64 ${REGISTRY}/${BASE_IMAGE}:${camera}-opencv-${ROS_DISTRO}-custom-mmdeploy-open3d-arm64 as build-arm64
 FROM build-$TARGETARCH
 EOF
-  platforms  = "${PLATFORMS}"
+  platforms  = [ "linux/arm64" ]
   tags       = [ "${REGISTRY}/${BASE_IMAGE}:${camera}-final" ]
   output     = [ "type=registry" ]
 }

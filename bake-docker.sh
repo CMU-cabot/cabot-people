@@ -144,12 +144,19 @@ fi
 
 # platform option
 platform_option=
+target=
 if [[ -n $platform ]]; then
     platform_option="--set=*.platform=\"$platform\""
+
+    if [[ $platform = "linux/amd64" ]]; then
+        target="targets-amd64"
+    elif [[ $platform = "linux/arm64" ]]; then
+        target="targets-arm64"
+    fi
 fi
 
 # bake
-com="$camera_option docker buildx bake -f docker-bake.hcl $platform_option $tag_option $@"
+com="$camera_option docker buildx bake -f docker-bake.hcl $platform_option $tag_option $target"
 export BASE_IMAGE=$base_name
 echo $com
 eval $com
