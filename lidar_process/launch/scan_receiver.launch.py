@@ -30,6 +30,11 @@ def generate_launch_description():
     high_level_pos_threshold = LaunchConfiguration('high_level_pos_threshold')
     high_level_vel_threshold = LaunchConfiguration('high_level_vel_threshold')
     high_level_ori_threshold = LaunchConfiguration('high_level_ori_threshold')
+    max_tracking_time = LaunchConfiguration('max_tracking_time')
+    max_tracking_dist = LaunchConfiguration('max_tracking_dist')
+    large_obs_size = LaunchConfiguration('large_obs_size')
+    max_queue_size = LaunchConfiguration('max_queue_size')
+    history_dt = LaunchConfiguration('history_dt')
 
     return LaunchDescription([
         # save all log file in the directory where the launch.log file is saved
@@ -47,6 +52,11 @@ def generate_launch_description():
         DeclareLaunchArgument('high_level_pos_threshold', default_value='1'),
         DeclareLaunchArgument('high_level_vel_threshold', default_value='1'),
         DeclareLaunchArgument('high_level_ori_threshold', default_value='1'),
+        DeclareLaunchArgument('max_tracking_time', default_value='0.25'),
+        DeclareLaunchArgument('max_tracking_dist', default_value='1.0'),
+        DeclareLaunchArgument('large_obs_size', default_value='2.0'),
+        DeclareLaunchArgument('max_queue_size', default_value='50'),
+        DeclareLaunchArgument('history_dt', default_value='0.4'),
 
         # overwrite parameters
         SetParameter(name='namespace', value=namespace),
@@ -59,6 +69,11 @@ def generate_launch_description():
         SetParameter(name='high_level_pos_threshold', value=high_level_pos_threshold),
         SetParameter(name='high_level_vel_threshold', value=high_level_vel_threshold),
         SetParameter(name='high_level_ori_threshold', value=high_level_ori_threshold),
+        SetParameter(name='max_tracking_time', value=max_tracking_time),
+        SetParameter(name='max_tracking_dist', value=max_tracking_dist),
+        SetParameter(name='large_obs_size', value=large_obs_size),
+        SetParameter(name='max_queue_size', value=max_queue_size),
+        SetParameter(name='history_dt', value=history_dt),
 
         Node(
             package="lidar_process",

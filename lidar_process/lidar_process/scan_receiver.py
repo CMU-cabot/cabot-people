@@ -96,14 +96,21 @@ class ScanReceiver(Node):
         # samples needed to be considered core points for DBSCAN clustering
         self._low_level_core_samples = self.declare_parameter('low_level_core_samples', 5).value
         # threshold values for DBSCAN
-        # low level is used for denoising and calculating velocities
+        # low level is used for denoising and identifying entities
         # high level is used for pedestrian grouping
         self._low_level_pos_threshold = self.declare_parameter('low_level_pos_threshold', 0.5).value
         self._high_level_pos_threshold = self.declare_parameter('high_level_pos_threshold', 1).value
         self._high_level_vel_threshold = self.declare_parameter('high_level_vel_threshold', 1).value
         self._high_level_ori_threshold = self.declare_parameter('high_level_ori_threshold', 1).value
+        # parameters related to tracking of entities
+        self._max_tracking_time = self.declare_parameter('max_tracking_time', 0.25).value
+        self._max_tracking_dist = self.declare_parameter('max_tracking_dist', 1.0).value
+        self._large_obs_size = self.declare_parameter('large_obs_size', 2.0).value
+        # paramters related to the inputs to the prediction model
+        self._max_queue_size = self.declare_parameter('max_queue_size', 50).value
+        self._history_dt = self.declare_parameter('history_dt', 0.4).value
 
-        self.pointcloud_history = queue.Queue(self._history_window)
+        self.pointcloud_history = queue.Queue(self._max_queue_size)
         self.pointcloud_history_np = []  # list of numpys
         self.is_history_complete = False
 
@@ -119,35 +126,39 @@ class ScanReceiver(Node):
         req = LookupTransform.Request()
         req.target_frame = target
         req.source_frame = source
+        req.time = self.pointcloud_header.stamp
         if not self.lookup_transform_service.wait_for_service(timeout_sec=1.0):
             raise Exception("lookup transform service is not available")
         
-        # Borrowed from BufferProxy in cabot-navigation/cabot_ui/cabot_ui/navigation.py
-        future = self.lookup_transform_service.call_async(req)
+        while True:
+            # Borrowed from BufferProxy in cabot-navigation/cabot_ui/cabot_ui/navigation.py
+            future = self.lookup_transform_service.call_async(req)
+            
+            event = threading.Event()
 
-        
-        event = threading.Event()
-
-        def unblock(future):
-            nonlocal event
-            event.set()
-        future.add_done_callback(unblock)
-        # Check future.done() before waiting on the event.
-        # The callback might have been added after the future is completed,
-        # resulting in the event never being set.
-        if not future.done():
-            if not event.wait(10.0):
-                # Timed out. remove_pending_request() to free resources
-                self.lookup_transform_service.remove_pending_request(future)
-                raise Exception("timeout")
-        if future.exception() is not None:
-            raise future.exception()
-        
-        # sync call end here
-        result = future.result()
-        if result.error.error > 0:
-            raise Exception(result.error.error_string)
-        return result.transform
+            def unblock(future):
+                nonlocal event
+                event.set()
+            future.add_done_callback(unblock)
+            # Check future.done() before waiting on the event.
+            # The callback might have been added after the future is completed,
+            # resulting in the event never being set.
+            if not future.done():
+                if not event.wait(10.0):
+                    # Timed out. remove_pending_request() to free resources
+                    self.lookup_transform_service.remove_pending_request(future)
+                    raise Exception("timeout")
+            if future.exception() is not None:
+                raise future.exception()
+            
+            # sync call end here
+            result = future.result()
+            if result.error.error > 0:
+                if result.error.error == 3:
+                    continue
+                raise Exception(result.error.error_string)
+            else:
+                return result.transform
 
     def scan_cb(self, msg):
         # Stores pointcloud when the node receives one.
@@ -171,7 +182,8 @@ class ScanReceiver(Node):
         # (x, y, z, intensity, ring number [e.g. 0-15])
         # Pointcloud complete format
         # groups are low level groups used for estimating velocities
-        # (x, y, z, intensity, ring, group id, group center x, group center y, vel_x, vel_y)
+        # (x, y, z, intensity, ring, group id, group center x, group center y, timestamp)
+        # Break down into 2 parts to read 2 different field type values in pointcloud2
         parsed_pointcloud_1 = pcl_to_numpy.read_points_numpy(
             msg, 
             field_names=['x', 'y', 'z', 'intensity'], 
@@ -193,21 +205,20 @@ class ScanReceiver(Node):
             self.pointcloud = np.array([])
 
         # transform pointcloud to map frame
+
         lidar_to_map = self.lookup_transform('velodyne', 'map')
         transformed_cloud = self._do_transform(self.pointcloud, lidar_to_map)
 
         if len(self.pointcloud) > 0:
-            self.pointcloud_complete = self._calc_pointcloud_group_vel(
+            self.pointcloud_complete = self._generate_track_entities(
                                                 self.pointcloud_prev, 
                                                 transformed_cloud, 
-                                                self.prev_pose, 
-                                                self.curr_pose,
                                                 dt)
         else:
             self.pointcloud_complete = []
         self.pointcloud_prev = self.pointcloud_complete 
 
-        if self.pointcloud_history.qsize() == self._history_window :
+        if self.pointcloud_history.qsize() == self._max_queue_size :
             self.is_history_complete = True
             # pop the oldest point cloud from the queue
             tmp = self.pointcloud_history.get(block=False)
@@ -273,12 +284,11 @@ class ScanReceiver(Node):
 
         return pointcloud_rst
     
-    def _calc_pointcloud_group_vel(self, prev_ptcloud, curr_ptcloud, prev_pose, curr_pose, dt):
-        # This function uses small threshold, distane based clustering to assign groups.
-        # Then compare the assigned groups to previous groups to get pointcloud velocities.
+    def _generate_track_entities(self, prev_ptcloud, curr_ptcloud, dt):
+        # This function uses small threshold, distane based clustering to assign groups as entities.
+        # Then compare the assigned entities to previous entities to get tracking info (if same entity ids).
         #
-        # returns pointcloud with low level group (pedestrian/object) information
-        # and estimated velocities
+        # returns pointcloud with low level entity (pedestrian/object) information and timestamps
 
         assert(dt > 0)
 
@@ -287,8 +297,9 @@ class ScanReceiver(Node):
 
         num_prev = len(prev_ptcloud)
         num_curr = len(curr_ptcloud)
-        complete_ptcloud = np.zeros((num_curr, 10))
+        complete_ptcloud = np.zeros((num_curr, 9))
         complete_ptcloud[:, :5] = curr_ptcloud
+        complete_ptcloud[:, 8] = self.curr_time
         ptcloud_pos = curr_ptcloud[:, :3]
         # z coordinates are not used for now, so use _
         (group, 
@@ -305,24 +316,25 @@ class ScanReceiver(Node):
 
         # A bit ad hoc, but if the obsacle is too big
         # It is likely a static obstacle and should have 0 velocity
+        large_obs_size = self._large_obs_size
         for i, gp_index in enumerate(unique_group):
             gp_mask = (group == gp_index)
-            gp_x = group_x[gp_mask]
-            gp_y = group_y[gp_mask]
+            gp_x = complete_ptcloud[gp_mask, 0]
+            gp_y = complete_ptcloud[gp_mask, 1]
             range_x = np.max(gp_x) - np.min(gp_x)
             range_y = np.max(gp_y) - np.min(gp_y)
-            large_obs_threshold = 3
-            if (range_x > large_obs_threshold) or (range_y > large_obs_threshold):
+            max_obs_size = np.sqrt(range_x ** 2 + range_y ** 2)
+            if (max_obs_size > large_obs_size):
                 unique_group[i] = -1
                 group[gp_mask] = -1
-                complete_ptcloud[gp_mask, 5] = -1 # -1 is not noise anymore, it means large obstacles
+                complete_ptcloud[gp_mask, 5] = -1 # -1 is not just noise, also large obstacles
 
-        # Won't work if too mcuh time has passed
-        # Set zero velocities is this happens
-        too_much_time_threshold = 0.25 
+        # Won't work if dt passed max tracking time
+        # Set entities to be new entities if this happens
+        max_tracking_time = self._max_tracking_time
 
         #If no prior pointclouds are available then leave the velocity columns 8 and 9 to be 0
-        if (num_prev > 0) and (dt < too_much_time_threshold):
+        if (num_prev > 0) and (dt < max_tracking_time):
             # estimate velocities for low level groups and use that as velocities of pointclouds
             group_prev = prev_ptcloud[:, 5]
             group_x_prev = prev_ptcloud[:, 6]
@@ -338,8 +350,8 @@ class ScanReceiver(Node):
                 unique_group_y_prev[i] = group_y_prev[group_prev == l][0]
 
             # get matching pairs from curr unique groups and prev unique groups
-            # for each pair: estimate a velocity and propagate the velocity to point clouds
-            new_group_dist_threshold = 1
+            # for each pair: obtain the same entity id and assign to point clouds
+            max_tracking_dist = self._max_tracking_dist
             for i, gp_index in enumerate(unique_group):
                 if gp_index != -1 :
                     gp_mask = (group == gp_index)
@@ -361,19 +373,13 @@ class ScanReceiver(Node):
                                 min_dist = dist
                                 min_idx = j
 
-                    if min_dist < new_group_dist_threshold:
-                        min_prev_x = unique_group_x_prev[min_idx]
-                        min_prev_y = unique_group_y_prev[min_idx]
-                        group_vel_x = (gp_center_x - min_prev_x) / dt
-                        group_vel_y = (gp_center_y - min_prev_y) / dt
+                    if min_dist < max_tracking_dist:
                         complete_ptcloud[gp_mask, 5] = unique_group_prev[min_idx]
-                        complete_ptcloud[gp_mask, 8] = group_vel_x
-                        complete_ptcloud[gp_mask, 9] = group_vel_y
                     else:
                         # assign new unique group id
                         print("New id assigned: min_dist {}".format(min_dist))
                         complete_ptcloud[gp_mask, 5] = np.max(unique_group_prev) + gp_index + 1
-        elif (dt > too_much_time_threshold):
+        elif (dt > max_tracking_time):
             self.get_logger().info("Too much time has passed since last velodyne message received!")
         elif (num_prev == 0):
             self.get_logger().info("Previous pointcloud is empty!")
@@ -392,20 +398,14 @@ class ScanReceiver(Node):
                 entity_label = int(l)
                 entity_x = complete_ptcloud[entity_idxes == l, 6][0]
                 entity_y = complete_ptcloud[entity_idxes == l, 7][0]
-                entity_vx = complete_ptcloud[entity_idxes == l, 8][0]
-                entity_vy = complete_ptcloud[entity_idxes == l, 9][0]
-                print([entity_vx, entity_vy])
-                marker, text_marker, vel_marker = visualization.create_entity_marker_with_velocity(
+                marker, text_marker = visualization.create_entity_marker(
                     entity_x, 
                     entity_y, 
-                    entity_vx, 
-                    entity_vy, 
                     entity_label, 
                     self.pointcloud_header, 
                     self.namespace)
                 marker_list.append(marker)
                 marker_list.append(text_marker)
-                marker_list.append(vel_marker)
             marker_array.markers = marker_list
             self.entity_vis_pub.publish(marker_array)
 
