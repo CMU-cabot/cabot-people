@@ -301,7 +301,8 @@ target "opencv-ros-custom-mmdeploy-arm64" {
   dockerfile = "Dockerfile.jetson"
   contexts   = { "${REGISTRY}/${BASE_IMAGE}:${camera}-opencv-${ROS_DISTRO}-custom-arm64" = "target:${camera}-opencv-ros-custom-arm64" }
   args       = {
-    FROM_IMAGE = "${REGISTRY}/${BASE_IMAGE}:${camera}-opencv-${ROS_DISTRO}-custom-arm64"
+    FROM_IMAGE = "${REGISTRY}/${BASE_IMAGE}:${camera}-opencv-${ROS_DISTRO}-custom-arm64",
+    CUDA_V     = "${L4T_CUDA}",
   }
   tags       = [ "${REGISTRY}/${BASE_IMAGE}:${camera}-opencv-${ROS_DISTRO}-custom-mmdeploy-arm64" ]
 }
