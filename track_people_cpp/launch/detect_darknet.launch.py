@@ -49,7 +49,7 @@ except ImportError:
 def check_file_existence(context, file_subst):
     file_path = file_subst.perform(context)
     if not os.path.exists(file_path):
-        raise RuntimeError(f"File does not exist: {file_path} - please run ./setup-model.sh to download model files and build workspace again")
+        raise RuntimeError(f"File does not exist: {file_path} - please build workspace again to download model files")
 
 
 def generate_launch_description():

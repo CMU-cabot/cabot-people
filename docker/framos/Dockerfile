@@ -24,6 +24,7 @@ FROM $FROM_IMAGE AS build
 ARG UBUNTU_DISTRO=jammy
 ARG TARGETARCH
 ENV DEBIAN_FRONTEND="noninteractive"
+ARG FRAMOS_V=2-9-0
 
 RUN apt update && \
     apt install -y --no-install-recommends \
@@ -39,11 +40,11 @@ RUN apt update && \
 # install Framos realsense
 RUN cd /tmp && \
     if [ "${TARGETARCH}" = "amd64" ]; then \
-        wget https://www.framos.com/framos3d/D400e/Software/Latest/FRAMOS_D400e_Software_Package_Linux64_x64_latest.tar.gz && \
-	tar xzf FRAMOS_D400e_Software_Package_Linux64_x64_latest.tar.gz ; \
+        wget https://www.framos.com/framos3d/D400e/Software/PreviousVersions/FRAMOS_D400e_Software_Package_v${FRAMOS_V}_Linux64_x64.tar.gz && \
+        tar xzf FRAMOS_D400e_Software_Package_v${FRAMOS_V}_Linux64_x64.tar.gz && \
     elif [ "${TARGETARCH}" = "arm64" ]; then \
-	wget https://www.framos.com/framos3d/D400e/Software/Latest/FRAMOS_D400e_Software_Package_Linux64_ARM_latest.tar.gz && \
-        tar xzf FRAMOS_D400e_Software_Package_Linux64_ARM_latest.tar.gz ; \
+        wget https://www.framos.com/framos3d/D400e/Software/PreviousVersions/FRAMOS_D400e_Software_Package_v${FRAMOS_V}_Linux64_ARM.tar.gz && \
+        tar xzf FRAMOS_D400e_Software_Package_v${FRAMOS_V}_Linux64_ARM.tar.gz && \
     fi; \
     cd FRAMOS_D400e_Software_Package && \
     apt update && \
@@ -53,4 +54,4 @@ RUN cd /tmp && \
     apt clean && \
     rm -rf /var/lib/apt/lists/* && \
     cd ../ && \
-	rm -rf *
+    rm -rf *
