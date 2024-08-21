@@ -1,7 +1,7 @@
 import signal
 import sys
-import queue
 import time
+import copy
 import threading
 import numpy as np
 from sklearn.cluster import DBSCAN
@@ -10,12 +10,9 @@ from scipy.spatial.transform import Rotation
 import rclpy
 from rclpy.node import Node
 
-from std_msgs.msg import Header
 from sensor_msgs.msg import PointCloud2, PointField
 from sensor_msgs_py import point_cloud2
 from visualization_msgs.msg import Marker, MarkerArray
-from geometry_msgs.msg import Pose, Point, Quaternion, Vector3
-from builtin_interfaces.msg import Duration
 from cabot_msgs.msg import PoseLog
 
 from . import pcl_to_numpy
@@ -38,8 +35,12 @@ class ScanReceiver(Node):
         state_update_callback_group = MutuallyExclusiveCallbackGroup()
         transform_lookup_callback_group = MutuallyExclusiveCallbackGroup()
         visualization_callback_group = MutuallyExclusiveCallbackGroup()
-        transient_local_qos = QoSProfile(depth=1, durability=QoSDurabilityPolicy.TRANSIENT_LOCAL)
+        group_prediction_callback_group = MutuallyExclusiveCallbackGroup()
+        # For very low frequency publish, not used for now
+        #transient_local_qos = QoSProfile(depth=1, durability=QoSDurabilityPolicy.TRANSIENT_LOCAL)
         sensor_data_qos = qos_profile_sensor_data
+
+        group_cb_timer_period = 0.2
 
         self.scan_sub = self.create_subscription(
             PointCloud2, 
@@ -76,6 +77,11 @@ class ScanReceiver(Node):
             callback_group=transform_lookup_callback_group
         )
 
+        self.group_generation_timer = self.create_timer(
+            group_cb_timer_period,
+            self.group_gen_cb,
+            callback_group = group_prediction_callback_group
+        )
 
         self.pointcloud_header = None
         self.pointcloud = np.array([])
@@ -110,9 +116,7 @@ class ScanReceiver(Node):
         self._max_queue_size = self.declare_parameter('max_queue_size', 50).value
         self._history_dt = self.declare_parameter('history_dt', 0.4).value
 
-        self.pointcloud_history = queue.Queue(self._max_queue_size)
-        self.pointcloud_history_np = []  # list of numpys
-        self.is_history_complete = False
+        self.pointcloud_history = utils.SimpleQueue(self._max_queue_size)
 
         self.debug_visualiation = True
 
@@ -120,8 +124,6 @@ class ScanReceiver(Node):
     
     def lookup_transform(self, source, target):
         # Look up and return tf transformation from source frame to target frame
-
-        self.get_logger().info(f"lookup_transform({source}, {target})")
 
         req = LookupTransform.Request()
         req.target_frame = target
@@ -154,6 +156,7 @@ class ScanReceiver(Node):
             # sync call end here
             result = future.result()
             if result.error.error > 0:
+                # If transform data is not available yet (error 3)
                 if result.error.error == 3:
                     continue
                 raise Exception(result.error.error_string)
@@ -161,7 +164,7 @@ class ScanReceiver(Node):
                 return result.transform
 
     def scan_cb(self, msg):
-        # Stores pointcloud when the node receives one.
+        # Processes and stores pointcloud when the node receives one.
 
         self.get_logger().info("pcl received")
         self.pointcloud_header = msg.header
@@ -218,18 +221,14 @@ class ScanReceiver(Node):
             self.pointcloud_complete = []
         self.pointcloud_prev = self.pointcloud_complete 
 
-        if self.pointcloud_history.qsize() == self._max_queue_size :
+        if self.pointcloud_history.is_full() :
             self.is_history_complete = True
             # pop the oldest point cloud from the queue
-            tmp = self.pointcloud_history.get(block=False)
-        self.pointcloud_history.put(self.pointcloud, block=False)
+            tmp = self.pointcloud_history.dequeue()
+        self.pointcloud_history.enqueue(self.pointcloud)
 
-        print("This callback runs: {} seconds".format(time.time() - start_time))
+        self.get_logger().info("Lidar scan callback runs: {} seconds".format(time.time() - start_time))
         
-        return
-    
-    def pose_cb(self, msg):
-        self.pose = msg.pose
         return
     
     def _filter_pointcloud(self, pointcloud):
@@ -256,8 +255,6 @@ class ScanReceiver(Node):
         x = transform.transform.translation
         t[:3, :3] = Rotation.from_quat([q.x, q.y, q.z, q.w]).as_matrix()
         t[:3, 3] = [x.x, x.y, x.z]
-
-        print("Number of point clouds: {}".format(len(pointcloud_coord)))
 
         pointcloud_new = np.ones((len(pointcloud_coord), 4))
         pointcloud_new[:, :3] = pointcloud_coord
@@ -473,37 +470,178 @@ class ScanReceiver(Node):
         clusters = DBSCAN(eps=threshold, min_samples=core_samples).fit(data)
         return clusters.labels_
     
-    def _copy_pointcloud(self):
-        # Copy the point cloud from queue to an array for processing later
-
-        self.pointcloud_history_np = list(self.pointcloud_history.queue)
+    def pose_cb(self, msg):
+        # Stores the most up to date pose information
+        self.pose = msg.pose
         return
     
-    def process_loop(self):
-        # The main loop that performs:
-        # 1. Grouping of point clouds
-        # 2. Generate group representations
-        # 3. Run predictions on representations
-        # 4. Publish current and predicted representations
+    def group_gen_cb(self):
+        # Performs grouping and generates input for the group prediction model
+        # 1. Get point clodus at specified time intervals and estimate velocities
+        # 2. Perform pedestrian grouping
+        # 3. Identify the 3 key points for groups
+        # 4. Apply proxemics
+        # 5. Perform prediction
 
-        while True:
-            if not self.is_history_complete:
-                loop_rate = self.create_rate(1, self.get_clock())
-                loop_rate.sleep()
-                continue
-            try:
-                self._copy_pointcloud()
-            except KeyboardInterrupt:
-                self.get_logger().info("Loop terminated")
-                break
+        if not(self.pointcloud_history.is_full()):
+            return
+        start_time = time.time()
+
+        # pcl_history is from old to new
+        # pcl format:
+        # (x, y, z, intensity, ring, group id, group center x, group center y, timestamp)
+        pcl_history = copy.copy(self.pointcloud_history._items)
+        current_pcl = pcl_history[-1]
+        if len(current_pcl) == 0:
+            return
+        current_time = current_pcl[0, 8]
+
+        # extract entities from current pointcloud and trace backwards
+        # interpolation used from neighboring entity pointclouds
+        # if history incomplete, perform back propogation
+        # velocities also calculated here
+        entities = current_pcl[:, 5]
+        entities_x = current_pcl[:, 6]
+        entities_y = current_pcl[:, 7]
+
+        unique_entities = np.unique(entities)
+        num_entities = len(unique_entities)
+        unique_entities_x = np.zeros(num_entities)
+        unique_entities_y = np.zeros(num_entities)
+        for i, l in enumerate(unique_entities):
+            unique_entities_x[i] = entities_x[entities == l][0]
+            unique_entities_y[i] = entities_y[entities == l][0]
+
+        # we collect info on history + 1 pointcouds to get velocities on history pointclouds
+        entities_history = []
+        for i, l in enumerate(unique_entities):
+            current_entity = current_pcl[entities == l, :]
+            entity_history = [current_entity]
+            time_pointer = self._max_queue_size - 2
+            propogation_step = 0
+            for j in range(self._history_window):
+                time_target = current_time - (j + 1) * self._history_dt
+                pcl = pcl_history[time_pointer]
+                while (len(pcl) > 0) and (pcl[0, 8] > time_target):
+                    time_pointer -= 1
+                    pcl = pcl_history[time_pointer]
+                if (len(pcl) == 0) or (not l in pcl[:, 5]):
+                    propogation_step = self.history_window - j
+                    break
+                else:
+                    #interpolation
+                    pcl_prev = pcl
+                    pcl_next = pcl_history[time_pointer + 1]
+                    entity_prev = pcl_prev[pcl_prev[:, 5] == l, :]
+                    entity_next = pcl_next[pcl_next[:, 5] == l, :]
+                    entity_interp = self._interpolate_pointclouds(entity_prev, entity_next, time_target)
+                    entity_history.append(entity_interp)
+            
+            # calculate velocities and propogation
+            # in final form, each entity will have (x, y, vx, vy, o)
+            entity_history_with_vel = []
+            if not(len(entity_history) == (self._history_window - propogation_step + 1)):
+                self.get_logger().error("Code error: entity history length an propogation step mismatch!")
+                sys.exit(0)
+            for j in range(self._history_window - propogation_step):
+                entity = entity_history[j]
+                num_pts = len(entity)
+                entity_with_vel = np.zeros((num_pts, 6))
+                entity_prev = entity_history[j + 1]
+                entity_with_vel[:, 0] = entity[:, 0]
+                entity_with_vel[:, 1] = entity[:, 1]
+                vx = (entity[0, 6] - entity_prev[0, 6]) / self._history_dt
+                vy = (entity[0, 7] - entity_prev[0, 7]) / self._history_dt
+                entity_with_vel[:, 2] = vx
+                entity_with_vel[:, 3] = vy
+                entity_with_vel[:, 4] = np.arctan2(vy, vx)
+                entity_with_vel[:, 5] = l
+                entity_history_with_vel.append(entity_with_vel)
+            if propogation_step == self._history_window:
+                offset_vx = 0
+                offset_vy = 0
+            else:
+                oldest_entity = entity_history_with_vel[-1]
+                offset_vx = oldest_entity[0, 2]
+                offset_vy = oldest_entity[0, 3]
+            entity = entity_history[-1]
+            num_pts = len(entity)
+            for j in range(propogation_step):
+                entity_with_vel = np.zeros((num_pts, 6))
+                if j == 0:
+                    entity_with_vel[:, 0] = entity[:, 0]
+                    entity_with_vel[:, 1] = entity[:, 1]
+                else:
+                    entity_with_vel[:, 0] = prev_entity[:, 0] - offset_vx * self._history_dt
+                    entity_with_vel[:, 1] = prev_entity[:, 1] - offset_vy * self._history_dt
+                entity_with_vel[:, 2] = offset_vx
+                entity_with_vel[:, 3] = offset_vx
+                entity_with_vel[:, 4] = np.arctan2(offset_vy, offset_vx)
+                entity_with_vel[:, 5] = l
+                entity_history_with_vel.append(entity_with_vel)
+                prev_entity = entity_with_vel
+
+            entities_history.append(entity_history_with_vel)
+        
+        self.get_logger().info("Group prediction callback runs: {} seconds".format(time.time() - start_time))
+
         return
+    
+    def _interpolate_pointclouds(self, pcl_1, pcl_2, curr_time, front_base=True):
+        # Interpolates 2 point clouds
+        # A very heuristics-based method but should work well
+        # Because error tolerance is high for mismatching pairs etc.
+        # 1. use entity centers to perform offset
+        # 2. use nearest neighbors to get matching pairs
+        # 3. interpolate
+        # The interpolation is based on the 2nd pointcloud
+        # If switching needed, then set front_base = True
+
+        if front_base == True:
+            tmp = pcl_1
+            pcl_1 = pcl_2
+            pcl_2 = tmp
+
+        num_pts1 = len(pcl_1)
+        num_pts2 = len(pcl_2)
+        if (num_pts1 == 0) and (num_pts2 == 0):
+            self.get_logger().warn("Both pointclouds are blank for interpolation!")
+            return []
+        if num_pts1 == 0:
+            return pcl_2
+        if num_pts2 == 0:
+            return pcl_1
+        
+        # displacement by center offsets
+        center_1x = pcl_1[0, 6]
+        center_1y = pcl_1[0, 7]
+        center_2x = pcl_2[0, 6]
+        center_2y = pcl_2[0, 7]
+        pcl_1[:, 0] = pcl_1[:, 0] + (center_2x - center_1x)
+        pcl_1[:, 1] = pcl_1[:, 1] + (center_2y - center_1y)
+
+        # get pairs by dearest neighbor
+        mesh_1x, mesh_2x = np.meshgrid(pcl_1[:, 0], pcl_2[:, 0])
+        mesh_1y, mesh_2y = np.meshgrid(pcl_1[:, 1], pcl_2[:, 1])
+        mesh_dist = np.sqrt(np.square(mesh_1x - mesh_2x) + np.square(mesh_1y - mesh_2y))
+        min_dist_idxes = np.argmin(mesh_dist, axis=1)
+        pcl_1 = pcl_1[min_dist_idxes, :]
+
+        # interpolate
+        time_1 = pcl_1[0, 8]
+        time_2 = pcl_2[0, 8]
+        pcl_interp = pcl_2 + (pcl_1 - pcl_2) / (time_1 - time_2) * (curr_time - time_2)
+        # preserve ring number, id, time
+        pcl_interp[:, 4] = pcl_2[:, 4]
+        pcl_interp[:, 5] = pcl_2[0, 5]
+        pcl_interp[:, 8] = curr_time
+
+        return pcl_interp
 
 
 def main():
     rclpy.init()
     scan_receiver = ScanReceiver()
-    #process_thread = threading.Thread(target=scan_receiver.process_loop)
-    #process_thread.start()
 
     try:
         executor = MultiThreadedExecutor()
