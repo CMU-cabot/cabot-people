@@ -41,12 +41,11 @@ RUN apt update && \
 RUN cd /tmp && \
     if [[ ${TARGETARCH} = "amd64" ]]; \
         wget https://www.framos.com/framos3d/D400e/Software/PreviousVersions/FRAMOS_D400e_Software_Package_v${FRAMOS_V}_Linux64_x64.tar.gz && \
-        tar xzf FRAMOS_D400e_Software_Package_v${FRAMOS_V}_Linux64_x64.tar.gz && \
-    fi \
-    if [[ ${TARGETARCH} = "arm64" ]]; \
+        tar xzf FRAMOS_D400e_Software_Package_v${FRAMOS_V}_Linux64_x64.tar.gz ; \
+    elif [ "${TARGETARCH}" = "arm64" ]; then \
         wget https://www.framos.com/framos3d/D400e/Software/PreviousVersions/FRAMOS_D400e_Software_Package_v${FRAMOS_V}_Linux64_ARM.tar.gz && \
-        tar xzf FRAMOS_D400e_Software_Package_v${FRAMOS_V}_Linux64_ARM.tar.gz && \
-    fi \
+        tar xzf FRAMOS_D400e_Software_Package_v${FRAMOS_V}_Linux64_ARM.tar.gz ; \
+    fi; \
     cd FRAMOS_D400e_Software_Package && \
     apt update && \
     apt install -y --no-install-recommends \
