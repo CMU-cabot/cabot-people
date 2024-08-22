@@ -379,9 +379,13 @@ function prebuild_aarch64 {
         OPENCV_V=4.9.0
         L4T_CUDA=12-2
     fi
+    L4T_MAJOR_MINOR_V="${HOST_L4T_V_ARRAY[0]}.${HOST_L4T_V_ARRAY[1]}"
+    TEGRA_V=t234
     blue "- L4T_IMAGE=$L4T_IMAGE"
     blue "- OPENCV_V=$OPENCV_V"
     blue "- L4T_CUDA=$L4T_CUDA"
+    blue "- L4T_MAJOR_MINOR_V=$L4T_MAJOR_MINOR_V"
+    blue "- TEGRA_V=$TEGRA_V"
 
     echo ""
     local name1=${prefix}_l4t-$CAMERA_IMAGE
@@ -455,6 +459,8 @@ function prebuild_aarch64 {
     docker build -f Dockerfile.jetson -t $name5 \
 	   --build-arg FROM_IMAGE=$name4 \
 	   --build-arg CUDA_V=$L4T_CUDA \
+	   --build-arg L4T_V=$L4T_MAJOR_MINOR_V \
+	   --build-arg TEGRA_V=$TEGRA_V \
 	   $option \
 	   .
     if [ $? -ne 0 ]; then

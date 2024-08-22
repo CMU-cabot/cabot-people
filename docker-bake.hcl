@@ -27,9 +27,22 @@ variable "REGISTRY" {
   default = "registry"
 }
 
+variable "L4T_V" {
+  default = "35.3.1"
+#  default = "36.2.0"
+}
+
 variable "L4T_IMAGE" {
-  default = "nvcr.io/nvidia/l4t-base:35.3.1"
-#  default = "nvcr.io/nvidia/l4t-base:r36.2.0"
+  default = "nvcr.io/nvidia/l4t-base:${L4T_V}"
+#  default = "nvcr.io/nvidia/l4t-base:${L4T_V}"
+}
+
+variable "L4T_MAJOR_MINOR_V" {
+  default = join(".", slice(split(".", "${L4T_V}"), 0, 2))
+}
+
+variable "TEGRA_V" {
+  default = "t234"
 }
 
 variable "OPENCV_V" {
@@ -303,6 +316,8 @@ target "opencv-ros-custom-mmdeploy-arm64" {
   args       = {
     FROM_IMAGE = "${REGISTRY}/${BASE_IMAGE}:${camera}-opencv-${ROS_DISTRO}-custom-arm64",
     CUDA_V     = "${L4T_CUDA}",
+    L4T_V      = "${L4T_MAJOR_MINOR_V}",
+    TEGRA_V    = "${TEGRA_V}",
   }
   tags       = [ "${REGISTRY}/${BASE_IMAGE}:${camera}-opencv-${ROS_DISTRO}-custom-mmdeploy-arm64" ]
 }
