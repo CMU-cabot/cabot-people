@@ -24,7 +24,29 @@ ARG FROM_IMAGE
 FROM $FROM_IMAGE AS cache
 
 ARG CMAKE_V=3.19.3 \
-    CUDA_V=12-2
+    CUDA_V=12-2 \
+    L4T_V=36.2 \
+    TEGRA_V=t234
+
+# if nvidia runtime is not used for build, install l4t packages in cache image
+RUN if [ -z "$(ldconfig -p | grep libcuda.so)" ]; then \
+        apt-key adv --fetch-keys https://repo.download.nvidia.com/jetson/jetson-ota-public.asc && \
+        apt-key adv --fetch-keys http://l4t-repo.nvidia.com/jetson-ota-internal.key && \
+        echo "deb https://repo.download.nvidia.com/jetson/common r${L4T_V} main" > /etc/apt/sources.list.d/nvidia-l4t-apt-source.list && \
+        echo "deb https://repo.download.nvidia.com/jetson/${TEGRA_V} r${L4T_V} main" >> /etc/apt/sources.list.d/nvidia-l4t-apt-source.list && \
+        # workaround to install nvidia-l4t-core in docker container
+        # https://forums.balena.io/t/getting-linux-for-tegra-into-a-container-on-balena-os/179421/20
+        mkdir -p /opt/nvidia/l4t-packages/ && \
+        touch /opt/nvidia/l4t-packages/.nv-l4t-disable-boot-fw-update-in-preinstall && \
+        mv /etc/ld.so.conf.d/nvidia-tegra.conf /etc/ld.so.conf.d/nvidia-tegra.conf.bak && \
+        apt update && \
+        apt-get install -y --no-install-recommends \
+        nvidia-l4t-core \
+        nvidia-l4t-cuda \
+        && \
+        apt-get clean && \
+        rm -rf /var/lib/apt/lists/* ; \
+    fi
 
 # install cmake
 RUN wget https://github.com/Kitware/CMake/releases/download/v${CMAKE_V}/cmake-${CMAKE_V}-linux-aarch64.sh && \
