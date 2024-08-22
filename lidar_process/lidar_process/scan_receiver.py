@@ -18,6 +18,7 @@ from cabot_msgs.msg import PoseLog
 from . import pcl_to_numpy
 from . import utils
 from . import visualization
+from . import grouping
 
 from rclpy.executors import MultiThreadedExecutor
 from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
@@ -105,9 +106,9 @@ class ScanReceiver(Node):
         # low level is used for denoising and identifying entities
         # high level is used for pedestrian grouping
         self._low_level_pos_threshold = self.declare_parameter('low_level_pos_threshold', 0.5).value
-        self._high_level_pos_threshold = self.declare_parameter('high_level_pos_threshold', 1).value
-        self._high_level_vel_threshold = self.declare_parameter('high_level_vel_threshold', 1).value
-        self._high_level_ori_threshold = self.declare_parameter('high_level_ori_threshold', 1).value
+        self._high_level_pos_threshold = self.declare_parameter('high_level_pos_threshold', 2.0).value
+        self._high_level_vel_threshold = self.declare_parameter('high_level_vel_threshold', 1.0).value
+        self._high_level_ori_threshold = self.declare_parameter('high_level_ori_threshold', 30.0).value
         # parameters related to tracking of entities
         self._max_tracking_time = self.declare_parameter('max_tracking_time', 0.25).value
         self._max_tracking_dist = self.declare_parameter('max_tracking_dist', 1.0).value
@@ -422,7 +423,7 @@ class ScanReceiver(Node):
         group_x = np.zeros(num_pts)
         group_y = np.zeros(num_pts)
         group_z = np.zeros(num_pts)
-        group = self._get_groups(
+        group = grouping.get_groups(
                     ptcloud, 
                     self._low_level_pos_threshold, 
                     self._low_level_core_samples
@@ -462,14 +463,6 @@ class ScanReceiver(Node):
             group_y_unique, 
             group_z_unique)
     
-    def _get_groups(self, data, threshold, core_samples):
-        # performs DBSCAN and clusters according to threshold and 
-        # number of sample points for the cluster cores
-        #
-        # returns the indexed labels with the same size as data
-        clusters = DBSCAN(eps=threshold, min_samples=core_samples).fit(data)
-        return clusters.labels_
-    
     def pose_cb(self, msg):
         # Stores the most up to date pose information
         self.pose = msg.pose
@@ -477,7 +470,7 @@ class ScanReceiver(Node):
     
     def group_gen_cb(self):
         # Performs grouping and generates input for the group prediction model
-        # 1. Get point clodus at specified time intervals and estimate velocities
+        # 1. Align point clouds at specified time intervals and estimate velocities
         # 2. Perform pedestrian grouping
         # 3. Identify the 3 key points for groups
         # 4. Apply proxemics
@@ -491,6 +484,36 @@ class ScanReceiver(Node):
         # pcl format:
         # (x, y, z, intensity, ring, group id, group center x, group center y, timestamp)
         pcl_history = copy.copy(self.pointcloud_history._items)
+        entities_history = self._align_pointclouds(pcl_history)
+
+        # concatenate all entities at the current time
+        num_entities = len(entities_history)
+        curr_pos_array = []
+        curr_vel_array = []
+        for i in range(num_entities):
+            entity = entities_history[i][0]
+            entity_pos = entity[:, :2]
+            entity_vel = entity[:, 2:4]
+            curr_pos_array = curr_pos_array + entity_pos.tolist()
+            curr_vel_array = curr_vel_array + entity_vel.tolist()
+        labels = grouping.pedestrian_grouping(
+            curr_pos_array, 
+            curr_vel_array, 
+            self._high_level_pos_threshold, 
+            self._high_level_vel_threshold,  
+            self._high_level_ori_threshold)
+        
+        # clustering is only performed at current time, prior groups are just tracing entities
+
+        self.get_logger().info("Group prediction callback runs: {} seconds".format(time.time() - start_time))
+
+        return
+    
+    def _align_pointclouds(self, pcl_history):
+        # Aligns the pointclouds at select intervals (specified by params) among recorded pointclouds history
+        # Interpolations are performed for pointclouds between time intervals
+        # If there is missing history information, propogation is used to fill in
+
         current_pcl = pcl_history[-1]
         if len(current_pcl) == 0:
             return
@@ -501,16 +524,16 @@ class ScanReceiver(Node):
         # if history incomplete, perform back propogation
         # velocities also calculated here
         entities = current_pcl[:, 5]
-        entities_x = current_pcl[:, 6]
-        entities_y = current_pcl[:, 7]
+        #entities_x = current_pcl[:, 6]
+        #entities_y = current_pcl[:, 7]
 
         unique_entities = np.unique(entities)
-        num_entities = len(unique_entities)
-        unique_entities_x = np.zeros(num_entities)
-        unique_entities_y = np.zeros(num_entities)
-        for i, l in enumerate(unique_entities):
-            unique_entities_x[i] = entities_x[entities == l][0]
-            unique_entities_y[i] = entities_y[entities == l][0]
+        #num_entities = len(unique_entities)
+        #unique_entities_x = np.zeros(num_entities)
+        #unique_entities_y = np.zeros(num_entities)
+        #for i, l in enumerate(unique_entities):
+        #    unique_entities_x[i] = entities_x[entities == l][0]
+        #    unique_entities_y[i] = entities_y[entities == l][0]
 
         # we collect info on history + 1 pointcouds to get velocities on history pointclouds
         entities_history = []
@@ -582,10 +605,8 @@ class ScanReceiver(Node):
                 prev_entity = entity_with_vel
 
             entities_history.append(entity_history_with_vel)
-        
-        self.get_logger().info("Group prediction callback runs: {} seconds".format(time.time() - start_time))
 
-        return
+        return entities_history
     
     def _interpolate_pointclouds(self, pcl_1, pcl_2, curr_time, front_base=True):
         # Interpolates 2 point clouds
