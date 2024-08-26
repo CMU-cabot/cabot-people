@@ -19,7 +19,7 @@ id_manager = IDManager()
 lifetime_sec = 0
 lifetime_nanosec = int(15e7)
 
-def create_entity_marker(x, y, id, header, ns, text_marker_needed=True):
+def create_entity_marker(x, y, id, header, ns, marker_size=0.5, text_marker_needed=True):
     # Returns
     # A colored sphere marker showing the position of the entity
     # A text next to the sphere marker displaying the id
@@ -46,7 +46,6 @@ def create_entity_marker(x, y, id, header, ns, text_marker_needed=True):
     marker_pose.orientation = marker_orientation
     marker.pose = marker_pose
 
-    marker_size = 0.5
     marker_scale = Vector3()
     marker_scale.x = marker_size
     marker_scale.y = marker_size
@@ -142,20 +141,27 @@ def create_group_marker(gp, gp_id, header, ns):
     group_markers = []
 
     pt = gp.left
+    start_pt = pt
     penta_points.append(pt)
-    marker_left, _ = create_entity_marker(pt.x, pt.y, gp_id, header, ns)
+    marker_left, _ = create_entity_marker(
+        pt.x, pt.y, gp_id, header, ns, marker_size=0.25, text_marker_needed=False)
     pt = gp.center
     penta_points.append(pt)
-    marker_center, _ = create_entity_marker(pt.x, pt.y, gp_id, header, ns)
+    marker_center, _ = create_entity_marker(
+        pt.x, pt.y, gp_id, header, ns, marker_size=0.25, text_marker_needed=False)
     pt = gp.right
     penta_points.append(pt)
-    marker_right, _ = create_entity_marker(pt.x, pt.y, gp_id, header, ns)
-    pt = gp.left_offset
-    penta_points.append(pt)
-    marker_left_offset, _ = create_entity_marker(pt.x, pt.y, gp_id, header, ns)
+    marker_right, _ = create_entity_marker(
+        pt.x, pt.y, gp_id, header, ns, marker_size=0.25, text_marker_needed=False)
     pt = gp.right_offset
     penta_points.append(pt)
-    marker_right_offset, _ = create_entity_marker(pt.x, pt.y, gp_id, header, ns)
+    marker_right_offset, _ = create_entity_marker(
+        pt.x, pt.y, gp_id, header, ns, marker_size=0.25, text_marker_needed=False)
+    pt = gp.left_offset
+    penta_points.append(pt)
+    marker_left_offset, _ = create_entity_marker(
+        pt.x, pt.y, gp_id, header, ns, marker_size=0.25, text_marker_needed=False)
+    penta_points.append(start_pt)
 
     penta_marker.points = penta_points
     group_markers = [
@@ -163,6 +169,7 @@ def create_group_marker(gp, gp_id, header, ns):
         marker_center,
         marker_right,
         marker_left_offset,
-        marker_right_offset
+        marker_right_offset,
+        penta_marker
     ]
     return group_markers

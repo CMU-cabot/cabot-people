@@ -53,6 +53,9 @@ def pedestrian_grouping(position_array, velocity_array, param_pos, param_spd, pa
         sys.exit(0)
 
     num_people = len(position_array)
+    if (num_people == 0):
+        return []
+
     vel_orientation_array = []
     vel_magnitude_array = []
     for [vx, vy] in velocity_array:

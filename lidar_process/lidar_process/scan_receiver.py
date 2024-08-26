@@ -233,7 +233,7 @@ class ScanReceiver(Node):
             self.is_history_complete = True
             # pop the oldest point cloud from the queue
             tmp = self.pointcloud_history.dequeue()
-        self.pointcloud_history.enqueue(self.pointcloud)
+        self.pointcloud_history.enqueue(self.pointcloud_complete)
 
         self.get_logger().info("Lidar scan callback runs: {} seconds".format(time.time() - start_time))
         
@@ -297,8 +297,8 @@ class ScanReceiver(Node):
 
         assert(dt > 0)
 
-        print("----------Pose & time info----------")
-        print("dt: {}".format(dt))
+        #print("----------Pose & time info----------")
+        #print("dt: {}".format(dt))
 
         num_prev = len(prev_ptcloud)
         num_curr = len(curr_ptcloud)
@@ -382,7 +382,7 @@ class ScanReceiver(Node):
                         complete_ptcloud[gp_mask, 5] = unique_group_prev[min_idx]
                     else:
                         # assign new unique group id
-                        print("New id assigned: min_dist {}".format(min_dist))
+                        #print("New id assigned: min_dist {}".format(min_dist))
                         complete_ptcloud[gp_mask, 5] = np.max(unique_group_prev) + gp_index + 1
         elif (dt > max_tracking_time):
             self.get_logger().info("Too much time has passed since last velodyne message received!")
@@ -496,7 +496,7 @@ class ScanReceiver(Node):
         # pcl format:
         # (x, y, z, intensity, ring, group id, group center x, group center y, timestamp)
         pcl_history = copy.copy(self.pointcloud_history._items)
-        if (len(pcl_history) == 0):
+        if (len(pcl_history[0]) == 0):
             self.get_logger().warn("No pointclouds at current time.")
             return
         
@@ -561,7 +561,7 @@ class ScanReceiver(Node):
             curr_groups = group_representations[0] 
             header = Header()
             header.frame_id = "map"
-            header.stamp = self.get_clock().now()
+            header.stamp = self.get_clock().now().to_msg()
             ns = self.namespace 
             for k in curr_groups.keys():
                 group = curr_groups[k]
@@ -582,7 +582,7 @@ class ScanReceiver(Node):
 
         current_pcl = pcl_history[-1]
         if len(current_pcl) == 0:
-            return
+            return []
         current_time = current_pcl[0, 8]
 
         # extract entities from current pointcloud and trace backwards
@@ -615,7 +615,7 @@ class ScanReceiver(Node):
                     time_pointer -= 1
                     pcl = pcl_history[time_pointer]
                 if (len(pcl) == 0) or (not l in pcl[:, 5]):
-                    propogation_step = self.history_window - j
+                    propogation_step = self._history_window - j
                     break
                 else:
                     #interpolation
