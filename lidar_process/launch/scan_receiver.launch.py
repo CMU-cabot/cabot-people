@@ -14,7 +14,7 @@ from launch_ros.actions import SetParameter
 
 from ament_index_python.packages import get_package_share_directory
 try:
-    from cabot_common.launch import AppendLogDirPrefix
+    from cabot_common.launch import AppendLogDirPrefix # type: ignore
     workaround = False
 except ImportError:
     workaround = True

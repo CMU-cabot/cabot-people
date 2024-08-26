@@ -13,7 +13,7 @@ from rclpy.node import Node
 from sensor_msgs.msg import PointCloud2, PointField
 from sensor_msgs_py import point_cloud2
 from visualization_msgs.msg import Marker, MarkerArray
-from cabot_msgs.msg import PoseLog
+from cabot_msgs.msg import PoseLog # type: ignore
 
 from . import pcl_to_numpy
 from . import utils
@@ -24,7 +24,7 @@ from rclpy.executors import MultiThreadedExecutor
 from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
 from rclpy.qos import QoSProfile, QoSDurabilityPolicy, qos_profile_sensor_data
 
-from cabot_msgs.srv import LookupTransform
+from cabot_msgs.srv import LookupTransform # type: ignore
 
 import open3d as o3d
 
@@ -480,30 +480,62 @@ class ScanReceiver(Node):
             return
         start_time = time.time()
 
+        curr_robot_pose = self.pose
+        curr_robot_x = curr_robot_pose.position.x
+        curr_robot_y = curr_robot_pose.position.y
+        curr_robot_pose = [curr_robot_x, curr_robot_y]
+
         # pcl_history is from old to new
         # pcl format:
         # (x, y, z, intensity, ring, group id, group center x, group center y, timestamp)
         pcl_history = copy.copy(self.pointcloud_history._items)
+        if (len(pcl_history) == 0):
+            self.get_logger().warn("No pointclouds at current time.")
+            return
+        
         entities_history = self._align_pointclouds(pcl_history)
 
         # concatenate all entities at the current time
-        num_entities = len(entities_history)
-        curr_pos_array = []
-        curr_vel_array = []
-        for i in range(num_entities):
-            entity = entities_history[i][0]
-            entity_pos = entity[:, :2]
-            entity_vel = entity[:, 2:4]
-            curr_pos_array = curr_pos_array + entity_pos.tolist()
-            curr_vel_array = curr_vel_array + entity_vel.tolist()
-        labels = grouping.pedestrian_grouping(
+        curr_pos_array, curr_vel_array, curr_entities_id = self._concatenate_entities(entities_history, 0)
+        curr_labels = grouping.pedestrian_grouping(
             curr_pos_array, 
             curr_vel_array, 
             self._high_level_pos_threshold, 
             self._high_level_vel_threshold,  
             self._high_level_ori_threshold)
+        unique_entities = np.unique(curr_entities_id)
+        entity_to_group = {}
+        for i, l in enumerate(unique_entities):
+            idxes = np.where(curr_entities_id == l)
+            idx = idxes[0][0]
+            gp = curr_labels[idx]
+            entity_to_group[l] = gp
         
         # clustering is only performed at current time, prior groups are just tracing entities
+        group_representations = []
+        for i in range(self._history_window):
+            if i == 0:
+                pos_array = curr_pos_array
+                vel_array = curr_vel_array
+                labels = curr_labels
+            else:
+                pos_array, vel_array, entities_id = self._concatenate_entities(entities_history, i)
+                labels = [entity_to_group[id] for id in entities_id]
+            labels = np.array(labels)
+
+            unique_groups = np.unique(labels)
+            curr_group_rep = {}
+            for g in unique_groups:
+                group_condition = (labels == g)
+                group_rep = grouping.generate_representation(
+                    pos_array[group_condition], 
+                    vel_array[group_condition], 
+                    curr_robot_pose)
+                curr_group_rep[g] = group_rep
+
+            group_representations.append(curr_group_rep)      
+
+        # Publish group_representations
 
         self.get_logger().info("Group prediction callback runs: {} seconds".format(time.time() - start_time))
 
@@ -658,6 +690,29 @@ class ScanReceiver(Node):
         pcl_interp[:, 8] = curr_time
 
         return pcl_interp
+    
+    def _concatenate_entities(self, entities_history, time):
+        # This function concatenates the positions and velocities of the entities at a given time
+        # Note the entity ids output is a numpy array
+        num_entities = len(entities_history)
+
+        if (num_entities > 0) and (time >= len(entities_history[0])):
+            self.get_logger().error("Time chosen is longer than the hsitory time window of entities")
+            sys.exit(0)
+
+        pos_array = []
+        vel_array = []
+        ent_array = []
+        for i in range(num_entities):
+            entity = entities_history[i][time]
+            entity_pos = entity[:, :2]
+            entity_vel = entity[:, 2:4]
+            entity_id = entity[:, 5]
+            pos_array = pos_array + entity_pos.tolist()
+            vel_array = vel_array + entity_vel.tolist()
+            ent_array = ent_array + entity_id.tolist()
+
+        return np.array(pos_array), np.array(vel_array), np.array(ent_array)
 
 
 def main():
