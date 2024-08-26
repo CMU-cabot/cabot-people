@@ -4,16 +4,17 @@ import time
 import copy
 import threading
 import numpy as np
-from sklearn.cluster import DBSCAN
 from scipy.spatial.transform import Rotation
 
 import rclpy
 from rclpy.node import Node
 
+from std_msgs.msg import Header
 from sensor_msgs.msg import PointCloud2, PointField
 from sensor_msgs_py import point_cloud2
 from visualization_msgs.msg import Marker, MarkerArray
 from cabot_msgs.msg import PoseLog # type: ignore
+from lidar_process_msgs.msg import Group, GroupArray #type: ignore
 
 from . import pcl_to_numpy
 from . import utils
@@ -70,6 +71,12 @@ class ScanReceiver(Node):
             "/vis_entities",
             10,
             callback_group = visualization_callback_group
+        )
+        self.group_vis_pub = self.create_publisher(
+            MarkerArray,
+            "/vis_groups",
+            10,
+            callback_group=visualization_callback_group
         )
 
         self.lookup_transform_service = self.create_client(
@@ -527,13 +534,40 @@ class ScanReceiver(Node):
             curr_group_rep = {}
             for g in unique_groups:
                 group_condition = (labels == g)
-                group_rep = grouping.generate_representation(
+                group_rep_array = grouping.generate_representation(
                     pos_array[group_condition], 
                     vel_array[group_condition], 
                     curr_robot_pose)
+                group_rep = Group()
+                group_rep.left.x = group_rep_array[0, 0]
+                group_rep.left.y = group_rep_array[0, 1]
+                group_rep.center.x = group_rep_array[1, 0]
+                group_rep.center.y = group_rep_array[1, 1]
+                group_rep.right.x = group_rep_array[2, 0]
+                group_rep.right.y = group_rep_array[2, 1]
+                group_rep.left_offset.x = group_rep_array[3, 0]
+                group_rep.left_offset.y = group_rep_array[3, 1]
+                group_rep.right_offset.x = group_rep_array[4, 0]
+                group_rep.right_offset.y = group_rep_array[4, 1]
                 curr_group_rep[g] = group_rep
 
-            group_representations.append(curr_group_rep)      
+            group_representations.append(curr_group_rep)     
+
+        # TODO: group predictions
+
+        if self.debug_visualiation:
+            group_vis_markers = MarkerArray()
+            group_markers_list = []
+            curr_groups = group_representations[0] 
+            header = Header()
+            header.frame_id = "map"
+            header.stamp = self.get_clock().now()
+            ns = self.namespace 
+            for k in curr_groups.keys():
+                group = curr_groups[k]
+                group_markers_list = group_markers_list + visualization.create_group_marker(group, k, header, ns)
+            group_vis_markers.markers = group_markers_list
+            self.group_vis_pub.publish(group_vis_markers)
 
         # Publish group_representations
 
