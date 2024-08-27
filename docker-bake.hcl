@@ -4,11 +4,11 @@ variable "PLATFORMS" {
 
 # can be overriden by env variable
 variable "CAMERAS" {
-  default = "realsense,framos"
+  default = "realsense framos"
 }
 
 variable "CAMERAS_" {
-  default = split(",", "${CAMERAS}")
+  default = split(" ", "${CAMERAS}")
 }
 
 variable "ROS_DISTRO" {
@@ -354,7 +354,7 @@ FROM --platform=linux/amd64 ${REGISTRY}/${BASE_IMAGE}:${camera}-${ROS_DISTRO}-de
 FROM build-$TARGETARCH
 EOF
   platforms  = [ "linux/amd64" ]
-  tags       = [ "${REGISTRY}/${BASE_IMAGE}:${camera}-final" ]
+  tags       = [ "${REGISTRY}/${BASE_IMAGE}:${camera}-final-amd64" ]
   output     = [ "type=registry" ]
 }
 
@@ -372,6 +372,6 @@ FROM --platform=linux/arm64 ${REGISTRY}/${BASE_IMAGE}:${camera}-opencv-${ROS_DIS
 FROM build-$TARGETARCH
 EOF
   platforms  = [ "linux/arm64" ]
-  tags       = [ "${REGISTRY}/${BASE_IMAGE}:${camera}-final" ]
+  tags       = [ "${REGISTRY}/${BASE_IMAGE}:${camera}-final-arm64" ]
   output     = [ "type=registry" ]
 }

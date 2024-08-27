@@ -32,7 +32,7 @@ function help {
     echo ""
     echo "-h                    show this help"
     echo "-b <base_name>        bake with base_name"
-    echo "-c <camera>           realsense or framos"
+    echo "-c <camera>           camera target (default=\"realsense framos\", set \"realsense\" for RealSense, and \"framos\" for FRAMOS camera)"
     echo "-i                    image build for debug - shorthand for -l and -P with host platform"
     echo "-l                    build using local registry"
     echo "-P <platform>         specify platform"
@@ -45,7 +45,7 @@ base_name=cabot-gpu-base
 image_name=cabot-people
 local=0
 tags=
-camera=
+cameras="realsense framos"
 
 while getopts "hb:c:ilP:t:" arg; do
     case $arg in
@@ -57,7 +57,7 @@ while getopts "hb:c:ilP:t:" arg; do
         base_name=${OPTARG}
         ;;
     c)
-        camera=${OPTARG}
+        cameras=${OPTARG}
         ;;
     i)
         if [[ $(uname -m) = "x86_64" ]]; then
@@ -132,8 +132,8 @@ fi
 
 # camera option
 camera_option=
-if [[ -n $camera ]]; then
-   camera_option='CAMERAS="$camera"'
+if [[ -n $cameras ]]; then
+   camera_option='CAMERAS="$cameras"'
 fi
 
 # tag option
@@ -144,15 +144,16 @@ fi
 
 # platform option
 platform_option=
-target=
-if [[ -n $platform ]]; then
+if [[ $platform = "linux/amd64" ]] || [[ $platform = "linux/arm64" ]]; then
     platform_option="--set=*.platform=\"$platform\""
+fi
 
-    if [[ $platform = "linux/amd64" ]]; then
-        target="targets-amd64"
-    elif [[ $platform = "linux/arm64" ]]; then
-        target="targets-arm64"
-    fi
+# target
+target=
+if [[ $platform = "linux/amd64" ]]; then
+    target="targets-amd64"
+elif [[ $platform = "linux/arm64" ]]; then
+    target="targets-arm64"
 fi
 
 # bake
@@ -160,10 +161,32 @@ com="$camera_option docker buildx bake -f docker-bake.hcl $platform_option $tag_
 export BASE_IMAGE=$base_name
 echo $com
 eval $com
-
 if [[ $? -ne 0 ]]; then
     exit 1
 fi
+
+# create multi platform final image
+if [[ $local -eq 1 ]]; then
+    final_registry="localhost:9092"
+else
+    final_registry="cmucal"
+fi
+for camera in $cameras; do
+    if [[ $platform = "linux/amd64" ]]; then
+        sources="${final_registry}/${base_name}:${camera}-final-amd64"
+    elif [[ $platform = "linux/arm64" ]]; then
+        sources="${final_registry}/${base_name}:${camera}-final-arm64"
+    else
+        sources="${final_registry}/${base_name}:${camera}-final-amd64 ${final_registry}/${base_name}:${camera}-final-arm64"
+    fi
+
+    com="docker buildx imagetools create --tag ${final_registry}/${base_name}:${camera}-final ${sources}"
+    echo $com
+    eval $com
+    if [[ $? -ne 0 ]]; then
+        exit 1
+    fi
+done
 
 # copy images from local registry
 # this can override image tag
