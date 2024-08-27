@@ -74,20 +74,16 @@ def pedestrian_grouping(position_array, velocity_array, param_pos, param_spd, pa
     labels = DBScan_grouping(labels, position_array, param_pos)
     return labels
 
-def generate_representation(positions, velocities, robo_pose):
+def identify_edge_points(positions, robo_pose):
     # This function takes the position and velocity information of pointclouds
     # and their group label information. (At a specific time for a specific group)
-    # Then it generates the group-based representations for that time.
+    # Then it identifies the edge points for the group.
 
     left_idx, right_idx = find_left_right_edge(positions, robo_pose)
     dists = np.sqrt(np.square(positions[:, 0] - robo_pose[0]) + np.square(positions[:, 1] - robo_pose[1]))
     center_idx = np.argmin(dists)
 
-    # must be in left, center, right order
-    edge_pos = [positions[left_idx], positions[center_idx], positions[right_idx]]
-    edge_vel = [velocities[left_idx], velocities[center_idx], velocities[right_idx]]
-
-    return vertices_from_edge_pts(robo_pose, edge_pos, edge_vel)
+    return left_idx, center_idx, right_idx
 
 def find_left_right_edge(points, target_pt):
     # This function performs a scan of all the points and finds
@@ -174,12 +170,14 @@ def vertices_from_edge_pts(robo_pos, edge_pos, edge_vel, const=None):
            (np.linalg.norm(center_pt - right_pt) < epsilon)):
             center_pt = (left_pt + right_pt) / 2
         left_offset_pt, right_offset_pt = construct_offset(left_pt, right_pt, robo_pos)
-        expanded_vertices.append(left_pt)
-        expanded_vertices.append(center_pt)
-        expanded_vertices.append(right_pt)
-        expanded_vertices.append(left_offset_pt)
-        expanded_vertices.append(right_offset_pt)
-    return np.array(expanded_vertices)
+        group_vertices = {}
+        group_vertices['left'] = left_pt
+        group_vertices['center'] = center_pt
+        group_vertices['right'] = right_pt
+        group_vertices['left_offset'] = left_offset_pt
+        group_vertices['right_offset'] = right_offset_pt
+        expanded_vertices.append(group_vertices)
+    return expanded_vertices
 
 def construct_offset(left_pt, right_pt, center_pt, offset=1.0):
     # This function constructs a rectangular offset block behind the edge

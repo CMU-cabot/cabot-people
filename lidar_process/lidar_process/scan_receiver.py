@@ -14,12 +14,13 @@ from sensor_msgs.msg import PointCloud2, PointField
 from sensor_msgs_py import point_cloud2
 from visualization_msgs.msg import Marker, MarkerArray
 from cabot_msgs.msg import PoseLog # type: ignore
-from lidar_process_msgs.msg import Group, GroupArray #type: ignore
+from lidar_process_msgs.msg import Group, GroupArray, GroupTimeArray #type: ignore
 
 from . import pcl_to_numpy
 from . import utils
 from . import visualization
 from . import grouping
+from .sgan import inference
 
 from rclpy.executors import MultiThreadedExecutor
 from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
@@ -56,6 +57,12 @@ class ScanReceiver(Node):
             '/cabot/pose_log',
             self.pose_cb,
             qos_profile=sensor_data_qos,
+            callback_group = state_update_callback_group
+        )
+        self.group_pred_pub = self.create_publisher(
+            GroupTimeArray,
+            "/group_predictions",
+            10,
             callback_group = state_update_callback_group
         )
         
@@ -107,6 +114,12 @@ class ScanReceiver(Node):
         self._scan_max_range = self.declare_parameter('scan_max_range', 15).value
         self._history_window = self.declare_parameter('history_window', 8).value
         self._future_window = self.declare_parameter('future_window', 8).value
+        if not (self._history_window == 8):
+            self.get_logger().error("Sorry, only support history length 8 now")
+            sys.exit(0)
+        if not (self._future_window == 8 or self._future_window == 12):
+            self.get_logger().error("Sorry, only support future length 8 or 12 now")
+            sys.exit(0)
         # samples needed to be considered core points for DBSCAN clustering
         self._low_level_core_samples = self.declare_parameter('low_level_core_samples', 5).value
         # threshold values for DBSCAN
@@ -124,6 +137,9 @@ class ScanReceiver(Node):
         # paramters related to the inputs to the prediction model
         self._max_queue_size = self.declare_parameter('max_queue_size', 50).value
         self._history_dt = self.declare_parameter('history_dt', 0.4).value
+
+        model_path = "sgan/models/sgan-models/univ_" + str(self._future_window) + "_model.pt"
+        self.group_pred_model = inference.SGANInference(model_path)
 
         self.pointcloud_history = utils.SimpleQueue(self._max_queue_size)
 
@@ -519,55 +535,82 @@ class ScanReceiver(Node):
             entity_to_group[l] = gp
         
         # clustering is only performed at current time, prior groups are just tracing entities
+        # only edge points are needed to perform future predictions
         sub_start_time = time.time()
-        group_representations = []
-        for i in range(self._history_window):
+        group_keypoint_sequences = {}
+        for i in range(self._history_window - 1, -1, -1):  # the newer the later (currently the older the later)
             if i == 0:
                 pos_array = curr_pos_array
-                vel_array = curr_vel_array
                 labels = curr_labels
             else:
-                pos_array, vel_array, entities_id = self._concatenate_entities(entities_history, i)
+                pos_array, _, entities_id = self._concatenate_entities(entities_history, i)
                 labels = [entity_to_group[id] for id in entities_id]
             labels = np.array(labels)
 
             unique_groups = np.unique(labels)
-            curr_group_rep = {}
             for g in unique_groups:
                 group_condition = (labels == g)
-                group_rep_array = grouping.generate_representation(
-                    pos_array[group_condition], 
-                    vel_array[group_condition], 
+                group_pos = pos_array[group_condition]
+                left_idx, center_idx, right_idx = grouping.identify_edge_points(
+                    group_pos, 
                     curr_robot_pose)
+                if not (g in group_keypoint_sequences.keys()):
+                    group_keypoint_sequences[g] = [[group_pos[left_idx], group_pos[center_idx], group_pos[right_idx]]]
+                else:
+                    group_keypoint_sequences[g].append([group_pos[left_idx], group_pos[center_idx], group_pos[right_idx]])
+        
+        # prepare the inputs to the trjectory prediction model and make predictions
+        num_groups = len(group_keypoint_sequences)
+        group_pred_inputs = np.zeros((num_groups * 3, self._history_window, 2))
+        for i, g in enumerate(group_keypoint_sequences.keys()):
+            group = group_keypoint_sequences[g]
+            assert(len(group) == self._history_window)
+            group_pred_inputs[(i*3):((i+1)*3), :, :] = np.transpose(np.array(group), (1, 0, 2))
+        
+        group_futures = self.group_pred_model.evaluate(group_pred_inputs)
+        group_complete_futures = np.zeros((num_groups * 3, self._future_window + 1, 2))
+        group_complete_futures[:, 0, :] = group_pred_inputs[:, -1, :]
+        group_complete_futures[:, 1:, :] = group_futures
+        group_complete_velocities = (group_complete_futures[:, 1:, :] - group_complete_futures[:, :-1, :]) / self._history_dt
+
+        group_representations = GroupTimeArray()
+        group_representations.group_sequences = []
+        for i in range(self._future_window):
+            group_vertices = grouping.vertices_from_edge_pts(
+                curr_robot_pose, group_complete_futures[:, i, :], group_complete_velocities[:, i, :])
+            curr_groups = GroupArray()
+            curr_groups.groups = []
+            for i in range(len(group_vertices)):
+                group = group_vertices[i]
                 group_rep = Group()
-                group_rep.left.x = group_rep_array[0, 0]
-                group_rep.left.y = group_rep_array[0, 1]
-                group_rep.center.x = group_rep_array[1, 0]
-                group_rep.center.y = group_rep_array[1, 1]
-                group_rep.right.x = group_rep_array[2, 0]
-                group_rep.right.y = group_rep_array[2, 1]
-                group_rep.left_offset.x = group_rep_array[3, 0]
-                group_rep.left_offset.y = group_rep_array[3, 1]
-                group_rep.right_offset.x = group_rep_array[4, 0]
-                group_rep.right_offset.y = group_rep_array[4, 1]
-                curr_group_rep[g] = group_rep
+                group_rep.left.x = group['left'][0]
+                group_rep.left.y = group['left'][1]
+                group_rep.center.x = group['center'][0]
+                group_rep.center.y = group['center'][1]
+                group_rep.right.x = group['right'][0]
+                group_rep.right.y = group['right'][1]
+                group_rep.left_offset.x = group['left_offset'][0]
+                group_rep.left_offset.y = group['left_offset'][1]
+                group_rep.right_offset.x = group['right_offset'][0]
+                group_rep.right_offset.y = group['right_offset'][1]
+                curr_groups.groups.append(group_rep)
+            group_representations.group_sequences.append(curr_groups)
 
-            group_representations.append(curr_group_rep)    
+        self.group_pred_pub.publish(group_representations)
+               
         print("Time gen rep: {}".format(time.time() - sub_start_time))
-
-        # TODO: group predictions
 
         if self.debug_visualiation:
             group_vis_markers = MarkerArray()
             group_markers_list = []
-            curr_groups = group_representations[0] 
+            curr_groups = group_representations.group_sequences[0].groups
             header = Header()
             header.frame_id = "map"
             header.stamp = self.get_clock().now().to_msg()
             ns = self.namespace 
-            for k in curr_groups.keys():
-                group = curr_groups[k]
-                group_markers_list = group_markers_list + visualization.create_group_marker(group, k, header, ns)
+            for i in range(len(curr_groups)):
+                group = curr_groups[i]
+                group_markers_list.extend(visualization.create_group_marker(group, i, header, ns))
             group_vis_markers.markers = group_markers_list
             self.group_vis_pub.publish(group_vis_markers)
 
