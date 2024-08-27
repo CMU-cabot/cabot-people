@@ -133,8 +133,8 @@ def create_group_marker(gp, gp_id, header, ns):
     penta_marker.scale = Vector3()
     penta_marker.scale.x = 0.1
     penta_marker.lifetime = Duration()
-    penta_marker.lifetime.sec = lifetime_sec
-    penta_marker.lifetime.nanosec = lifetime_nanosec
+    penta_marker.lifetime.sec = 0
+    penta_marker.lifetime.nanosec = int(40e7)
     penta_marker.frame_locked = False
 
     penta_points = []

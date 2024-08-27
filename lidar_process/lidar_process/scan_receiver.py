@@ -116,6 +116,7 @@ class ScanReceiver(Node):
         self._high_level_pos_threshold = self.declare_parameter('high_level_pos_threshold', 2.0).value
         self._high_level_vel_threshold = self.declare_parameter('high_level_vel_threshold', 1.0).value
         self._high_level_ori_threshold = self.declare_parameter('high_level_ori_threshold', 30.0).value
+        self._high_level_ori_threshold = self._high_level_ori_threshold / 180 * np.pi
         # parameters related to tracking of entities
         self._max_tracking_time = self.declare_parameter('max_tracking_time', 0.25).value
         self._max_tracking_dist = self.declare_parameter('max_tracking_dist', 1.0).value
@@ -174,7 +175,7 @@ class ScanReceiver(Node):
     def scan_cb(self, msg):
         # Processes and stores pointcloud when the node receives one.
 
-        self.get_logger().info("pcl received")
+        #self.get_logger().info("pcl received")
         self.pointcloud_header = msg.header
         start_time = time.time()
 
@@ -499,7 +500,6 @@ class ScanReceiver(Node):
         if (len(pcl_history[0]) == 0):
             self.get_logger().warn("No pointclouds at current time.")
             return
-        
         entities_history = self._align_pointclouds(pcl_history)
 
         # concatenate all entities at the current time
@@ -519,6 +519,7 @@ class ScanReceiver(Node):
             entity_to_group[l] = gp
         
         # clustering is only performed at current time, prior groups are just tracing entities
+        sub_start_time = time.time()
         group_representations = []
         for i in range(self._history_window):
             if i == 0:
@@ -551,7 +552,8 @@ class ScanReceiver(Node):
                 group_rep.right_offset.y = group_rep_array[4, 1]
                 curr_group_rep[g] = group_rep
 
-            group_representations.append(curr_group_rep)     
+            group_representations.append(curr_group_rep)    
+        print("Time gen rep: {}".format(time.time() - sub_start_time))
 
         # TODO: group predictions
 
@@ -734,6 +736,7 @@ class ScanReceiver(Node):
             self.get_logger().error("Time chosen is longer than the hsitory time window of entities")
             sys.exit(0)
 
+        """
         pos_array = []
         vel_array = []
         ent_array = []
@@ -747,6 +750,18 @@ class ScanReceiver(Node):
             ent_array = ent_array + entity_id.tolist()
 
         return np.array(pos_array), np.array(vel_array), np.array(ent_array)
+        """
+
+        pos_entities = tuple(entity[time][:, :2] for entity in entities_history)
+        vel_entities = tuple(entity[time][:, 2:4] for entity in entities_history)
+        ent_entities = tuple(entity[time][:, 5] for entity in entities_history)
+
+        if num_entities == 0:
+            return np.array([]), np.array([]), np.array([])
+        else:
+            return np.concatenate(pos_entities, axis=0), \
+                np.concatenate(vel_entities, axis=0), \
+                np.concatenate(ent_entities, axis=0)
 
 
 def main():

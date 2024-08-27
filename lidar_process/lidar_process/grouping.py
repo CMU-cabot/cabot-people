@@ -83,6 +83,7 @@ def generate_representation(positions, velocities, robo_pose):
     dists = np.sqrt(np.square(positions[:, 0] - robo_pose[0]) + np.square(positions[:, 1] - robo_pose[1]))
     center_idx = np.argmin(dists)
 
+    # must be in left, center, right order
     edge_pos = [positions[left_idx], positions[center_idx], positions[right_idx]]
     edge_vel = [velocities[left_idx], velocities[center_idx], velocities[right_idx]]
 
@@ -96,33 +97,18 @@ def find_left_right_edge(points, target_pt):
     right_ang = np.inf
     right_idx = None
     num_pts = np.shape(points)[0]
-    for i in range(num_pts):
-        pos = points[i]
-        ang = np.arctan2(pos[1] - target_pt[1], pos[0] - target_pt[0])
-        if ang > left_ang:
-            left_ang = ang
-            left_idx = i
-        if ang < right_ang:
-            right_ang = ang
-            right_idx = i
 
     # correction for groups that cross pi (or the 180 degree line w.r.t. the coordinates origin)
-    if (left_ang - right_ang) > np.pi:
-        left_ang = -np.inf
-        left_idx = None
-        right_ang = np.inf
-        right_idx = None
-        for i in range(num_pts):
-            pos = points[i]
-            ang = np.arctan2(pos[1] - target_pt[1], pos[0] - target_pt[0])
-            if ang < 0:
-                ang = ang + 2 * np.pi
-            if ang > left_ang:
-                left_ang = ang
-                left_idx = i
-            if ang < right_ang:
-                right_ang = ang
-                right_idx = i
+    if points[0][0] < target_pt[0]:
+        on_left_side = True
+    else:
+        on_left_side = False
+
+    angs = np.arctan2(points[:, 1] - target_pt[1], points[:, 0] - target_pt[0])
+    if on_left_side:
+        angs[angs < 0] += 2 * np.pi
+    left_idx = np.argmax(angs)
+    right_idx = np.argmin(angs)
 
     return left_idx, right_idx
 
@@ -151,6 +137,11 @@ def vertices_from_edge_pts(robo_pos, edge_pos, edge_vel, const=None):
             candidate_vts = draw_social_shapes([pos], [vel], const)
         if (i % 3) == 1:
             pt_choice = None
+            dists = np.sqrt(np.square(candidate_vts[:, 0] - robo_pos[0]) + 
+                            np.square(candidate_vts[:, 1] - robo_pos[1]))
+            min_idx = np.argmin(dists)
+            pt_choice = candidate_vts[min_idx]
+            """
             min_dist = np.inf
             for (x, y) in candidate_vts:
                 pt = np.array([x,y])
@@ -158,9 +149,10 @@ def vertices_from_edge_pts(robo_pos, edge_pos, edge_vel, const=None):
                 if dist < min_dist:
                     min_dist = dist
                     pt_choice = pt
+            """
         else:
             pt_choice = None
-            left_idx, right_idx = find_left_right_edge(np.array(candidate_vts), robo_pos)
+            left_idx, right_idx = find_left_right_edge(candidate_vts, robo_pos)
             if (i % 3) == 0:
                 pt_choice = candidate_vts[left_idx]
             elif (i % 3) == 2:
@@ -190,6 +182,8 @@ def vertices_from_edge_pts(robo_pos, edge_pos, edge_vel, const=None):
     return np.array(expanded_vertices)
 
 def construct_offset(left_pt, right_pt, center_pt, offset=1.0):
+    # This function constructs a rectangular offset block behind the edge
+    # to accomdate possible occlusions
     ang1 = np.arctan2(left_pt[1] - right_pt[1], left_pt[0] - right_pt[0]) + np.pi/2
     ang2 = ang1 - np.pi
     offset1 = np.array([offset * np.cos(ang1), offset * np.sin(ang1)])
@@ -261,10 +255,8 @@ def draw_social_shapes(position, velocity, const=0.354163):
     # Draw a personal space for each pedestrian within the group
     contour_points = []
     for i in range(len(position)):
-        center_x = position[i][0]
-        center_y = position[i][1]
-        velocity_x = velocity[i][0]
-        velocity_y = velocity[i][1]
+        center_x, center_y = position[i]
+        velocity_x, velocity_y = velocity[i]
         velocity_angle = np.arctan2(velocity_y, velocity_x)
 
         # Draw four quater-ovals with the axis determined by front, side and rear "variances"
@@ -279,11 +271,16 @@ def draw_social_shapes(position, velocity, const=0.354163):
             contour_points.append((x, y))
 
     # Get the convex hull of all the personal spaces
+    contour_points = np.array(contour_points)
+    hull = ConvexHull(contour_points)
+    convex_hull_vertices = contour_points[hull.vertices]
+    """
     convex_hull_vertices = []
     hull = ConvexHull(np.array(contour_points))
     for i in hull.vertices:
         hull_vertice = (contour_points[i][0], contour_points[i][1])
         convex_hull_vertices.append(hull_vertice)
+    """
 
     return convex_hull_vertices
 
