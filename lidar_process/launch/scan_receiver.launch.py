@@ -30,11 +30,15 @@ def generate_launch_description():
     high_level_pos_threshold = LaunchConfiguration('high_level_pos_threshold')
     high_level_vel_threshold = LaunchConfiguration('high_level_vel_threshold')
     high_level_ori_threshold = LaunchConfiguration('high_level_ori_threshold')
+    static_threshold = LaunchConfiguration('static_threshold')
     max_tracking_time = LaunchConfiguration('max_tracking_time')
     max_tracking_dist = LaunchConfiguration('max_tracking_dist')
     large_obs_size = LaunchConfiguration('large_obs_size')
     max_queue_size = LaunchConfiguration('max_queue_size')
     history_dt = LaunchConfiguration('history_dt')
+    shape_increments = LaunchConfiguration('shape_increments')
+    shape_scale = LaunchConfiguration('shape_scale')
+    shape_offset = LaunchConfiguration('shape_offset')
 
     return LaunchDescription([
         # save all log file in the directory where the launch.log file is saved
@@ -52,11 +56,15 @@ def generate_launch_description():
         DeclareLaunchArgument('high_level_pos_threshold', default_value='2.0'),
         DeclareLaunchArgument('high_level_vel_threshold', default_value='1.0'),
         DeclareLaunchArgument('high_level_ori_threshold', default_value='30.0'),
+        DeclareLaunchArgument('static_threshold', defaulta_value='0.5'),
         DeclareLaunchArgument('max_tracking_time', default_value='0.25'),
         DeclareLaunchArgument('max_tracking_dist', default_value='1.0'),
         DeclareLaunchArgument('large_obs_size', default_value='2.0'),
         DeclareLaunchArgument('max_queue_size', default_value='50'),
         DeclareLaunchArgument('history_dt', default_value='0.4'),
+        DeclareLaunchArgument('shape_increments', default_value='16'),
+        DeclareLaunchArgument('shape_scale', default_value='0.354163'),
+        DeclareLaunchArgument('shape_offset', default_value='1.0'),
 
         # overwrite parameters
         SetParameter(name='namespace', value=namespace),
@@ -69,11 +77,15 @@ def generate_launch_description():
         SetParameter(name='high_level_pos_threshold', value=high_level_pos_threshold),
         SetParameter(name='high_level_vel_threshold', value=high_level_vel_threshold),
         SetParameter(name='high_level_ori_threshold', value=high_level_ori_threshold),
+        SetParameter(name='static_threshold', value=static_threshold),
         SetParameter(name='max_tracking_time', value=max_tracking_time),
         SetParameter(name='max_tracking_dist', value=max_tracking_dist),
         SetParameter(name='large_obs_size', value=large_obs_size),
         SetParameter(name='max_queue_size', value=max_queue_size),
         SetParameter(name='history_dt', value=history_dt),
+        SetParameter(name='shape_increments', value=shape_increments),
+        SetParameter(name='shape_scale', value=shape_scale),
+        SetParameter(name='shape_offset', value=shape_offset),
 
         Node(
             package="lidar_process",

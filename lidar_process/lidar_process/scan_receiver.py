@@ -132,13 +132,18 @@ class ScanReceiver(Node):
         self._high_level_vel_threshold = self.declare_parameter('high_level_vel_threshold', 1.0).value
         self._high_level_ori_threshold = self.declare_parameter('high_level_ori_threshold', 30.0).value
         self._high_level_ori_threshold = self._high_level_ori_threshold / 180 * np.pi
+        self._static_threshold = self.declare_parameter('static_threshold', 0.5).value
         # parameters related to tracking of entities
         self._max_tracking_time = self.declare_parameter('max_tracking_time', 0.25).value
         self._max_tracking_dist = self.declare_parameter('max_tracking_dist', 1.0).value
         self._large_obs_size = self.declare_parameter('large_obs_size', 2.0).value
-        # paramters related to the inputs to the prediction model
+        # parameters related to the inputs to the prediction model
         self._max_queue_size = self.declare_parameter('max_queue_size', 50).value
         self._history_dt = self.declare_parameter('history_dt', 0.4).value
+        # parameters related to the shapes of the group representations
+        self._shape_increments = self.declare_parameter('shape_increments', 16).value
+        self._shape_scale = self.declare_parameter('shape_scale', 0.354163).value
+        self._shape_offset = self.declare_parameter('shape_offset', 1.0).value
 
         model_path = os.path.join(get_package_share_directory('lidar_process'),  # this package name
                                   "sgan-models", 
@@ -529,7 +534,8 @@ class ScanReceiver(Node):
             curr_vel_array, 
             self._high_level_pos_threshold, 
             self._high_level_vel_threshold,  
-            self._high_level_ori_threshold)
+            self._high_level_ori_threshold,
+            static_threshold=self._static_threshold)
         unique_entities = np.unique(curr_entities_id)
         entity_to_group = {}
         for i, l in enumerate(unique_entities):
@@ -581,7 +587,12 @@ class ScanReceiver(Node):
         group_representations.group_sequences = []
         for i in range(self._future_window):
             group_vertices = grouping.vertices_from_edge_pts(
-                curr_robot_pose, group_complete_futures[:, i, :], group_complete_velocities[:, i, :])
+                curr_robot_pose, 
+                group_complete_futures[:, i, :], 
+                group_complete_velocities[:, i, :],
+                increments=self._shape_increments,
+                const=self._shape_scale,
+                offset=self._shape_offset)
             curr_groups = GroupArray()
             curr_groups.groups = []
             for i in range(len(group_vertices)):

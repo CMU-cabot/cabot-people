@@ -43,7 +43,7 @@ def DBScan_grouping(labels, properties, standard):
                     labels[sub_idxes[i]] = max_label + sub_lb
     return labels
 
-def pedestrian_grouping(position_array, velocity_array, param_pos, param_spd, param_ori):
+def pedestrian_grouping(position_array, velocity_array, param_pos, param_spd, param_ori, static_threshold=0.5):
     # Performs grouping given a position array and a cooresponding velocity array
     # The grouping is performed based on three levels of parameters
     # First orientation, then speed, finally position
@@ -60,7 +60,7 @@ def pedestrian_grouping(position_array, velocity_array, param_pos, param_spd, pa
     vel_magnitude_array = []
     for [vx, vy] in velocity_array:
         velocity_magnitude = np.sqrt(vx ** 2 + vy ** 2)
-        if velocity_magnitude < 0.5: # static pedestrian
+        if velocity_magnitude < static_threshold: # static pedestrian
             # if too slow, then treated as being stationary
             vel_orientation_array.append((0.0, 0.0))
             vel_magnitude_array.append((0.0, 0.0))
@@ -109,7 +109,7 @@ def find_left_right_edge(points, target_pt):
     return left_idx, right_idx
 
 
-def vertices_from_edge_pts(robo_pos, edge_pos, edge_vel, const=None):
+def vertices_from_edge_pts(robo_pos, edge_pos, edge_vel, increments=16, const=None, offset=1.0):
     # This function takes all the edge points, draws social spaces
     # And then extract the group representation vertices
     #
@@ -128,9 +128,9 @@ def vertices_from_edge_pts(robo_pos, edge_pos, edge_vel, const=None):
         pos = edge_pos[i]
         vel = edge_vel[i]
         if const is None:
-            candidate_vts = draw_social_shapes([pos], [vel])
+            candidate_vts = draw_social_shapes([pos], [vel], increments)
         else:
-            candidate_vts = draw_social_shapes([pos], [vel], const)
+            candidate_vts = draw_social_shapes([pos], [vel], increments, const)
         if (i % 3) == 1:
             pt_choice = None
             dists = np.sqrt(np.square(candidate_vts[:, 0] - robo_pos[0]) + 
@@ -169,7 +169,7 @@ def vertices_from_edge_pts(robo_pos, edge_pos, edge_vel, const=None):
         if ((np.linalg.norm(center_pt - left_pt) < epsilon) or
            (np.linalg.norm(center_pt - right_pt) < epsilon)):
             center_pt = (left_pt + right_pt) / 2
-        left_offset_pt, right_offset_pt = construct_offset(left_pt, right_pt, robo_pos)
+        left_offset_pt, right_offset_pt = construct_offset(left_pt, right_pt, robo_pos, offset)
         group_vertices = {}
         group_vertices['left'] = left_pt
         group_vertices['center'] = center_pt
@@ -236,17 +236,17 @@ def boundary_dist(velocity, rel_ang, const=0.354163):
     dist = np.sqrt(const / ((np.cos(rel_ang) ** 2 / (2 * prev_variance)) + (np.sin(rel_ang) ** 2 / (2 * next_variance))))
     dist = max(safety_dist, dist)
 
-    laser = False
-    if laser:
-        dist = dist - 0.5 + 1e-9
+    #laser = False
+    #if laser:
+    #    dist = dist - 0.5 + 1e-9
 
     return dist
 
-def draw_social_shapes(position, velocity, const=0.354163):
+def draw_social_shapes(position, velocity, increments=16, const=0.354163):
     # This function draws social group shapes
     # given the positions and velocities of the pedestrians.
 
-    total_increments = 20 # controls the resolution of the blobs
+    total_increments = increments # controls the resolution of the blobs
     quater_increments = total_increments / 4
     angle_increment = 2 * np.pi / total_increments
 
