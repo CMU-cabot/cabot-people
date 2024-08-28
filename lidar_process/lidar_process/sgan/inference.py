@@ -3,11 +3,11 @@ import os
 import torch
 import numpy as np
 
-from attrdict import AttrDict
+from addict import Dict
 
-from sgan.models import TrajectoryGenerator
-from sgan.losses import displacement_error, final_displacement_error
-from sgan.utils import relative_to_abs, get_dset_path
+from .sgan.models import TrajectoryGenerator
+from .sgan.losses import displacement_error, final_displacement_error
+from .sgan.utils import relative_to_abs, get_dset_path
 
 class SGANInference(object):
 
@@ -32,11 +32,11 @@ class SGANInference(object):
         self.cuda = torch.device('cuda:0')
         checkpoint = torch.load(path,map_location=torch.device('cpu'))
         self.generator = self.get_generator(checkpoint)
-        self.args = AttrDict(checkpoint['args'])
+        self.args = Dict(checkpoint['args'])
         return
 
     def get_generator(self, checkpoint):
-        args = AttrDict(checkpoint['args'])
+        args = Dict(checkpoint['args'])
         generator = TrajectoryGenerator(
             obs_len=args.obs_len,
             pred_len=args.pred_len,

@@ -1,3 +1,4 @@
+import os
 import signal
 import sys
 import time
@@ -8,6 +9,7 @@ from scipy.spatial.transform import Rotation
 
 import rclpy
 from rclpy.node import Node
+from ament_index_python.packages import get_package_share_directory
 
 from std_msgs.msg import Header
 from sensor_msgs.msg import PointCloud2, PointField
@@ -138,7 +140,9 @@ class ScanReceiver(Node):
         self._max_queue_size = self.declare_parameter('max_queue_size', 50).value
         self._history_dt = self.declare_parameter('history_dt', 0.4).value
 
-        model_path = "sgan/models/sgan-models/univ_" + str(self._future_window) + "_model.pt"
+        model_path = os.path.join(get_package_share_directory('lidar_process'),  # this package name
+                                  "sgan-models", 
+                                  "univ_" + str(self._future_window) + "_model.pt")
         self.group_pred_model = inference.SGANInference(model_path)
 
         self.pointcloud_history = utils.SimpleQueue(self._max_queue_size)

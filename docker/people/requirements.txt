@@ -13,12 +13,12 @@ transforms3d==0.4.1
 #torchaudio==2.0.2
 
 # AgentFormer
-#tensorboard
-#glob2
+tensorboard
+glob2
 #six
 #pyyaml
-#easydict
+easydict
 
 # SocialGAN
-#attrdict
+attrdict
 #Pillow

@@ -16,6 +16,7 @@ find_package(rosidl_default_generators REQUIRED)
 rosidl_generate_interfaces(lidar_process_msgs
   "msg/Group.msg"
   "msg/GroupArray.msg"
+  "msg/GroupTimeArray.msg"
   DEPENDENCIES geometry_msgs
 )
 
