@@ -571,45 +571,47 @@ class ScanReceiver(Node):
         
         # prepare the inputs to the trjectory prediction model and make predictions
         num_groups = len(group_keypoint_sequences)
-        group_pred_inputs = np.zeros((num_groups * 3, self._history_window, 2))
-        for i, g in enumerate(group_keypoint_sequences.keys()):
-            group = group_keypoint_sequences[g]
-            assert(len(group) == self._history_window)
-            group_pred_inputs[(i*3):((i+1)*3), :, :] = np.transpose(np.array(group), (1, 0, 2))
-        
-        group_futures = self.group_pred_model.evaluate(group_pred_inputs)
-        group_complete_futures = np.zeros((num_groups * 3, self._future_window + 1, 2))
-        group_complete_futures[:, 0, :] = group_pred_inputs[:, -1, :]
-        group_complete_futures[:, 1:, :] = group_futures
-        group_complete_velocities = (group_complete_futures[:, 1:, :] - group_complete_futures[:, :-1, :]) / self._history_dt
-
         group_representations = GroupTimeArray()
         group_representations.group_sequences = []
-        for i in range(self._future_window):
-            group_vertices = grouping.vertices_from_edge_pts(
-                curr_robot_pose, 
-                group_complete_futures[:, i, :], 
-                group_complete_velocities[:, i, :],
-                increments=self._shape_increments,
-                const=self._shape_scale,
-                offset=self._shape_offset)
-            curr_groups = GroupArray()
-            curr_groups.groups = []
-            for i in range(len(group_vertices)):
-                group = group_vertices[i]
-                group_rep = Group()
-                group_rep.left.x = group['left'][0]
-                group_rep.left.y = group['left'][1]
-                group_rep.center.x = group['center'][0]
-                group_rep.center.y = group['center'][1]
-                group_rep.right.x = group['right'][0]
-                group_rep.right.y = group['right'][1]
-                group_rep.left_offset.x = group['left_offset'][0]
-                group_rep.left_offset.y = group['left_offset'][1]
-                group_rep.right_offset.x = group['right_offset'][0]
-                group_rep.right_offset.y = group['right_offset'][1]
-                curr_groups.groups.append(group_rep)
-            group_representations.group_sequences.append(curr_groups)
+
+        if num_groups > 0:
+            group_pred_inputs = np.zeros((num_groups * 3, self._history_window, 2))
+            for i, g in enumerate(group_keypoint_sequences.keys()):
+                group = group_keypoint_sequences[g]
+                assert(len(group) == self._history_window)
+                group_pred_inputs[(i*3):((i+1)*3), :, :] = np.transpose(np.array(group), (1, 0, 2))
+            
+            group_futures = self.group_pred_model.evaluate(group_pred_inputs)
+            group_complete_futures = np.zeros((num_groups * 3, self._future_window + 1, 2))
+            group_complete_futures[:, 0, :] = group_pred_inputs[:, -1, :]
+            group_complete_futures[:, 1:, :] = group_futures
+            group_complete_velocities = (group_complete_futures[:, 1:, :] - group_complete_futures[:, :-1, :]) / self._history_dt
+
+            for i in range(self._future_window):
+                group_vertices = grouping.vertices_from_edge_pts(
+                    curr_robot_pose, 
+                    group_complete_futures[:, i, :], 
+                    group_complete_velocities[:, i, :],
+                    increments=self._shape_increments,
+                    const=self._shape_scale,
+                    offset=self._shape_offset)
+                curr_groups = GroupArray()
+                curr_groups.groups = []
+                for i in range(len(group_vertices)):
+                    group = group_vertices[i]
+                    group_rep = Group()
+                    group_rep.left.x = group['left'][0]
+                    group_rep.left.y = group['left'][1]
+                    group_rep.center.x = group['center'][0]
+                    group_rep.center.y = group['center'][1]
+                    group_rep.right.x = group['right'][0]
+                    group_rep.right.y = group['right'][1]
+                    group_rep.left_offset.x = group['left_offset'][0]
+                    group_rep.left_offset.y = group['left_offset'][1]
+                    group_rep.right_offset.x = group['right_offset'][0]
+                    group_rep.right_offset.y = group['right_offset'][1]
+                    curr_groups.groups.append(group_rep)
+                group_representations.group_sequences.append(curr_groups)
 
         self.group_pred_pub.publish(group_representations)
                
