@@ -60,16 +60,9 @@ group "default" {
   ]
 }
 
-group "targets-common" {
-  targets = [
-    "base",
-    "camera-base",
-  ]
-}
-
 group "targets-amd64" {
   targets = [
-    "targets-common",
+    "base",
     "ros-core-amd64",
     "ros-base-amd64",
     "ros-desktop-amd64",
@@ -78,18 +71,20 @@ group "targets-amd64" {
     "ros-desktop-custom-opencv-mmdeploy-amd64",
     "ros-desktop-custom-opencv-mmdeploy-open3d-amd64",
     "ros-desktop-custom-opencv-mmdeploy-open3d-mesa-amd64",
+    "ros-desktop-custom-opencv-mmdeploy-open3d-mesa-camera-amd64",
     "final-amd64",
   ]
 }
 
 group "targets-arm64" {
   targets = [
-    "targets-common",
+    "base",
     "opencv-arm64",
     "opencv-ros-base-arm64",
     "opencv-ros-custom-arm64",
     "opencv-ros-custom-mmdeploy-arm64",
     "opencv-ros-custom-mmdeploy-open3d-arm64",
+    "opencv-ros-custom-mmdeploy-open3d-camera-arm64",
     "final-arm64",
   ]
 }
@@ -108,20 +103,6 @@ EOF
   output     = [ "type=registry" ]
 }
 
-target "camera-base" {
-  matrix     = {
-    camera = "${CAMERAS_}"
-  }
-  name       = "${camera}-base"
-  platforms  = "${PLATFORMS}"
-  context    = "./docker/${camera}"
-  dockerfile = "Dockerfile"
-  contexts   = { "${REGISTRY}/${BASE_IMAGE}" = "target:base" }
-  args       = { FROM_IMAGE = "${REGISTRY}/${BASE_IMAGE}" }
-  tags       = [ "${REGISTRY}/${BASE_IMAGE}:${camera}" ]
-  output     = [ "type=registry" ]
-}
-
 #### AMD64
 
 target "ros-common-amd64" {
@@ -131,122 +112,105 @@ target "ros-common-amd64" {
 
 target "ros-core-amd64" {
   inherits   = [ "ros-common-amd64" ]
-  matrix     = {
-    camera = "${CAMERAS_}"
-  }
-  name       = "${camera}-ros-core-amd64"
   context    = "./cabot-common/docker/docker_images/ros/${ROS_DISTRO}/ubuntu/${UBUNTU_DISTRO}/ros-core"
   dockerfile = "Dockerfile.tmp"
-  contexts   = { "${REGISTRY}/${BASE_IMAGE}:${camera}" = "target:${camera}-base" }
+  contexts   = { "${REGISTRY}/${BASE_IMAGE}:base" = "target:base" }
   args       = {
-    FROM_IMAGE = "${REGISTRY}/${BASE_IMAGE}:${camera}"
+    FROM_IMAGE = "${REGISTRY}/${BASE_IMAGE}:base"
   }
-  tags       = [ "${REGISTRY}/${BASE_IMAGE}:${camera}-${ROS_DISTRO}-amd64" ]
+  tags       = [ "${REGISTRY}/${BASE_IMAGE}:${ROS_DISTRO}-amd64" ]
 }
 
 target "ros-base-amd64" {
   inherits   = [ "ros-common-amd64" ]
-  matrix     = {
-    camera = "${CAMERAS_}"
-  }
-  name       = "${camera}-ros-base-amd64"
   context    = "./cabot-common/docker/docker_images/ros/${ROS_DISTRO}/ubuntu/${UBUNTU_DISTRO}/ros-base"
   dockerfile = "Dockerfile.tmp"
-  contexts   = { "${REGISTRY}/${BASE_IMAGE}:${camera}-${ROS_DISTRO}-amd64" = "target:${camera}-ros-core-amd64" }
+  contexts   = { "${REGISTRY}/${BASE_IMAGE}:${ROS_DISTRO}-amd64" = "target:ros-core-amd64" }
   args       = {
-    FROM_IMAGE = "${REGISTRY}/${BASE_IMAGE}:${camera}-${ROS_DISTRO}-amd64"
+    FROM_IMAGE = "${REGISTRY}/${BASE_IMAGE}:${ROS_DISTRO}-amd64"
   }
-  tags       = [ "${REGISTRY}/${BASE_IMAGE}:${camera}-${ROS_DISTRO}-base-amd64" ]
+  tags       = [ "${REGISTRY}/${BASE_IMAGE}:${ROS_DISTRO}-base-amd64" ]
 }
 
 target "ros-desktop-amd64" {
   inherits   = [ "ros-common-amd64" ]
-  matrix     = {
-    camera = "${CAMERAS_}"
-  }
-  name       = "${camera}-ros-desktop-amd64"
   context    = "./cabot-common/docker/docker_images/ros/${ROS_DISTRO}/ubuntu/${UBUNTU_DISTRO}/desktop"
   dockerfile = "Dockerfile.tmp"
-  contexts   = { "${REGISTRY}/${BASE_IMAGE}:${camera}-${ROS_DISTRO}-base-amd64" = "target:${camera}-ros-base-amd64" }
+  contexts   = { "${REGISTRY}/${BASE_IMAGE}:${ROS_DISTRO}-base-amd64" = "target:ros-base-amd64" }
   args       = {
-    FROM_IMAGE = "${REGISTRY}/${BASE_IMAGE}:${camera}-${ROS_DISTRO}-base-amd64"
+    FROM_IMAGE = "${REGISTRY}/${BASE_IMAGE}:${ROS_DISTRO}-base-amd64"
   }
-  tags       = [ "${REGISTRY}/${BASE_IMAGE}:${camera}-${ROS_DISTRO}-desktop-amd64" ]
+  tags       = [ "${REGISTRY}/${BASE_IMAGE}:${ROS_DISTRO}-desktop-amd64" ]
 }
 
 target "ros-desktop-custom-amd64" {
   inherits   = [ "ros-common-amd64" ]
-  matrix     = {
-    camera = "${CAMERAS_}"
-  }
-  name       = "${camera}-ros-desktop-custom-amd64"
   context    = "./cabot-common/docker/humble-custom"
   dockerfile = "Dockerfile"
-  contexts   = { "${REGISTRY}/${BASE_IMAGE}:${camera}-${ROS_DISTRO}-desktop-amd64" = "target:${camera}-ros-desktop-amd64" }
+  contexts   = { "${REGISTRY}/${BASE_IMAGE}:${ROS_DISTRO}-desktop-amd64" = "target:ros-desktop-amd64" }
   args       = {
-    FROM_IMAGE = "${REGISTRY}/${BASE_IMAGE}:${camera}-${ROS_DISTRO}-desktop-amd64"
+    FROM_IMAGE = "${REGISTRY}/${BASE_IMAGE}:${ROS_DISTRO}-desktop-amd64"
   }
-  tags       = [ "${REGISTRY}/${BASE_IMAGE}:${camera}-${ROS_DISTRO}-desktop-custom-amd64" ]
+  tags       = [ "${REGISTRY}/${BASE_IMAGE}:${ROS_DISTRO}-desktop-custom-amd64" ]
 }
 
 target "ros-desktop-custom-opencv-amd64" {
   inherits   = [ "ros-common-amd64" ]
-  matrix     = {
-    camera = "${CAMERAS_}"
-  }
-  name       = "${camera}-ros-desktop-custom-opencv-amd64"
   context    = "./docker/opencv"
   dockerfile = "Dockerfile"
-  contexts   = { "${REGISTRY}/${BASE_IMAGE}:${camera}-${ROS_DISTRO}-desktop-custom-amd64" = "target:${camera}-ros-desktop-custom-amd64" }
+  contexts   = { "${REGISTRY}/${BASE_IMAGE}:${ROS_DISTRO}-desktop-custom-amd64" = "target:ros-desktop-custom-amd64" }
   args       = {
-    FROM_IMAGE = "${REGISTRY}/${BASE_IMAGE}:${camera}-${ROS_DISTRO}-desktop-custom-amd64"
+    FROM_IMAGE = "${REGISTRY}/${BASE_IMAGE}:${ROS_DISTRO}-desktop-custom-amd64"
   }
-  tags       = [ "${REGISTRY}/${BASE_IMAGE}:${camera}-${ROS_DISTRO}-desktop-custom-opencv-amd64" ]
+  tags       = [ "${REGISTRY}/${BASE_IMAGE}:${ROS_DISTRO}-desktop-custom-opencv-amd64" ]
 }
 
 target "ros-desktop-custom-opencv-mmdeploy-amd64" {
   inherits   = [ "ros-common-amd64" ]
-  matrix     = {
-    camera = "${CAMERAS_}"
-  }
-  name       = "${camera}-ros-desktop-custom-opencv-mmdeploy-amd64"
   context    = "./docker/mmdeploy"
   dockerfile = "Dockerfile"
-  contexts   = { "${REGISTRY}/${BASE_IMAGE}:${camera}-${ROS_DISTRO}-desktop-custom-opencv-amd64" = "target:${camera}-ros-desktop-custom-opencv-amd64" }
+  contexts   = { "${REGISTRY}/${BASE_IMAGE}:${ROS_DISTRO}-desktop-custom-opencv-amd64" = "target:ros-desktop-custom-opencv-amd64" }
   args       = {
-    FROM_IMAGE = "${REGISTRY}/${BASE_IMAGE}:${camera}-${ROS_DISTRO}-desktop-custom-opencv-amd64"
+    FROM_IMAGE = "${REGISTRY}/${BASE_IMAGE}:${ROS_DISTRO}-desktop-custom-opencv-amd64"
   }
-  tags       = [ "${REGISTRY}/${BASE_IMAGE}:${camera}-${ROS_DISTRO}-desktop-custom-opencv-mmdeploy-amd64" ]
+  tags       = [ "${REGISTRY}/${BASE_IMAGE}:${ROS_DISTRO}-desktop-custom-opencv-mmdeploy-amd64" ]
 }
 
 target "ros-desktop-custom-opencv-mmdeploy-open3d-amd64" {
   inherits   = [ "ros-common-amd64" ]
-  matrix     = {
-    camera = "${CAMERAS_}"
-  }
-  name       = "${camera}-ros-desktop-custom-opencv-mmdeploy-open3d-amd64"
   context    = "./docker/open3d"
   dockerfile = "Dockerfile"
-  contexts   = { "${REGISTRY}/${BASE_IMAGE}:${camera}-${ROS_DISTRO}-desktop-custom-opencv-mmdeploy-amd64" = "target:${camera}-ros-desktop-custom-opencv-mmdeploy-amd64" }
+  contexts   = { "${REGISTRY}/${BASE_IMAGE}:${ROS_DISTRO}-desktop-custom-opencv-mmdeploy-amd64" = "target:ros-desktop-custom-opencv-mmdeploy-amd64" }
   args       = {
-    FROM_IMAGE = "${REGISTRY}/${BASE_IMAGE}:${camera}-${ROS_DISTRO}-desktop-custom-opencv-mmdeploy-amd64"
+    FROM_IMAGE = "${REGISTRY}/${BASE_IMAGE}:${ROS_DISTRO}-desktop-custom-opencv-mmdeploy-amd64"
   }
-  tags       = [ "${REGISTRY}/${BASE_IMAGE}:${camera}-${ROS_DISTRO}-desktop-custom-opencv-mmdeploy-open3d-amd64" ]
+  tags       = [ "${REGISTRY}/${BASE_IMAGE}:${ROS_DISTRO}-desktop-custom-opencv-mmdeploy-open3d-amd64" ]
 }
 
 target "ros-desktop-custom-opencv-mmdeploy-open3d-mesa-amd64" {
   inherits   = [ "ros-common-amd64" ]
+  context    = "./cabot-common/docker/mesa"
+  dockerfile = "Dockerfile"
+  contexts   = { "${REGISTRY}/${BASE_IMAGE}:${ROS_DISTRO}-desktop-custom-opencv-mmdeploy-open3d-amd64" = "target:ros-desktop-custom-opencv-mmdeploy-open3d-amd64" }
+  args       = {
+    FROM_IMAGE = "${REGISTRY}/${BASE_IMAGE}:${ROS_DISTRO}-desktop-custom-opencv-mmdeploy-open3d-amd64"
+  }
+  tags       = [ "${REGISTRY}/${BASE_IMAGE}:${ROS_DISTRO}-desktop-custom-opencv-mmdeploy-open3d-mesa-amd64" ]
+}
+
+target "ros-desktop-custom-opencv-mmdeploy-open3d-mesa-camera-amd64" {
+  inherits   = [ "ros-common-amd64" ]
   matrix     = {
     camera = "${CAMERAS_}"
   }
-  name       = "${camera}-ros-desktop-custom-opencv-mmdeploy-open3d-mesa-amd64"
-  context    = "./cabot-common/docker/mesa"
+  name       = "ros-desktop-custom-opencv-mmdeploy-open3d-mesa-${camera}-amd64"
+  context    = "./docker/${camera}"
   dockerfile = "Dockerfile"
-  contexts   = { "${REGISTRY}/${BASE_IMAGE}:${camera}-${ROS_DISTRO}-desktop-custom-opencv-mmdeploy-open3d-amd64" = "target:${camera}-ros-desktop-custom-opencv-mmdeploy-open3d-amd64" }
+  contexts   = { "${REGISTRY}/${BASE_IMAGE}:${ROS_DISTRO}-desktop-custom-opencv-mmdeploy-open3d-mesa-amd64" = "target:ros-desktop-custom-opencv-mmdeploy-open3d-mesa-amd64" }
   args       = {
-    FROM_IMAGE = "${REGISTRY}/${BASE_IMAGE}:${camera}-${ROS_DISTRO}-desktop-custom-opencv-mmdeploy-open3d-amd64"
+    FROM_IMAGE = "${REGISTRY}/${BASE_IMAGE}:${ROS_DISTRO}-desktop-custom-opencv-mmdeploy-open3d-mesa-amd64"
   }
-  tags       = [ "${REGISTRY}/${BASE_IMAGE}:${camera}-${ROS_DISTRO}-desktop-custom-opencv-mmdeploy-open3d-mesa-amd64" ]
+  tags       = [ "${REGISTRY}/${BASE_IMAGE}:${ROS_DISTRO}-desktop-custom-opencv-mmdeploy-open3d-mesa-${camera}-amd64" ]
 }
 
 
@@ -259,82 +223,77 @@ target "ros-common-arm64" {
 
 target "opencv-arm64" {
   inherits   = [ "ros-common-arm64" ]
-  matrix     = {
-    camera = "${CAMERAS_}"
-  }
-  name       = "${camera}-opencv-arm64"
   context    = "./docker/opencv"
   dockerfile = "Dockerfile.jetson"
-  contexts   = { "${REGISTRY}/${BASE_IMAGE}:${camera}" = "target:${camera}-base" }
+  contexts   = { "${REGISTRY}/${BASE_IMAGE}:base" = "target:base" }
   args       = {
-    FROM_IMAGE = "${REGISTRY}/${BASE_IMAGE}:${camera}",
+    FROM_IMAGE = "${REGISTRY}/${BASE_IMAGE}:base",
     OPENCV_V   = "${OPENCV_V}",
     CUDA_V     = "${L4T_CUDA}",
   }
-  tags       = [ "${REGISTRY}/${BASE_IMAGE}:${camera}-opencv-arm64" ]
+  tags       = [ "${REGISTRY}/${BASE_IMAGE}:opencv-arm64" ]
 }
 
 target "opencv-ros-base-arm64" {
   inherits   = [ "ros-common-arm64" ]
-  matrix     = {
-    camera = "${CAMERAS_}"
-  }
-  name       = "${camera}-opencv-ros-base-arm64"
   context    = "./cabot-common/docker/jetson-humble-base-src"
   dockerfile = "Dockerfile"
-  contexts   = { "${REGISTRY}/${BASE_IMAGE}:${camera}-opencv-arm64" = "target:${camera}-opencv-arm64" }
+  contexts   = { "${REGISTRY}/${BASE_IMAGE}:opencv-arm64" = "target:opencv-arm64" }
   args       = {
-    FROM_IMAGE = "${REGISTRY}/${BASE_IMAGE}:${camera}-opencv-arm64"
+    FROM_IMAGE = "${REGISTRY}/${BASE_IMAGE}:opencv-arm64"
   }
-  tags       = [ "${REGISTRY}/${BASE_IMAGE}:${camera}-opencv-${ROS_DISTRO}-base-arm64" ]
+  tags       = [ "${REGISTRY}/${BASE_IMAGE}:opencv-${ROS_DISTRO}-base-arm64" ]
 }
 
 target "opencv-ros-custom-arm64" {
   inherits   = [ "ros-common-arm64" ]
-  matrix     = {
-    camera = "${CAMERAS_}"
-  }
-  name       = "${camera}-opencv-ros-custom-arm64"
   context    = "./docker/jetson-humble-custom"
-  dockerfile = "Dockerfile.${camera}"
-  contexts   = { "${REGISTRY}/${BASE_IMAGE}:${camera}-opencv-${ROS_DISTRO}-base-arm64" = "target:${camera}-opencv-ros-base-arm64" }
+  dockerfile = "Dockerfile"
+  contexts   = { "${REGISTRY}/${BASE_IMAGE}:opencv-${ROS_DISTRO}-base-arm64" = "target:opencv-ros-base-arm64" }
   args       = {
-    FROM_IMAGE = "${REGISTRY}/${BASE_IMAGE}:${camera}-opencv-${ROS_DISTRO}-base-arm64"
+    FROM_IMAGE = "${REGISTRY}/${BASE_IMAGE}:opencv-${ROS_DISTRO}-base-arm64"
   }
-  tags       = [ "${REGISTRY}/${BASE_IMAGE}:${camera}-opencv-${ROS_DISTRO}-custom-arm64" ]
+  tags       = [ "${REGISTRY}/${BASE_IMAGE}:opencv-${ROS_DISTRO}-custom-arm64" ]
 }
 
 target "opencv-ros-custom-mmdeploy-arm64" {
   inherits   = [ "ros-common-arm64" ]
-  matrix     = {
-    camera = "${CAMERAS_}"
-  }
-  name       = "${camera}-opencv-ros-custom-mmdeploy-arm64"
   context    = "./docker/mmdeploy"
   dockerfile = "Dockerfile.jetson"
-  contexts   = { "${REGISTRY}/${BASE_IMAGE}:${camera}-opencv-${ROS_DISTRO}-custom-arm64" = "target:${camera}-opencv-ros-custom-arm64" }
+  contexts   = { "${REGISTRY}/${BASE_IMAGE}:opencv-${ROS_DISTRO}-custom-arm64" = "target:opencv-ros-custom-arm64" }
   args       = {
-    FROM_IMAGE = "${REGISTRY}/${BASE_IMAGE}:${camera}-opencv-${ROS_DISTRO}-custom-arm64",
+    FROM_IMAGE = "${REGISTRY}/${BASE_IMAGE}:opencv-${ROS_DISTRO}-custom-arm64",
     CUDA_V     = "${L4T_CUDA}",
     L4T_V      = "${L4T_MAJOR_MINOR_V}",
     TEGRA_V    = "${TEGRA_V}",
   }
-  tags       = [ "${REGISTRY}/${BASE_IMAGE}:${camera}-opencv-${ROS_DISTRO}-custom-mmdeploy-arm64" ]
+  tags       = [ "${REGISTRY}/${BASE_IMAGE}:opencv-${ROS_DISTRO}-custom-mmdeploy-arm64" ]
 }
 
 target "opencv-ros-custom-mmdeploy-open3d-arm64" {
   inherits   = [ "ros-common-arm64" ]
+  context    = "./docker/open3d"
+  dockerfile = "Dockerfile.jetson"
+  contexts   = { "${REGISTRY}/${BASE_IMAGE}:opencv-${ROS_DISTRO}-custom-mmdeploy-arm64" = "target:opencv-ros-custom-mmdeploy-arm64" }
+  args       = {
+    FROM_IMAGE = "${REGISTRY}/${BASE_IMAGE}:opencv-${ROS_DISTRO}-custom-mmdeploy-arm64"
+  }
+  tags       = [ "${REGISTRY}/${BASE_IMAGE}:opencv-${ROS_DISTRO}-custom-mmdeploy-open3d-arm64" ]
+}
+
+target "opencv-ros-custom-mmdeploy-open3d-camera-arm64" {
+  inherits   = [ "ros-common-arm64" ]
   matrix     = {
     camera = "${CAMERAS_}"
   }
-  name       = "${camera}-opencv-ros-custom-mmdeploy-open3d-arm64"
-  context    = "./docker/open3d"
+  name       = "opencv-ros-custom-mmdeploy-open3d-${camera}-arm64"
+  context    = "./docker/${camera}"
   dockerfile = "Dockerfile.jetson"
-  contexts   = { "${REGISTRY}/${BASE_IMAGE}:${camera}-opencv-${ROS_DISTRO}-custom-mmdeploy-arm64" = "target:${camera}-opencv-ros-custom-mmdeploy-arm64" }
+  contexts   = { "${REGISTRY}/${BASE_IMAGE}:opencv-${ROS_DISTRO}-custom-mmdeploy-open3d-arm64" = "target:opencv-ros-custom-mmdeploy-open3d-arm64" }
   args       = {
-    FROM_IMAGE = "${REGISTRY}/${BASE_IMAGE}:${camera}-opencv-${ROS_DISTRO}-custom-mmdeploy-arm64"
+    FROM_IMAGE = "${REGISTRY}/${BASE_IMAGE}:opencv-${ROS_DISTRO}-custom-mmdeploy-open3d-arm64"
   }
-  tags       = [ "${REGISTRY}/${BASE_IMAGE}:${camera}-opencv-${ROS_DISTRO}-custom-mmdeploy-open3d-arm64" ]
+  tags       = [ "${REGISTRY}/${BASE_IMAGE}:opencv-${ROS_DISTRO}-custom-mmdeploy-open3d-${camera}-arm64" ]
 }
 
 
@@ -347,10 +306,10 @@ target "final-amd64" {
   name       = "${camera}-final-amd64"
   context    = "."
   contexts   = {
-    "${REGISTRY}/${BASE_IMAGE}:${camera}-${ROS_DISTRO}-desktop-custom-opencv-mmdeploy-open3d-mesa-amd64" = "target:${camera}-ros-desktop-custom-opencv-mmdeploy-open3d-mesa-amd64",
+    "${REGISTRY}/${BASE_IMAGE}:${ROS_DISTRO}-desktop-custom-opencv-mmdeploy-open3d-mesa-${camera}-amd64" = "target:ros-desktop-custom-opencv-mmdeploy-open3d-mesa-${camera}-amd64",
   }
   dockerfile-inline = <<EOF
-FROM --platform=linux/amd64 ${REGISTRY}/${BASE_IMAGE}:${camera}-${ROS_DISTRO}-desktop-custom-opencv-mmdeploy-open3d-mesa-amd64 as build-amd64
+FROM --platform=linux/amd64 ${REGISTRY}/${BASE_IMAGE}:${ROS_DISTRO}-desktop-custom-opencv-mmdeploy-open3d-mesa-${camera}-amd64 as build-amd64
 FROM build-$TARGETARCH
 EOF
   platforms  = [ "linux/amd64" ]
@@ -365,10 +324,10 @@ target "final-arm64" {
   name       = "${camera}-final-arm64"
   context    = "."
   contexts   = {
-    "${REGISTRY}/${BASE_IMAGE}:${camera}-opencv-${ROS_DISTRO}-custom-mmdeploy-open3d-arm64" = "target:${camera}-opencv-ros-custom-mmdeploy-open3d-arm64",
+    "${REGISTRY}/${BASE_IMAGE}:opencv-${ROS_DISTRO}-custom-mmdeploy-open3d-${camera}-arm64" = "target:opencv-ros-custom-mmdeploy-open3d-${camera}-arm64",
   }
   dockerfile-inline = <<EOF
-FROM --platform=linux/arm64 ${REGISTRY}/${BASE_IMAGE}:${camera}-opencv-${ROS_DISTRO}-custom-mmdeploy-open3d-arm64 as build-arm64
+FROM --platform=linux/arm64 ${REGISTRY}/${BASE_IMAGE}:opencv-${ROS_DISTRO}-custom-mmdeploy-open3d-${camera}-arm64 as build-arm64
 FROM build-$TARGETARCH
 EOF
   platforms  = [ "linux/arm64" ]

@@ -1,8 +1,8 @@
 services:
   rs1-framos-camera:
     extends:
-      file: docker-compose-jetson.yaml
-      service: people-framos-jetson
+      file: docker-compose.yaml
+      service: people-framos-prod
     environment:
       - CABOT_CAMERA_NAME=rs1
       - CABOT_REALSENSE_SERIAL=${CABOT_REALSENSE_SERIAL_1}
@@ -16,8 +16,8 @@ services:
 
   rs1-framos-detection:
     extends:
-      file: docker-compose-jetson.yaml
-      service: people-framos-jetson
+      file: docker-compose.yaml
+      service: people-framos-prod
     environment:
       - CABOT_USE_REALSENSE=0
       - CABOT_CAMERA_NAME=rs1
@@ -27,8 +27,8 @@ services:
 
   rs2-framos-camera:
     extends:
-      file: docker-compose-jetson.yaml
-      service: people-framos-jetson
+      file: docker-compose.yaml
+      service: people-framos-prod
     environment:
       - CABOT_CAMERA_NAME=rs2
       - CABOT_REALSENSE_SERIAL=${CABOT_REALSENSE_SERIAL_2}
@@ -42,8 +42,8 @@ services:
 
   rs2-framos-detection:
     extends:
-      file: docker-compose-jetson.yaml
-      service: people-framos-jetson
+      file: docker-compose.yaml
+      service: people-framos-prod
     environment:
       - CABOT_USE_REALSENSE=0
       - CABOT_CAMERA_NAME=rs2
@@ -53,8 +53,8 @@ services:
 
   rs3-framos-camera:
     extends:
-      file: docker-compose-jetson.yaml
-      service: people-framos-jetson
+      file: docker-compose.yaml
+      service: people-framos-prod
     environment:
       - CABOT_CAMERA_NAME=rs3
       - CABOT_REALSENSE_SERIAL=${CABOT_REALSENSE_SERIAL_3}
@@ -68,8 +68,8 @@ services:
 
   rs3-framos-detection:
     extends:
-      file: docker-compose-jetson.yaml
-      service: people-framos-jetson
+      file: docker-compose.yaml
+      service: people-framos-prod
     environment:
       - CABOT_USE_REALSENSE=0
       - CABOT_CAMERA_NAME=rs3
@@ -79,8 +79,8 @@ services:
 
   track-framos:
     extends:
-      file: docker-compose-jetson.yaml
-      service: people-framos-jetson
+      file: docker-compose.yaml
+      service: people-framos-prod
     environment:
       - CABOT_USE_REALSENSE=0
     command:
