@@ -141,6 +141,12 @@ void DetectObstacleOnPath::update()
           float sx = data_->at<float>(indices[j], 0);
           float sy = data_->at<float>(indices[j], 1);
 
+          // ignore inside the footprint
+          float robot_dist = std::hypotf(sx - robotx, sy - roboty);
+          if (robot_dist < footprint_size_) {
+            continue;
+          }
+
           if (dist < min_dist_l2) {
             RCLCPP_INFO(this->get_logger(), "[%ld]:%.2f dist from (%.2f, %.2f) -> (%.2f, %.2f) = %.2f\n", j, dists[j], x, y, sx, sy, dist);
             track_people_msgs::msg::TrackedBox box;
