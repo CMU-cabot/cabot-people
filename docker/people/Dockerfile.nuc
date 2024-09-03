@@ -18,10 +18,10 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-ARG PREFIX
-ARG FROM_IMAGE=${PREFIX}__jammy-humble-custom-mesa
-FROM $FROM_IMAGE
+ARG BASE_IMAGE=cabot-base
+ARG FROM_IMAGE=cmucal/${BASE_IMAGE}:humble-base-custom-mesa
 
+FROM $FROM_IMAGE AS build
 ARG ROS_DISTRO=humble \
     UBUNTU_DISTRO=jammy \
     GAZEBOV=11 \
@@ -115,3 +115,19 @@ USER $USERNAME
 
 ENV HOME /home/$USERNAME
 WORKDIR $HOME/people_nuc_ws
+
+FROM build as cache
+
+COPY --from=src ./cabot-common/cabot_common $HOME/people_nuc_ws/src/cabot_common
+COPY --from=src ./cabot-common/cabot_msgs $HOME/people_nuc_ws/src/cabot_msgs
+COPY --from=src ./cabot-common/cabot_people $HOME/people_nuc_ws/src/cabot_people
+COPY --from=src ./cabot-common/track_people_py $HOME/people_nuc_ws/src/track_people_py
+COPY --from=src ./cabot-common/track_people_msgs $HOME/people_nuc_ws/src/track_people_msgs
+COPY --from=src ./cabot-common/track_people_cpp $HOME/people_nuc_ws/src/track_people_cpp
+
+RUN /ros_entrypoint.sh /launch.sh build -s
+
+FROM build as final
+
+COPY --from=cache $HOME/people_nuc_ws/install $HOME/people_nuc_ws/install
+COPY --from=cache $HOME/people_nuc_ws/src/cabot_people/script $HOME/people_nuc_ws/src/cabot_people/script

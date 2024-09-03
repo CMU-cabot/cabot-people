@@ -22,26 +22,11 @@
 
 ulimit -S -c 0
 
-args=("$@")
-
 WS=$HOME/people_ws
 
 if [ "$1" == "build" ]; then
-    arch=$(uname -m)
-    if { [ $arch = "x86_64" ] && [ -n "$(which nvidia-smi)" ]; } || [ $arch = "aarch64" ]; then
-        echo "Setup model"
-        /setup-model.sh $WS/src/track_people_py/models
-        if [ $? -ne 0 ]; then
-            echo "Failed to setup model"
-            exit 1
-        fi
-    else
-        echo "Skip setup model. GPU is not detected."
-    fi
-
-    echo "Build workspace"
-    cd $WS
-    colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release
+    shift 1
+    exec $WS/src/cabot_people/script/cabot_build.sh $@
     exit $?
 else
     echo "Skip building workscape"
@@ -49,5 +34,4 @@ fi
 
 source install/setup.bash
 
-cd $WS/src/cabot_people/script
-exec ./cabot_people.sh ${args[@]}
+exec $WS/src/cabot_people/script/cabot_people.sh $@

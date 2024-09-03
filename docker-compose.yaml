@@ -2,7 +2,15 @@ services:
   people:
     extends:
       file: docker-compose-base.yaml
-      service: people
+      service: people-all-dev-base
+    environment:
+      - CABOT_GAZEBO=0
+      - CABOT_USE_REALSENSE=1
+
+  people-prod:
+    extends:
+      file: docker-compose-base.yaml
+      service: people-all-prod-base
     environment:
       - CABOT_GAZEBO=0
       - CABOT_USE_REALSENSE=1
@@ -10,10 +18,15 @@ services:
   people-framos:
     extends:
       file: docker-compose-base.yaml
-      service: people
-    build:
-      context: ./docker/people
-      dockerfile: Dockerfile.framos
+      service: people-framos-all-dev-base
+    environment:
+      - CABOT_GAZEBO=0
+      - CABOT_USE_REALSENSE=1
+
+  people-framos-prod:
+    extends:
+      file: docker-compose-base.yaml
+      service: people-framos-all-prod-base
     environment:
       - CABOT_GAZEBO=0
       - CABOT_USE_REALSENSE=1

@@ -533,23 +533,13 @@ function build_aarch64 {
     fi
 }
 
-function build_x86_64_ws {
+function build_ws {
     local CAMERA_IMAGE=$1
 
     if [[ $CAMERA_IMAGE == 'realsense' ]]; then
         docker compose run --rm people /launch.sh build
     elif [[ $CAMERA_IMAGE == 'framos' ]]; then
         docker compose run --rm people-framos /launch.sh build
-    fi
-}
-
-function build_aarch64_ws {
-    local CAMERA_IMAGE=$1
-
-    if [[ $CAMERA_IMAGE == 'realsense' ]]; then
-        docker compose -f docker-compose-jetson.yaml run --rm people-jetson /launch.sh build
-    elif [[ $CAMERA_IMAGE == 'framos' ]]; then
-        docker compose -f docker-compose-jetson.yaml run --rm people-framos-jetson /launch.sh build
     fi
 }
 
@@ -581,7 +571,7 @@ for target in $targets; do
         fi
         if [[ $build_workspace -eq 1 ]]; then
             blue "# Building $target $camera_target workspace"
-            eval "build_${target}_ws ${camera_target}"
+            eval "build_ws ${camera_target}"
         fi
     done
 done

@@ -156,7 +156,7 @@ elif [[ $platform = "linux/arm64" ]]; then
     target="targets-arm64"
 fi
 
-# bake
+# run bake for cabot-people base images
 com="$camera_option docker buildx bake -f docker-bake.hcl $platform_option $tag_option $target"
 export BASE_IMAGE=$base_name
 echo $com
@@ -165,7 +165,7 @@ if [[ $? -ne 0 ]]; then
     exit 1
 fi
 
-# create multi platform final image
+# create multi platform cabot-people final base images
 if [[ $local -eq 1 ]]; then
     final_registry="localhost:9092"
 else
@@ -187,6 +187,12 @@ for camera in $cameras; do
         exit 1
     fi
 done
+
+# run bake for cabot-people images
+com="docker buildx bake -f docker-compose.yaml $platform_option $@"
+export BASE_IMAGE=$base_name
+echo $com
+eval $com
 
 # copy images from local registry
 # this can override image tag

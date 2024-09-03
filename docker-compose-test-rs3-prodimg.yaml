@@ -1,8 +1,8 @@
 services:
   rs1:
     extends:
-      file: docker-compose-jetson.yaml
-      service: people-jetson
+      file: docker-compose.yaml
+      service: people-prod
     environment:
       - CABOT_CAMERA_NAME=rs1
       - CABOT_REALSENSE_SERIAL=${CABOT_REALSENSE_SERIAL_1}
@@ -15,8 +15,8 @@ services:
 
   rs2:
     extends:
-      file: docker-compose-jetson.yaml
-      service: people-jetson
+      file: docker-compose.yaml
+      service: people-prod
     environment:
       - CABOT_CAMERA_NAME=rs2
       - CABOT_REALSENSE_SERIAL=${CABOT_REALSENSE_SERIAL_2}
@@ -29,8 +29,8 @@ services:
 
   rs3:
     extends:
-      file: docker-compose-jetson.yaml
-      service: people-jetson
+      file: docker-compose.yaml
+      service: people-prod
     environment:
       - CABOT_CAMERA_NAME=rs3
       - CABOT_REALSENSE_SERIAL=${CABOT_REALSENSE_SERIAL_3}
@@ -43,8 +43,8 @@ services:
 
   track:
     extends:
-      file: docker-compose-jetson.yaml
-      service: people-jetson
+      file: docker-compose.yaml
+      service: people-prod
     environment:
       - CABOT_USE_REALSENSE=0
     command:
