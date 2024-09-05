@@ -85,6 +85,27 @@ if [[ -z $base_name ]]; then
     exit 1
 fi
 
+# check if all models exist
+has_all_models=1
+m_dir="./track_people_py/models"
+if [ ! -e "${m_dir}/yolov4.cfg" ] || [ ! -e "${m_dir}/yolov4.weights" ] || [ ! -e "${m_dir}/coco.names" ]; then
+    echo "You do not have darknet model"
+    has_all_models=0
+fi
+for a_dir in "x86_64" "aarch64"; do
+    if [ ! -e "${m_dir}/rtmdet/${a_dir}/deploy.json" ] || [ ! -e "${m_dir}/rtmdet/${a_dir}/pipeline.json" ] || [ ! -e "${m_dir}/rtmdet/${a_dir}/end2end.engine" ]; then
+        echo "You do not have rtmdet model for architecture $a_dir"
+        has_all_models=0
+    fi
+    if [ ! -e "${m_dir}/rtmdet-ins/${a_dir}/deploy.json" ] || [ ! -e "${m_dir}/rtmdet-ins/${a_dir}/pipeline.json" ] || [ ! -e "${m_dir}/rtmdet-ins/${a_dir}/end2end.engine" ]; then
+        echo "You do not have rtmdet-ins model for architecture $a_dir"
+        has_all_models=0
+    fi
+done
+if [ $has_all_models -eq 0 ]; then
+    read -p "Built docker images will not have all detection models. Press enter to continue, or terminate and build workspace in each architecture to prepare models"
+fi
+
 export ROS_DISTRO=humble
 export UBUNTU_DISTRO=jammy
 
