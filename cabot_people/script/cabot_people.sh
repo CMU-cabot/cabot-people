@@ -429,9 +429,17 @@ if [ $detection -eq 1 ]; then
         # copy mmdeploy model
         rm -rf $mmdeploy_model_dir
         if [ $cabot_detect_ver -ge 4 ] && [ $cabot_detect_ver -le 6 ]; then
-            cp -r $scriptdir/../../track_people_py/models/rtmdet $mmdeploy_model_dir
+            if [ ! -e "$scriptdir/../../track_people_py/models/rtmdet/$processor/end2end.engine" ]; then
+                red "model does not exists"
+                exit
+            fi
+            cp -r $scriptdir/../../track_people_py/models/rtmdet/$processor $mmdeploy_model_dir
         else
-            cp -r $scriptdir/../../track_people_py/models/rtmdet-ins $mmdeploy_model_dir
+            if [ ! -e "$scriptdir/../../track_people_py/models/rtmdet-ins/$processor/end2end.engine" ]; then
+                red "model does not exists"
+                exit
+            fi
+            cp -r $scriptdir/../../track_people_py/models/rtmdet-ins/$processor $mmdeploy_model_dir
         fi
 
         # read input size

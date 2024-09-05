@@ -24,18 +24,18 @@ function help {
     echo "Usage: $0 <option>"
     echo ""
     echo "-h                    show this help"
-    echo "-p                    run profiler"
+    echo "-d                    debug mode (keep temporary files, and run profiler)"
 }
 
-run_profiler=0
-while getopts "hp" arg; do
+debug_mode=0
+while getopts "hd" arg; do
     case $arg in
         h)
             help
             exit
             ;;
-        p)
-            run_profiler=1
+        d)
+            debug_mode=1
             ;;
     esac
 done
@@ -81,7 +81,9 @@ else
     echo "You already have coco.names"
 fi
 
-if [ ! -e "rtmdet/end2end.engine" ]; then
+arch=$(uname -m)
+
+if [ ! -e "rtmdet/$(arch)/deploy.json" ] || [ ! -e "rtmdet/$(arch)/pipeline.json" ] || [ ! -e "rtmdet/$(arch)/end2end.engine" ]; then
     # setting for input image size
     model_input_height=384
     # model_input_height=416
@@ -108,15 +110,15 @@ if [ ! -e "rtmdet/end2end.engine" ]; then
     # deploy RTMDet model
     mmdeploy_config_filename=detection_tensorrt-fp16_static-${model_input_height}x${model_input_width}.py
     model_filename=$(basename $model_url)
-    if [ ! -e "rtmdet/$model_filename" ]; then
-        echo "Downloading rtmdet/$model_filename"
-        wget -P rtmdet $model_url
+    if [ ! -e "rtmdet/$(arch)/tmp/$model_filename" ]; then
+        echo "Downloading rtmdet/$(arch)/tmp/$model_filename"
+        wget -P rtmdet/$(arch)/tmp $model_url
         if [ $? -ne 0 ]; then
             echo "Failed to download $model_url"
             exit 1
         fi
     else
-        echo "You already have rtmdet/$model_filename"
+        echo "You already have rtmdet/$(arch)/tmp/$model_filename"
     fi
     echo "prepare file for deployment..."
     sudo cp configs/mmdetection/$mmdet_config_filename /opt/mmdetection/configs/rtmdet/
@@ -126,35 +128,41 @@ if [ ! -e "rtmdet/end2end.engine" ]; then
     python3 /opt/mmdeploy/tools/deploy.py \
         /opt/mmdeploy/configs/mmdet/detection/$mmdeploy_config_filename \
         /opt/mmdetection/configs/rtmdet/$mmdet_config_filename \
-        rtmdet/$model_filename \
+        rtmdet/$(arch)/tmp/$model_filename \
         /opt/mmdeploy/demo/resources/det.jpg \
-        --work-dir ./rtmdet \
+        --work-dir ./rtmdet/$(arch)/tmp \
         --device cuda:0 \
         --dump-info
 
-    if [ $run_profiler -eq 1 ]; then
+    if [ $debug_mode -eq 1 ]; then
         echo "run mmdeploy profiler..."
         python3 /opt/mmdeploy/tools/profiler.py \
             /opt/mmdeploy/configs/mmdet/detection/$mmdeploy_config_filename \
             /opt/mmdetection/configs/rtmdet/$mmdet_config_filename \
             /opt/mmdeploy/demo/resources \
-            --model rtmdet/end2end.engine \
+            --model rtmdet/$(arch)/tmp/end2end.engine \
             --device cuda:0 \
             --shape ${model_input_height}x${model_input_width}
 
         echo "run mmdeploy SDK for mmdetection (mmdeploy/demo/csrc/cpp/detector.cxx)..."
-        /usr/local/bin/detector $model_dir/rtmdet /opt/mmdeploy/demo/resources/det.jpg --device cuda
+        /usr/local/bin/detector $model_dir/rtmdet/$(arch)/tmp /opt/mmdeploy/demo/resources/det.jpg --device cuda
 
         echo "run mmdeploy SDK profiler for the output file of detector..."
         python3 /opt/mmdeploy/tools/sdk_analyze.py /tmp/profile.bin
     fi
 
-    echo "Finished to deploy rtmdet/end2end.engine"
+    mv rtmdet/$(arch)/tmp/deploy.json rtmdet/$(arch)/tmp/pipeline.json rtmdet/$(arch)/tmp/end2end.engine rtmdet/$(arch)/
+    if [ $debug_mode -eq 0 ]; then
+        echo "remove temporary files..."
+        rm -rf rtmdet/$(arch)/tmp
+    fi
+
+    echo "Finished to deploy rtmdet/$(arch)/end2end.engine"
 else
-    echo "You already have rtmdet/end2end.engine"
+    echo "You already have rtmdet/$(arch)/end2end.engine"
 fi
 
-if [ ! -e "rtmdet-ins/end2end.engine" ]; then
+if [ ! -e "rtmdet-ins/$(arch)/deploy.json" ] || [ ! -e "rtmdet-ins/$(arch)/pipeline.json" ] || [ ! -e "rtmdet-ins/$(arch)/end2end.engine" ]; then
     # setting for input image size
     model_input_height=384
     # model_input_height=416
@@ -181,15 +189,15 @@ if [ ! -e "rtmdet-ins/end2end.engine" ]; then
     # deploy RTMDet-Ins model
     mmdeploy_config_filename=instance-seg_rtmdet-ins_tensorrt-fp16_static-${model_input_height}x${model_input_width}.py
     model_filename=$(basename $model_url)
-    if [ ! -e "rtmdet-ins/$model_filename" ]; then
-        echo "Downloading rtmdet-ins/$model_filename"
-        wget -P rtmdet-ins $model_url
+    if [ ! -e "rtmdet-ins/$(arch)/tmp/$model_filename" ]; then
+        echo "Downloading rtmdet-ins/$(arch)/tmp/$model_filename"
+        wget -P rtmdet-ins/$(arch)/tmp $model_url
         if [ $? -ne 0 ]; then
             echo "Failed to download $model_url"
             exit 1
         fi
     else
-        echo "You already have rtmdet-ins/$model_filename"
+        echo "You already have rtmdet-ins/$(arch)/tmp/$model_filename"
     fi
     # set is_resize_mask option as false for RTMDet-Ins to avoid performance issue
     # note that the mask output in detector_output.jpg from profiler.py will not be correct because is_resize_mask is set as false
@@ -202,33 +210,39 @@ if [ ! -e "rtmdet-ins/end2end.engine" ]; then
     python3 /opt/mmdeploy/tools/deploy.py \
         /opt/mmdeploy/configs/mmdet/instance-seg/$mmdeploy_config_filename \
         /opt/mmdetection/configs/rtmdet/$mmdet_config_filename \
-        rtmdet-ins/$model_filename \
+        rtmdet-ins/$(arch)/tmp/$model_filename \
         /opt/mmdeploy/demo/resources/det.jpg \
-        --work-dir ./rtmdet-ins \
+        --work-dir ./rtmdet-ins/$(arch)/tmp \
         --device cuda:0 \
         --dump-info || true &&
 
     echo "fix deployed pipeline to enable is_crop_rtmdt_ins_mask option..."
-    sed -i 's/\"is_resize_mask\": true/\"is_resize_mask\": false,\"is_crop_rtmdt_ins_mask\": true/g' rtmdet-ins/pipeline.json
+    sed -i 's/\"is_resize_mask\": true/\"is_resize_mask\": false,\"is_crop_rtmdt_ins_mask\": true/g' rtmdet-ins/$(arch)/tmp/pipeline.json
 
-    if [ $run_profiler -eq 1 ]; then
+    if [ $debug_mode -eq 1 ]; then
         echo "run mmdeploy profiler..."
         python3 /opt/mmdeploy/tools/profiler.py \
             /opt/mmdeploy/configs/mmdet/instance-seg/$mmdeploy_config_filename \
             /opt/mmdetection/configs/rtmdet/$mmdet_config_filename \
             /opt/mmdeploy/demo/resources \
-            --model rtmdet-ins/end2end.engine \
+            --model rtmdet-ins/$(arch)/tmp/end2end.engine \
             --device cuda:0 \
             --shape ${model_input_height}x${model_input_width}
 
         echo "run mmdeploy SDK for mmdetection (mmdeploy/demo/csrc/cpp/detector.cxx)..."
-        /usr/local/bin/detector $model_dir/rtmdet-ins /opt/mmdeploy/demo/resources/det.jpg --device cuda
+        /usr/local/bin/detector $model_dir/$(arch)/tmp/rtmdet-ins /opt/mmdeploy/demo/resources/det.jpg --device cuda
 
         echo "run mmdeploy SDK profiler for the output file of detector..."
         python3 /opt/mmdeploy/tools/sdk_analyze.py /tmp/profile.bin
     fi
 
-    echo "Finished to deploy rtmdet-ins/end2end.engine"
+    mv rtmdet-ins/$(arch)/tmp/deploy.json rtmdet-ins/$(arch)/tmp/pipeline.json rtmdet-ins/$(arch)/tmp/end2end.engine rtmdet-ins/$(arch)/
+    if [ $debug_mode -eq 0 ]; then
+        echo "remove temporary files..."
+        rm -rf rtmdet-ins/$(arch)/tmp
+    fi
+
+    echo "Finished to deploy rtmdet-ins/$(arch)/end2end.engine"
 else
-    echo "You already have rtmdet-ins/end2end.engine"
+    echo "You already have rtmdet-ins/$(arch)/end2end.engine"
 fi
