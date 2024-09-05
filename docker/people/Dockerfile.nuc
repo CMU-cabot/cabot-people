@@ -40,6 +40,8 @@ RUN apt update && \
         libglu1-mesa-dev \
         libfreetype6-dev \
 	libc++-dev \
+	libopencv-dev \
+	ros-$ROS_DISTRO-cv-bridge \
 	ros-$ROS_DISTRO-diagnostic-updater \
 	ros-$ROS_DISTRO-tf2-geometry-msgs \
 	ros-$ROS_DISTRO-tf-transformations \
@@ -118,12 +120,12 @@ WORKDIR $HOME/people_nuc_ws
 
 FROM build as cache
 
-COPY --from=src ./cabot-common/cabot_common $HOME/people_nuc_ws/src/cabot_common
-COPY --from=src ./cabot-common/cabot_msgs $HOME/people_nuc_ws/src/cabot_msgs
-COPY --from=src ./cabot-common/cabot_people $HOME/people_nuc_ws/src/cabot_people
-COPY --from=src ./cabot-common/track_people_py $HOME/people_nuc_ws/src/track_people_py
-COPY --from=src ./cabot-common/track_people_msgs $HOME/people_nuc_ws/src/track_people_msgs
-COPY --from=src ./cabot-common/track_people_cpp $HOME/people_nuc_ws/src/track_people_cpp
+COPY --from=src ./cabot-common/cabot_common src/cabot_common
+COPY --from=src ./cabot-common/cabot_msgs src/cabot_msgs
+COPY --from=src ./cabot_people src/cabot_people
+COPY --from=src ./track_people_py src/track_people_py
+COPY --from=src ./track_people_msgs src/track_people_msgs
+COPY --from=src ./track_people_cpp src/track_people_cpp
 
 RUN /ros_entrypoint.sh /launch.sh build -s
 

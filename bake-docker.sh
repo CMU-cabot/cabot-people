@@ -32,6 +32,7 @@ function help {
     echo ""
     echo "-h                    show this help"
     echo "-b <base_name>        bake with base_name"
+    echo "-n <nuc_base_name>    bake with nuc_base_name"
     echo "-c <camera>           camera target (default=\"realsense framos\", set \"realsense\" for RealSense, and \"framos\" for FRAMOS camera)"
     echo "-i                    image build for debug - shorthand for -l and -P with host platform"
     echo "-l                    build using local registry"
@@ -42,12 +43,13 @@ function help {
 
 platform=
 base_name=cabot-gpu-base
+nuc_base_name=cabot-base
 image_name=cabot-people
 local=0
 tags=
 cameras="realsense framos"
 
-while getopts "hb:c:ilP:t:" arg; do
+while getopts "hb:n:c:ilP:t:" arg; do
     case $arg in
     h)
         help
@@ -55,6 +57,9 @@ while getopts "hb:c:ilP:t:" arg; do
         ;;
     b)
         base_name=${OPTARG}
+        ;;
+    n)
+        nuc_base_name=${OPTARG}
         ;;
     c)
         cameras=${OPTARG}
@@ -80,7 +85,7 @@ while getopts "hb:c:ilP:t:" arg; do
 done
 shift $((OPTIND-1))
 
-if [[ -z $base_name ]]; then
+if [[ -z $base_name ]] || [[ -z $nuc_base_name ]]; then
     help
     exit 1
 fi
@@ -180,6 +185,7 @@ fi
 # run bake for cabot-people base images
 com="$camera_option docker buildx bake -f docker-bake.hcl $platform_option $tag_option $target"
 export BASE_IMAGE=$base_name
+export NUC_BASE_IMAGE=$nuc_base_name
 echo $com
 eval $com
 if [[ $? -ne 0 ]]; then
@@ -212,6 +218,7 @@ done
 # run bake for cabot-people images
 com="docker buildx bake -f docker-compose.yaml $platform_option $@"
 export BASE_IMAGE=$base_name
+export NUC_BASE_IMAGE=$nuc_base_name
 echo $com
 eval $com
 
@@ -229,11 +236,6 @@ if [[ $local -eq 1 ]]; then
         eval $com
     done
 fi
-
-#com="docker buildx bake -f docker-compose.yaml $platform_option $tag_option $@"
-#export BASE_IMAGE=$base_name
-#echo $com
-#eval $com
 
 # reset buildx builder to default
 docker buildx use default
