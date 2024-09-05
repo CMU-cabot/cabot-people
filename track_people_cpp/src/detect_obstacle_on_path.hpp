@@ -56,6 +56,8 @@ private:
   void scanCallback(sensor_msgs::msg::LaserScan::SharedPtr msg);
   void planCallback(nav_msgs::msg::Path::SharedPtr msg);
 
+  std::string sensor_id_;
+  std::string scan_topic_;
   std::string map_frame_name_;
   std::string robot_frame_name_;
   tf2_ros::TransformListener * tfListener;

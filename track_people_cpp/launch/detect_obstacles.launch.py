@@ -29,6 +29,7 @@ from launch.conditions import IfCondition
 from launch.event_handlers import OnShutdown
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
+from launch_ros.actions import SetParameter
 
 try:
     from cabot_common.launch import AppendLogDirPrefix
@@ -38,40 +39,26 @@ except ImportError:
 
 
 def generate_launch_description():
-    # ToDo: workaround https://github.com/CMU-cabot/cabot/issues/86
-    jetpack5_workaround = LaunchConfiguration('jetpack5_workaround')
+    sensor_id = LaunchConfiguration('sensor_id')
+    scan_topic = LaunchConfiguration('scan_topic')
 
     return LaunchDescription([
         # save all log file in the directory where the launch.log file is saved
         SetEnvironmentVariable('ROS_LOG_DIR', launch_config.log_dir),
         # append prefix name to the log directory for convenience
-        LogInfo(msg=["no cabot_common"]) if workaround else RegisterEventHandler(OnShutdown(on_shutdown=[AppendLogDirPrefix("track_people_cpp-track_obstacles")])),
+        LogInfo(msg=["no cabot_common"]) if workaround else RegisterEventHandler(OnShutdown(on_shutdown=[AppendLogDirPrefix("track_people_cpp-detect_obstacles")])),
 
-        DeclareLaunchArgument('jetpack5_workaround', default_value='false'),
+        DeclareLaunchArgument('sensor_id', default_value='velodyne'),
+        DeclareLaunchArgument('scan_topic', default_value='/scan'),
 
-        SetEnvironmentVariable(name='LD_PRELOAD', value='/usr/local/lib/libOpen3D.so', condition=IfCondition(jetpack5_workaround)),
-
-        Node(
-            package='track_people_py',
-            executable='track_sort_3d_people.py',
-            name='track_obstacle',
-            namespace='obstacle',
-            parameters=[{
-                'target_fps': 15.0,
-                'diagnostic_name': 'ObstacleTrack'
-            }]
-        ),
+        # overwrite parameters
+        SetParameter(name='sensor_id', value=sensor_id),
+        SetParameter(name='scan_topic', value=scan_topic),
 
         Node(
-            package="track_people_py",
-            executable="predict_kf_obstacle.py",
-            name="predict_obstacle",
+            package='track_people_cpp',
+            executable='detect_obstacle_on_path_node',
+            name='detect_obstacle_on_path',
             namespace='obstacle',
-            parameters=[{
-                'duration_inactive_to_stop_publish': 0.2,
-                'stationary_detect_threshold_duration': 1.0,
-                'diagnostic_name': 'ObstaclePredict'
-            }],
-            remappings=[('/obstacle/people', '/obstacles')],
         )
     ])
