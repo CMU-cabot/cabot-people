@@ -6,6 +6,8 @@ services:
     environment:
       - CABOT_GAZEBO=0
       - CABOT_USE_REALSENSE=1
+    volumes:
+      - ./docker/home:/home/developer/
 
   people-prod:
     extends:
@@ -22,6 +24,8 @@ services:
     environment:
       - CABOT_GAZEBO=0
       - CABOT_USE_REALSENSE=1
+    volumes:
+      - ./docker/home:/home/developer/
 
   people-nuc-prod:
     extends:
@@ -38,6 +42,8 @@ services:
     environment:
       - CABOT_GAZEBO=0
       - CABOT_USE_REALSENSE=1
+    volumes:
+      - ./docker/home:/home/developer/
 
   people-framos-prod:
     extends:
