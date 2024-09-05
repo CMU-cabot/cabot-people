@@ -64,12 +64,14 @@ services:
       context: ./docker/people
       dockerfile: Dockerfile.nuc
       args:
-        - BASE_IMAGE=${BASE_IMAGE:-cabot-base}
+        - BASE_IMAGE=${NUC_BASE_IMAGE:-cabot-base}
       x-bake:
         tags:
           - ${REGISTRY:-cmucal}/cabot-people:nuc
         platforms:
           - linux/amd64
+        output:
+          - type=registry
     command:
       - "/launch.sh"
       - "-W"                                # wait roscore

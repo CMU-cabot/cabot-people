@@ -15,6 +15,22 @@ services:
       - CABOT_GAZEBO=0
       - CABOT_USE_REALSENSE=1
 
+  people-nuc:
+    extends:
+      file: docker-compose-base.yaml
+      service: people-nuc-dev-base
+    environment:
+      - CABOT_GAZEBO=0
+      - CABOT_USE_REALSENSE=1
+
+  people-nuc-prod:
+    extends:
+      file: docker-compose-base.yaml
+      service: people-nuc-prod-base
+    environment:
+      - CABOT_GAZEBO=0
+      - CABOT_USE_REALSENSE=1
+
   people-framos:
     extends:
       file: docker-compose-base.yaml
