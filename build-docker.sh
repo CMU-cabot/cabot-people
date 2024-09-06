@@ -541,6 +541,7 @@ function build_ws {
     elif [[ $CAMERA_IMAGE == 'framos' ]]; then
         docker compose run --rm people-framos /launch.sh build
     fi
+    docker compose run --rm people-nuc /launch.sh build
 }
 
 blue "Targets: $targets"
