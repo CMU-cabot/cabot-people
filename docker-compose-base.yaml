@@ -8,7 +8,7 @@ services:
         - BASE_IMAGE=${BASE_IMAGE:-cabot-gpu-base}
       x-bake:
         tags:
-          - ${REGISTRY:-cmucal}/cabot-people:realsense
+          - ${REGISTRY:-cmucal}/cabot-people
         platforms:
           - linux/amd64
           - linux/arm64
@@ -67,7 +67,7 @@ services:
         - BASE_IMAGE=${NUC_BASE_IMAGE:-cabot-base}
       x-bake:
         tags:
-          - ${REGISTRY:-cmucal}/cabot-people:nuc
+          - ${REGISTRY:-cmucal}/cabot-people-nuc
         platforms:
           - linux/amd64
         output:
@@ -90,7 +90,7 @@ services:
       - ./track_people_cpp:/home/developer/people_nuc_ws/src/track_people_cpp
 
   people-nuc-prod-base:
-    image: cmucal/cabot-people:nuc          # only for prodimg configuration
+    image: cmucal/cabot-people-nuc          # only for prodimg configuration
     extends:
       service: people-nuc-base
 
@@ -118,7 +118,7 @@ services:
       - ./track_people_cpp:/home/developer/people_ws/src/track_people_cpp
 
   people-all-prod-base:
-    image: cmucal/cabot-people:realsense    # only for prodimg configuration
+    image: cmucal/cabot-people              # only for prodimg configuration
     extends:
       service: people-all-base
 
@@ -145,7 +145,7 @@ services:
       - ./track_people_cpp:/home/developer/people_ws/src/track_people_cpp
 
   people-detection-prod-base:
-    image: cmucal/cabot-people:realsense    # only for prodimg configuration
+    image: cmucal/cabot-people              # only for prodimg configuration
     extends:
       service: people-detection-base
 
@@ -170,7 +170,7 @@ services:
       - ./track_people_cpp:/home/developer/people_ws/src/track_people_cpp
 
   people-track-prod-base:
-    image: cmucal/cabot-people:realsense    # only for prodimg configuration
+    image: cmucal/cabot-people              # only for prodimg configuration
     extends:
       service: people-track-base
 
@@ -182,7 +182,7 @@ services:
       dockerfile: Dockerfile.framos
       x-bake:
         tags:
-          - ${REGISTRY:-cmucal}/cabot-people:framos
+          - ${REGISTRY:-cmucal}/cabot-people-framos
         platforms:
           - linux/amd64
           - linux/arm64
@@ -201,7 +201,7 @@ services:
       - ./track_people_cpp:/home/developer/people_ws/src/track_people_cpp
 
   people-framos-all-prod-base:
-    image: cmucal/cabot-people:framos    # only for prodimg configuration
+    image: cmucal/cabot-people-framos    # only for prodimg configuration
     extends:
       service: people-framos-all-base
 
@@ -228,7 +228,7 @@ services:
       - ./track_people_cpp:/home/developer/people_ws/src/track_people_cpp
 
   people-framos-camera-prod-base:
-    image: cmucal/cabot-people:framos       # only for prodimg configuration
+    image: cmucal/cabot-people-framos       # only for prodimg configuration
     extends:
       service: people-framos-camera-base
 
@@ -254,6 +254,6 @@ services:
       - ./track_people_cpp:/home/developer/people_ws/src/track_people_cpp
 
   people-framos-detection-prod-base:
-    image: cmucal/cabot-people:framos       # only for prodimg configuration
+    image: cmucal/cabot-people-framos       # only for prodimg configuration
     extends:
       service: people-framos-detection-base
