@@ -100,14 +100,14 @@ FROM build-$TARGETARCH
 EOF
   platforms  = "${PLATFORMS}"
   tags       = [ "${REGISTRY}/${BASE_IMAGE}:base" ]
-  output     = [ "type=registry" ]
+  output     = [ "type=cacheonly" ]
 }
 
 #### AMD64
 
 target "ros-common-amd64" {
   platforms  = [ "linux/amd64" ]
-  output     = [ "type=registry" ]
+  output     = [ "type=cacheonly" ]
 }
 
 target "ros-core-amd64" {
@@ -218,7 +218,7 @@ target "ros-desktop-custom-opencv-mmdeploy-open3d-mesa-camera-amd64" {
 
 target "ros-common-arm64" {
   platforms  = [ "linux/arm64" ]
-  output     = [ "type=registry" ]
+  output     = [ "type=cacheonly" ]
 }
 
 target "opencv-arm64" {

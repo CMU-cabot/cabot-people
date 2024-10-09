@@ -33,7 +33,7 @@ function help {
     echo "-h                    show this help"
     echo "-b <base_name>        bake with base_name"
     echo "-n <nuc_base_name>    bake with nuc_base_name"
-    echo "-c <camera>           camera target (default=\"realsense framos\", set \"realsense\" for RealSense, and \"framos\" for FRAMOS camera)"
+    echo "-s <services>         target services (default=\"people people-framos people-nuc\", set more than one services from \"people\", \"people-framos\", \"people-nuc\")"
     echo "-i                    image build for debug - shorthand for -l and -P with host platform"
     echo "-l                    build using local registry"
     echo "-P <platform>         specify platform"
@@ -47,9 +47,9 @@ nuc_base_name=cabot-base
 image_name=cabot-people
 local=0
 tags=
-cameras="realsense framos"
+services="people people-framos people-nuc"
 
-while getopts "hb:n:c:ilP:t:" arg; do
+while getopts "hb:n:s:ilP:t:" arg; do
     case $arg in
     h)
         help
@@ -61,8 +61,8 @@ while getopts "hb:n:c:ilP:t:" arg; do
     n)
         nuc_base_name=${OPTARG}
         ;;
-    c)
-        cameras=${OPTARG}
+    s)
+        services=${OPTARG}
         ;;
     i)
         if [[ $(uname -m) = "x86_64" ]]; then
@@ -80,7 +80,7 @@ while getopts "hb:n:c:ilP:t:" arg; do
         ;;
     t)
         tags=${OPTARG}
-	;;
+        ;;
     esac
 done
 shift $((OPTIND-1))
@@ -158,14 +158,22 @@ fi
 
 # camera option
 camera_option=
+cameras=
+for service in $services; do
+    if [[ $service == "people" ]]; then
+        if [[ -n $cameras ]]; then
+            cameras+=" "
+        fi
+        cameras+="realsense"
+    elif [[ $service == "people-framos" ]]; then
+        if [[ -n "$cameras" ]]; then
+            cameras+=" "
+        fi
+        cameras+="framos"
+    fi
+done
 if [[ -n $cameras ]]; then
-   camera_option='CAMERAS="$cameras"'
-fi
-
-# tag option
-tag_option=
-if [[ -n $tags ]]; then
-    tag_option="--set=*.tags=${REGISTRY}/${image_name}:${tags}"
+    camera_option='CAMERAS="$cameras"'
 fi
 
 # platform option
@@ -182,41 +190,56 @@ elif [[ $platform = "linux/arm64" ]]; then
     target="targets-arm64"
 fi
 
-# run bake for cabot-people base images
-com="$camera_option docker buildx bake -f docker-bake.hcl $platform_option $tag_option $target"
-export BASE_IMAGE=$base_name
-export NUC_BASE_IMAGE=$nuc_base_name
-echo $com
-eval $com
-if [[ $? -ne 0 ]]; then
-    exit 1
-fi
-
-# create multi platform cabot-people final base images
-if [[ $local -eq 1 ]]; then
-    final_registry="localhost:9092"
-else
-    final_registry="cmucal"
-fi
-for camera in $cameras; do
-    if [[ $platform = "linux/amd64" ]]; then
-        sources="${final_registry}/${base_name}:${camera}-final-amd64"
-    elif [[ $platform = "linux/arm64" ]]; then
-        sources="${final_registry}/${base_name}:${camera}-final-arm64"
-    else
-        sources="${final_registry}/${base_name}:${camera}-final-amd64 ${final_registry}/${base_name}:${camera}-final-arm64"
-    fi
-
-    com="docker buildx imagetools create --tag ${final_registry}/${base_name}:${camera}-final ${sources}"
+# run bake for cabot-gpu-base images
+if [[ -n $camera_option ]]; then
+    com="$camera_option docker buildx bake -f docker-bake.hcl $platform_option $tag_option $target"
+    export BASE_IMAGE=$base_name
+    export NUC_BASE_IMAGE=$nuc_base_name
     echo $com
     eval $com
     if [[ $? -ne 0 ]]; then
         exit 1
     fi
-done
+
+    # create multi platform cabot-people final base images
+    if [[ $local -eq 1 ]]; then
+        final_registry="localhost:9092"
+    else
+        final_registry="cmucal"
+    fi
+    for camera in $cameras; do
+        if [[ $platform = "linux/amd64" ]]; then
+            sources="${final_registry}/${base_name}:${camera}-final-amd64"
+        elif [[ $platform = "linux/arm64" ]]; then
+            sources="${final_registry}/${base_name}:${camera}-final-arm64"
+        else
+            sources="${final_registry}/${base_name}:${camera}-final-amd64 ${final_registry}/${base_name}:${camera}-final-arm64"
+        fi
+
+        com="docker buildx imagetools create --tag ${final_registry}/${base_name}:${camera}-final ${sources}"
+        echo $com
+        eval $com
+        if [[ $? -ne 0 ]]; then
+            exit 1
+        fi
+    done
+else
+    echo "Specified target services do not need GPU, skip build cabot-gpu-base images"
+fi
+
+# tag option
+tag_option=
+if [[ -n $tags ]]; then
+    for service in $services; do
+        if [[ -n $tag_option ]]; then
+            tag_option+=" "
+        fi
+        tag_option+="--set=${service}.tags=${REGISTRY}/cabot-${service}:{${tags}}"
+    done
+fi
 
 # run bake for cabot-people images
-com="docker buildx bake -f docker-compose.yaml $platform_option $@"
+com="docker buildx bake -f docker-compose.yaml $platform_option $tag_option $services $@"
 export BASE_IMAGE=$base_name
 export NUC_BASE_IMAGE=$nuc_base_name
 echo $com
