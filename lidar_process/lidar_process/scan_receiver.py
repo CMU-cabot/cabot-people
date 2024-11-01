@@ -509,7 +509,7 @@ class ScanReceiver(Node):
         # 4. Apply proxemics
         # 5. Perform prediction
 
-        if not(self.pointcloud_history.is_full()):
+        if self.pointcloud_history.is_empty():
             return
         start_time = time.time()
 
@@ -581,6 +581,7 @@ class ScanReceiver(Node):
                 assert(len(group) == self._history_window)
                 group_pred_inputs[(i*3):((i+1)*3), :, :] = np.transpose(np.array(group), (1, 0, 2))
             
+            # predictions made here
             group_futures = self.group_pred_model.evaluate(group_pred_inputs)
             group_complete_futures = np.zeros((num_groups * 3, self._future_window + 1, 2))
             group_complete_futures[:, 0, :] = group_pred_inputs[:, -1, :]
@@ -617,7 +618,7 @@ class ScanReceiver(Node):
                
         print("Time gen rep: {}".format(time.time() - sub_start_time))
 
-        if self.debug_visualiation:
+        if (self.debug_visualiation) and (num_groups > 0):
             group_vis_markers = MarkerArray()
             group_markers_list = []
             curr_groups = group_representations.group_sequences[0].groups
@@ -646,6 +647,7 @@ class ScanReceiver(Node):
         if len(current_pcl) == 0:
             return []
         current_time = current_pcl[0, 8]
+        history_len = len(pcl_history)
 
         # extract entities from current pointcloud and trace backwards
         # interpolation used from neighboring entity pointclouds
@@ -668,18 +670,20 @@ class ScanReceiver(Node):
         for i, l in enumerate(unique_entities):
             current_entity = current_pcl[entities == l, :]
             entity_history = [current_entity]
-            time_pointer = self._max_queue_size - 2
+            time_pointer = history_len - 2
             propogation_step = 0
             for j in range(self._history_window):
                 time_target = current_time - (j + 1) * self._history_dt
                 pcl = pcl_history[time_pointer]
-                while (len(pcl) > 0) and (pcl[0, 8] > time_target):
+                while (time_pointer > 0) and (len(pcl) > 0) and (pcl[0, 8] > time_target):
                     time_pointer -= 1
                     pcl = pcl_history[time_pointer]
-                if (len(pcl) == 0) or (not l in pcl[:, 5]):
+                # if (out of queue) or (entity not there) then not found and propogation needed
+                if (((time_pointer == 0) and (pcl[0, 8] > time_target))
+                    or (len(pcl) == 0) or (not l in pcl[:, 5])): 
                     propogation_step = self._history_window - j
                     break
-                else:
+                else: 
                     #interpolation
                     pcl_prev = pcl
                     pcl_next = pcl_history[time_pointer + 1]
