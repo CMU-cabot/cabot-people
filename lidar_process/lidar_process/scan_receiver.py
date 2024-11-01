@@ -259,7 +259,8 @@ class ScanReceiver(Node):
             self.is_history_complete = True
             # pop the oldest point cloud from the queue
             tmp = self.pointcloud_history.dequeue()
-        self.pointcloud_history.enqueue(self.pointcloud_complete)
+        pointcloud_dict = {"time": self.curr_time, "pointcloud": self.pointcloud_complete}
+        self.pointcloud_history.enqueue(pointcloud_dict)
 
         self.get_logger().info("Lidar scan callback runs: {} seconds".format(time.time() - start_time))
         
@@ -521,8 +522,8 @@ class ScanReceiver(Node):
         # pcl_history is from old to new
         # pcl format:
         # (x, y, z, intensity, ring, group id, group center x, group center y, timestamp)
-        pcl_history = copy.copy(self.pointcloud_history._items)
-        if (len(pcl_history[0]) == 0):
+        pcl_history = copy.deepcopy(self.pointcloud_history._items)
+        if (len(pcl_history[0]["pointcloud"]) == 0):
             self.get_logger().warn("No pointclouds at current time.")
             return
         entities_history = self._align_pointclouds(pcl_history)
@@ -646,14 +647,14 @@ class ScanReceiver(Node):
         current_pcl = pcl_history[-1]
         if len(current_pcl) == 0:
             return []
-        current_time = current_pcl[0, 8]
+        current_time = current_pcl["time"]
         history_len = len(pcl_history)
 
         # extract entities from current pointcloud and trace backwards
         # interpolation used from neighboring entity pointclouds
         # if history incomplete, perform back propogation
         # velocities also calculated here
-        entities = current_pcl[:, 5]
+        entities = current_pcl["pointcloud"][:, 5]
         #entities_x = current_pcl[:, 6]
         #entities_y = current_pcl[:, 7]
 
@@ -668,25 +669,25 @@ class ScanReceiver(Node):
         # we collect info on history + 1 pointcouds to get velocities on history pointclouds
         entities_history = []
         for i, l in enumerate(unique_entities):
-            current_entity = current_pcl[entities == l, :]
+            current_entity = current_pcl["pointcloud"][entities == l, :]
             entity_history = [current_entity]
             time_pointer = history_len - 2
             propogation_step = 0
             for j in range(self._history_window):
                 time_target = current_time - (j + 1) * self._history_dt
                 pcl = pcl_history[time_pointer]
-                while (time_pointer > 0) and (len(pcl) > 0) and (pcl[0, 8] > time_target):
+                while (time_pointer > 0) and (pcl["time"] > time_target):
                     time_pointer -= 1
                     pcl = pcl_history[time_pointer]
                 # if (out of queue) or (entity not there) then not found and propogation needed
-                if (((time_pointer == 0) and (pcl[0, 8] > time_target))
-                    or (len(pcl) == 0) or (not l in pcl[:, 5])): 
+                if (((time_pointer == 0) and (pcl["time"] > time_target))
+                    or (len(pcl["pointcloud"]) == 0) or (not l in pcl["pointcloud"][:, 5])): 
                     propogation_step = self._history_window - j
                     break
                 else: 
                     #interpolation
-                    pcl_prev = pcl
-                    pcl_next = pcl_history[time_pointer + 1]
+                    pcl_prev = pcl["pointcloud"]
+                    pcl_next = pcl_history[time_pointer + 1]["pointcloud"]
                     entity_prev = pcl_prev[pcl_prev[:, 5] == l, :]
                     entity_next = pcl_next[pcl_next[:, 5] == l, :]
                     entity_interp = self._interpolate_pointclouds(entity_prev, entity_next, time_target)
