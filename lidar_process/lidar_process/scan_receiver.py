@@ -45,7 +45,7 @@ class ScanReceiver(Node):
         #transient_local_qos = QoSProfile(depth=1, durability=QoSDurabilityPolicy.TRANSIENT_LOCAL)
         sensor_data_qos = qos_profile_sensor_data
 
-        group_cb_timer_period = 0.2
+        group_cb_timer_period = 0.05
 
         self.scan_sub = self.create_subscription(
             PointCloud2, 
@@ -523,7 +523,7 @@ class ScanReceiver(Node):
         # pcl format:
         # (x, y, z, intensity, ring, group id, group center x, group center y, timestamp)
         pcl_history = copy.deepcopy(self.pointcloud_history._items)
-        if (len(pcl_history[0]["pointcloud"]) == 0):
+        if (len(pcl_history[-1]["pointcloud"]) == 0):
             self.get_logger().warn("No pointclouds at current time.")
             return
         entities_history = self._align_pointclouds(pcl_history)
@@ -560,7 +560,7 @@ class ScanReceiver(Node):
 
             unique_groups = np.unique(labels)
             for g in unique_groups:
-                group_condition = (labels == g)
+                group_condition = (labels == g) 
                 group_pos = pos_array[group_condition]
                 left_idx, center_idx, right_idx = grouping.identify_edge_points(
                     group_pos, 
