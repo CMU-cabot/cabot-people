@@ -2,7 +2,7 @@ repositories:
   cabot-common:
     type: git
     url: https://github.com/CMU-cabot/cabot-common
-    version: main
+    version: dev
 
   docker/jetson-humble-custom/people:
     # not distributed
