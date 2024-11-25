@@ -28,17 +28,17 @@
 #   - It is also advisable to specify the platform (-p) in this case.
 
 function help {
-    echo "Usage: $0 [-i] [-l] [-b <base_name>] [-P <platform>]"
+    echo "Usage: $0 [-i] [-l] [-b <base_name>] [-P <platform>] <services>"
     echo ""
     echo "-h                    show this help"
     echo "-b <base_name>        bake with base_name"
     echo "-n <nuc_base_name>    bake with nuc_base_name"
-    echo "-s <services>         target services (default=\"people people-framos people-nuc\", set more than one services from \"people\", \"people-framos\", \"people-nuc\")"
     echo "-i                    image build for debug - shorthand for -l and -P with host platform"
     echo "-l                    build using local registry"
     echo "-P <platform>         specify platform"
     echo "                      build linux/arm64 and linux/amd64 if not specified"
     echo "-t <tags>             additional tags"
+    echo "<services>            target services (default=\"people people-framos people-nuc\", set more than one services from \"people\", \"people-framos\", \"people-nuc\")"
 }
 
 platform=
@@ -49,7 +49,7 @@ local=0
 tags=
 services="people people-framos people-nuc"
 
-while getopts "hb:n:s:ilP:t:" arg; do
+while getopts "hb:n:ilP:t:" arg; do
     case $arg in
     h)
         help
@@ -60,9 +60,6 @@ while getopts "hb:n:s:ilP:t:" arg; do
         ;;
     n)
         nuc_base_name=${OPTARG}
-        ;;
-    s)
-        services=${OPTARG}
         ;;
     i)
         if [[ $(uname -m) = "x86_64" ]]; then
@@ -84,6 +81,10 @@ while getopts "hb:n:s:ilP:t:" arg; do
     esac
 done
 shift $((OPTIND-1))
+
+if [ "$#" -ne 0 ]; then
+    services=$@
+fi
 
 if [[ -z $base_name ]] || [[ -z $nuc_base_name ]]; then
     help
@@ -239,7 +240,7 @@ if [[ -n $tags ]]; then
 fi
 
 # run bake for cabot-people images
-com="docker buildx bake -f docker-compose.yaml $platform_option $tag_option $services $@"
+com="docker buildx bake -f docker-compose.yaml $platform_option $tag_option $services"
 export BASE_IMAGE=$base_name
 export NUC_BASE_IMAGE=$nuc_base_name
 echo $com
