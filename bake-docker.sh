@@ -38,7 +38,7 @@ function help {
     echo "-P <platform>         specify platform"
     echo "                      build linux/arm64 and linux/amd64 if not specified"
     echo "-t <tags>             additional tags"
-    echo "<services>            target services (default=\"people people-framos people-nuc\", set more than one services from \"people\", \"people-framos\", \"people-nuc\")"
+    echo "<services>            target services (default=\"$services\")"
 }
 
 platform=
@@ -199,6 +199,7 @@ if [[ -n $camera_option ]]; then
     echo $com
     eval $com
     if [[ $? -ne 0 ]]; then
+        docker buildx use default
         exit 1
     fi
 
@@ -221,6 +222,7 @@ if [[ -n $camera_option ]]; then
         echo $com
         eval $com
         if [[ $? -ne 0 ]]; then
+            docker buildx use default
             exit 1
         fi
     done
@@ -245,6 +247,13 @@ export BASE_IMAGE=$base_name
 export NUC_BASE_IMAGE=$nuc_base_name
 echo $com
 eval $com
+if [[ $? -ne 0 ]]; then
+    echo "failed to build image"
+    exit 1
+fi
+
+# reset buildx builder to default
+docker buildx use default
 
 # copy images from local registry
 # this can override image tag
@@ -260,6 +269,3 @@ if [[ $local -eq 1 ]]; then
         eval $com
     done
 fi
-
-# reset buildx builder to default
-docker buildx use default
