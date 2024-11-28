@@ -48,7 +48,7 @@ RUN mkdir -p /etc/apt/keyrings && \
     librealsense2-utils \
     librealsense2-dev \
     librealsense2-dbg \
-    librealsense2-dkms \
+    librealsense2-dkms=1.3.27-0ubuntu1 \
     && \
     apt clean && \
     rm -rf /var/lib/apt/lists/*
