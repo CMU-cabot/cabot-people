@@ -12,6 +12,8 @@ services:
 # CaBot
       - CABOT_GAZEBO=${CABOT_GAZEBO:-1}
       - CABOT_SITE
+      - CABOT_ENABLE_LIDAR_PROCESSING
+      - CABOT_DISABLE_PEOPLE
       - CABOT_SHOW_PEOPLE_RVIZ=${CABOT_SHOW_PEOPLE_RVIZ:-0}
       - CABOT_PUBLISH_DETECT_IMAGE=${CABOT_PUBLISH_DETECT_IMAGE:-0}
       - CABOT_USE_REALSENSE=${CABOT_USE_REALSENSE:-0}
@@ -27,6 +29,7 @@ services:
       - CABOT_HEADLESS
       - CABOT_PEOPLE_TRACK_FPS
       - RMW_IMPLEMENTATION
+      - ROS_DOMAIN_ID
       - CYCLONEDDS_URI
       - CYCLONEDDS_NETWORK_INTERFACE_NAME
       - CYCLONEDDS_NETWORK_INTERFACE_AUTODETERMINE # set automatically by launch.sh
@@ -58,6 +61,8 @@ services:
       - ./track_people_py:/home/developer/people_nuc_ws/src/track_people_py
       - ./track_people_msgs:/home/developer/people_nuc_ws/src/track_people_msgs
       - ./track_people_cpp:/home/developer/people_nuc_ws/src/track_people_cpp
+      - ./lidar_process:/home/developer/people_ws/src/lidar_process
+      - ./lidar_process_msgs:/home/developer/people_ws/src/lidar_process_msgs
     command:
       - "/launch.sh"
       - "-W"                                # wait roscore
@@ -74,6 +79,8 @@ services:
       - ./track_people_py:/home/developer/people_ws/src/track_people_py
       - ./track_people_msgs:/home/developer/people_ws/src/track_people_msgs
       - ./track_people_cpp:/home/developer/people_ws/src/track_people_cpp
+      - ./lidar_process:/home/developer/people_ws/src/lidar_process
+      - ./lidar_process_msgs:/home/developer/people_ws/src/lidar_process_msgs
     command:
       - "/launch.sh"
       # - "/launch-core.sh"                 # use core dump
