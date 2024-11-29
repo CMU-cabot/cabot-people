@@ -1,19 +1,5 @@
 services:
   people-base:
-    build:
-      context: ./docker/people
-      additional_contexts:
-        - src=./
-      args:
-        - BASE_IMAGE=${BASE_IMAGE:-cabot-gpu-base}
-      x-bake:
-        tags:
-          - ${REGISTRY:-cmucal}/cabot-people
-        platforms:
-          - linux/amd64
-          - linux/arm64
-        output:
-          - type=registry
     environment:
       - DISPLAY
       - XAUTHORITY=/tmp/.docker.xauth
@@ -60,8 +46,11 @@ services:
   people-nuc-base:
     extends:
       service: people-base
+    image: cmucal/cabot-people-nuc
     build:
       context: ./docker/people
+      additional_contexts:
+        - src=./
       dockerfile: Dockerfile.nuc
       args:
         - BASE_IMAGE=${NUC_BASE_IMAGE:-cabot-base}
@@ -89,14 +78,46 @@ services:
       - ./track_people_msgs:/home/developer/people_nuc_ws/src/track_people_msgs
       - ./track_people_cpp:/home/developer/people_nuc_ws/src/track_people_cpp
 
+  people-nuc-dev:
+    extends:
+      service: people-nuc-dev-base
+    environment:
+      - CABOT_GAZEBO=0
+      - CABOT_USE_REALSENSE=1
+    volumes:
+      - ./docker/home:/home/developer/
+
   people-nuc-prod-base:
-    image: cmucal/cabot-people-nuc          # only for prodimg configuration
     extends:
       service: people-nuc-base
+    volumes:
+      - ./docker/home/.ros:/home/developer/.ros
+
+  people-nuc-prod:
+    extends:
+      service: people-nuc-prod-base
+    environment:
+      - CABOT_GAZEBO=0
+      - CABOT_USE_REALSENSE=1
 
   people-all-base:
     extends:
       service: people-base
+    image: cmucal/cabot-people
+    build:
+      context: ./docker/people
+      additional_contexts:
+        - src=./
+      args:
+        - BASE_IMAGE=${BASE_IMAGE:-cabot-gpu-base}
+      x-bake:
+        tags:
+          - ${REGISTRY:-cmucal}/cabot-people
+        platforms:
+          - linux/amd64
+          - linux/arm64
+        output:
+          - type=registry
     command:
       - "/launch.sh"
       # - "/launch-core.sh"                 # use core dump
@@ -117,10 +138,27 @@ services:
       - ./track_people_msgs:/home/developer/people_ws/src/track_people_msgs
       - ./track_people_cpp:/home/developer/people_ws/src/track_people_cpp
 
+  people-all-dev:
+    extends:
+      service: people-all-dev-base
+    environment:
+      - CABOT_GAZEBO=0
+      - CABOT_USE_REALSENSE=1
+    volumes:
+      - ./docker/home:/home/developer/
+
   people-all-prod-base:
-    image: cmucal/cabot-people              # only for prodimg configuration
     extends:
       service: people-all-base
+    volumes:
+      - ./docker/home/.ros:/home/developer/.ros
+
+  people-all-prod:
+    extends:
+      service: people-all-prod-base
+    environment:
+      - CABOT_GAZEBO=0
+      - CABOT_USE_REALSENSE=1
 
   people-detection-base:
     extends:
@@ -145,9 +183,10 @@ services:
       - ./track_people_cpp:/home/developer/people_ws/src/track_people_cpp
 
   people-detection-prod-base:
-    image: cmucal/cabot-people              # only for prodimg configuration
     extends:
       service: people-detection-base
+    volumes:
+      - ./docker/home/.ros:/home/developer/.ros
 
   people-track-base:
     extends:
@@ -170,13 +209,15 @@ services:
       - ./track_people_cpp:/home/developer/people_ws/src/track_people_cpp
 
   people-track-prod-base:
-    image: cmucal/cabot-people              # only for prodimg configuration
     extends:
       service: people-track-base
+    volumes:
+      - ./docker/home/.ros:/home/developer/.ros
 
   people-framos-all-base:
     extends:
       service: people-all-base
+    image: cmucal/cabot-people-framos
     build:
       context: ./docker/people
       dockerfile: Dockerfile.framos
@@ -200,10 +241,20 @@ services:
       - ./track_people_msgs:/home/developer/people_ws/src/track_people_msgs
       - ./track_people_cpp:/home/developer/people_ws/src/track_people_cpp
 
+  people-framos-all-dev:
+    extends:
+      service: people-framos-all-dev-base
+    environment:
+      - CABOT_GAZEBO=0
+      - CABOT_USE_REALSENSE=1
+    volumes:
+      - ./docker/home:/home/developer/
+
   people-framos-all-prod-base:
-    image: cmucal/cabot-people-framos    # only for prodimg configuration
     extends:
       service: people-framos-all-base
+    volumes:
+      - ./docker/home/.ros:/home/developer/.ros
 
   people-framos-camera-base:
     extends:
@@ -228,9 +279,17 @@ services:
       - ./track_people_cpp:/home/developer/people_ws/src/track_people_cpp
 
   people-framos-camera-prod-base:
-    image: cmucal/cabot-people-framos       # only for prodimg configuration
     extends:
       service: people-framos-camera-base
+    volumes:
+      - ./docker/home/.ros:/home/developer/.ros
+
+  people-framos-all-prod:
+    extends:
+      service: people-framos-all-prod-base
+    environment:
+      - CABOT_GAZEBO=0
+      - CABOT_USE_REALSENSE=1
 
   people-framos-detection-base:
     extends:
@@ -254,6 +313,7 @@ services:
       - ./track_people_cpp:/home/developer/people_ws/src/track_people_cpp
 
   people-framos-detection-prod-base:
-    image: cmucal/cabot-people-framos       # only for prodimg configuration
     extends:
       service: people-framos-detection-base
+    volumes:
+      - ./docker/home/.ros:/home/developer/.ros

@@ -1,4 +1,5 @@
 *
 !.gitignore
+!.ros
 !people_ws
 !people_nuc_ws

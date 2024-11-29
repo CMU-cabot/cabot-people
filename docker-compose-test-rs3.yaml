@@ -1,8 +1,9 @@
 services:
-  rs1:
+  # dev
+  rs1-dev:
     extends:
-      file: docker-compose.yaml
-      service: people
+      file: docker-compose-base.yaml
+      service: people-all-dev
     environment:
       - CABOT_CAMERA_NAME=rs1
       - CABOT_REALSENSE_SERIAL=${CABOT_REALSENSE_SERIAL_1}
@@ -12,11 +13,13 @@ services:
       - "-t"
       - "0"
       - "-D"
+    profiles:
+      - dev
 
-  rs2:
+  rs2-dev:
     extends:
-      file: docker-compose.yaml
-      service: people
+      file: docker-compose-base.yaml
+      service: people-all-dev
     environment:
       - CABOT_CAMERA_NAME=rs2
       - CABOT_REALSENSE_SERIAL=${CABOT_REALSENSE_SERIAL_2}
@@ -26,11 +29,13 @@ services:
       - "-t"
       - "0"
       - "-D"
+    profiles:
+      - dev
 
-  rs3:
+  rs3-dev:
     extends:
-      file: docker-compose.yaml
-      service: people
+      file: docker-compose-base.yaml
+      service: people-all-dev
     environment:
       - CABOT_CAMERA_NAME=rs3
       - CABOT_REALSENSE_SERIAL=${CABOT_REALSENSE_SERIAL_3}
@@ -40,13 +45,78 @@ services:
       - "-t"
       - "0"
       - "-D"
+    profiles:
+      - dev
 
-  track:
+  track-dev:
     extends:
-      file: docker-compose.yaml
-      service: people
+      file: docker-compose-base.yaml
+      service: people-all-dev
     environment:
       - CABOT_USE_REALSENSE=0
     command:
       - "/launch.sh"
       - "-K"
+    profiles:
+      - dev
+
+  # prodimg
+  rs1-prod:
+    extends:
+      file: docker-compose-base.yaml
+      service: people-all-prod
+    environment:
+      - CABOT_CAMERA_NAME=rs1
+      - CABOT_REALSENSE_SERIAL=${CABOT_REALSENSE_SERIAL_1}
+    command:
+      - "/launch.sh"
+      - "-a"
+      - "-t"
+      - "0"
+      - "-D"
+    profiles:
+      - prod
+
+  rs2-prod:
+    extends:
+      file: docker-compose-base.yaml
+      service: people-all-prod
+    environment:
+      - CABOT_CAMERA_NAME=rs2
+      - CABOT_REALSENSE_SERIAL=${CABOT_REALSENSE_SERIAL_2}
+    command:
+      - "/launch.sh"
+      - "-a"
+      - "-t"
+      - "0"
+      - "-D"
+    profiles:
+      - prod
+
+  rs3-prod:
+    extends:
+      file: docker-compose-base.yaml
+      service: people-all-prod
+    environment:
+      - CABOT_CAMERA_NAME=rs3
+      - CABOT_REALSENSE_SERIAL=${CABOT_REALSENSE_SERIAL_3}
+    command:
+      - "/launch.sh"
+      - "-a"
+      - "-t"
+      - "0"
+      - "-D"
+    profiles:
+      - prod
+
+  track-prod:
+    extends:
+      file: docker-compose-base.yaml
+      service: people-all-prod
+    environment:
+      - CABOT_USE_REALSENSE=0
+    command:
+      - "/launch.sh"
+      - "-K"
+    profiles:
+      - prod
