@@ -232,14 +232,15 @@ fi
 
 # tag option
 tag_option=
-if [[ -n $tags ]]; then
-    for service in $services; do
-        if [[ -n $tag_option ]]; then
-            tag_option+=" "
-        fi
-        tag_option+="--set=${service}.tags=${REGISTRY}/cabot-${service}:{${tags}}"
-    done
+if [[ -z $tags ]]; then
+    tags="latest,$(git rev-parse --abbrev-ref HEAD)"
 fi
+for service in $services; do
+    if [[ -n $tag_option ]]; then
+        tag_option+=" "
+    fi
+    tag_option+="--set=${service}.tags=${REGISTRY}/cabot-${service}:{${tags}}"
+done
 
 # run bake for cabot-people images
 com="docker buildx bake -f docker-compose.yaml $platform_option $tag_option $services"
