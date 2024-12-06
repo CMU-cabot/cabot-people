@@ -81,6 +81,9 @@ RUN git clone --recursive --branch v2.1.1 http://github.com/pytorch/pytorch && \
         pip3 install --no-cache-dir --no-deps /tmp/wheelhouse/torch-*.whl && \
         cd ../ && \
         rm -rf pytorch
+# # install torch from whl
+# COPY torch-2.1.1-cp38-cp38-linux_aarch64.whl /tmp/wheelhouse/
+# RUN pip3 install --no-cache-dir --no-deps /tmp/wheelhouse/torch-*.whl
 
 # install for torchvision
 RUN pip3 install --no-cache-dir numpy pillow requests
@@ -91,6 +94,9 @@ RUN git clone --branch v0.16.1 https://github.com/pytorch/vision torchvision && 
         pip3 install --no-cache-dir --no-deps /tmp/wheelhouse/torchvision-*.whl && \
         cd ../ && \
         rm -rf torchvision
+# # install torch vision from whl
+# COPY torchvision-0.16.1-cp38-cp38-linux_aarch64.whl /tmp/wheelhouse/
+# RUN pip3 install --no-cache-dir --no-deps /tmp/wheelhouse/torchvision-*.whl
 
 # install mmdeploy requirements
 RUN pip3 install --no-cache-dir openmim==0.3.9 && \
@@ -121,6 +127,9 @@ RUN git clone --branch v2.1.0 https://github.com/open-mmlab/mmcv.git && \
         pip3 install --no-cache-dir --no-deps /tmp/wheelhouse/mmcv-*.whl && \
         cd ../ && \
         rm -rf mmcv
+# # install mmcv from whl
+# COPY mmcv-2.1.0-cp38-cp38-linux_aarch64.whl /tmp/wheelhouse/
+# RUN pip3 install --no-cache-dir --no-deps /tmp/wheelhouse/mmcv-*.whl
 
 # install spdlog to build mmdeploy
 RUN apt update && \
@@ -190,6 +199,9 @@ RUN cd /opt && \
         pip3 install --no-cache-dir --no-deps /tmp/wheelhouse/mmdet-*.whl && \
         cd ../ && \
         rm -rf mmdetection
+# # install mmdetection from whl
+# COPY mmdet-3.3.0-py3-none-any.whl /tmp/wheelhouse/
+# RUN pip3 install --no-cache-dir --no-deps /tmp/wheelhouse/mmdet-*.whl
 
 # copy mmdeploy, mmdetection from cache image
 FROM $FROM_IMAGE AS build
