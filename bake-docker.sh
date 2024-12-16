@@ -174,7 +174,7 @@ for service in $services; do
     fi
 done
 if [[ -n $cameras ]]; then
-    camera_option='CAMERAS="$cameras"'
+    camera_option="CAMERAS=\"$cameras\""
 fi
 
 # platform option
