@@ -6,6 +6,9 @@ services:
       - NVIDIA_DRIVER_CAPABILITIES=compute,graphics,utility,video,display
       - NVIDIA_VISIBLE_DEVICES=all
       - OMP_NUM_THREADS=1
+      - HOST_UID
+      - HOST_GID
+      - HOST_TZ
       - ROS_LOG_DIR
 # CaBot
       - CABOT_GAZEBO=${CABOT_GAZEBO:-1}

@@ -39,6 +39,7 @@ RUN if [ "${TARGETARCH}" = "amd64" ]; then \
         apt install -y --no-install-recommends \
         git \
         bc \
+        gosu \
         jq \
         libfreetype6-dev \
         libglu1-mesa-dev \
@@ -58,6 +59,7 @@ RUN if [ "${TARGETARCH}" = "amd64" ]; then \
         apt update && \
         apt install -y --no-install-recommends \
         bc \
+        gosu \
         jq \
         && \
         apt clean && \
@@ -127,12 +129,14 @@ RUN if [ "${TARGETARCH}" = "arm64" ]; then \
         usermod -aG video $USERNAME ; \
     fi
 
-USER $USERNAME
-
 ENV HOME /home/$USERNAME
+
 WORKDIR $HOME/people_ws
+RUN chown $USERNAME:$USERNAME $HOME/people_ws
 
 FROM build as cache
+
+USER $USERNAME
 
 COPY --from=src ./cabot-common/cabot_common src/cabot_common
 COPY --from=src ./cabot-common/cabot_msgs src/cabot_msgs
@@ -145,5 +149,9 @@ RUN /ros_entrypoint.sh /launch.sh build -s
 
 FROM build as final
 
-COPY --from=cache $HOME/people_ws/install $HOME/people_ws/install
-COPY --from=cache $HOME/people_ws/src/cabot_people/script $HOME/people_ws/src/cabot_people/script
+# change location of ros base
+COPY ros_entrypoint.sh /ros_entrypoint.sh
+RUN sed -i 's:custom_ws:people_custom_ws:' /ros_entrypoint.sh
+
+COPY --chown=$USERNAME:$USERNAME --from=cache $HOME/people_ws/install $HOME/people_ws/install
+COPY --chown=$USERNAME:$USERNAME --from=cache $HOME/people_ws/src/cabot_people/script $HOME/people_ws/src/cabot_people/script

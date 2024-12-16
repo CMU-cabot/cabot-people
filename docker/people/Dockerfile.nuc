@@ -36,6 +36,7 @@ RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 RUN apt update && \
 	apt install -y --no-install-recommends \
 	git \
+	gosu \
 	libarmadillo-dev \
         libglu1-mesa-dev \
         libfreetype6-dev \
@@ -113,12 +114,14 @@ RUN useradd -m $USERNAME && \
         usermod  --uid $UID $USERNAME && \
         groupmod --gid $UID $USERNAME
 
-USER $USERNAME
-
 ENV HOME /home/$USERNAME
+
 WORKDIR $HOME/people_nuc_ws
+RUN chown $USERNAME:$USERNAME $HOME/people_nuc_ws
 
 FROM build as cache
+
+USER $USERNAME
 
 COPY --from=src ./cabot-common/cabot_common src/cabot_common
 COPY --from=src ./cabot-common/cabot_msgs src/cabot_msgs
@@ -130,6 +133,9 @@ COPY --from=src ./track_people_cpp src/track_people_cpp
 RUN /ros_entrypoint.sh /launch.sh build -s
 
 FROM build as final
+
+# change location of ros base
+COPY ros_entrypoint.sh /ros_entrypoint.sh
 
 COPY --from=cache $HOME/people_nuc_ws/install $HOME/people_nuc_ws/install
 COPY --from=cache $HOME/people_nuc_ws/src/cabot_people/script $HOME/people_nuc_ws/src/cabot_people/script
