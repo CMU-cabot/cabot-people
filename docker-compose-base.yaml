@@ -239,12 +239,12 @@ services:
     extends:
       service: people-framos-all-base
     volumes:
-      - ./cabot-common/cabot_common:/home/developer/people_ws/src/cabot_common
-      - ./cabot-common/cabot_msgs:/home/developer/people_ws/src/cabot_msgs
-      - ./cabot_people:/home/developer/people_ws/src/cabot_people
-      - ./track_people_py:/home/developer/people_ws/src/track_people_py
-      - ./track_people_msgs:/home/developer/people_ws/src/track_people_msgs
-      - ./track_people_cpp:/home/developer/people_ws/src/track_people_cpp
+      - ./cabot-common/cabot_common:/home/developer/people_framos_ws/src/cabot_common
+      - ./cabot-common/cabot_msgs:/home/developer/people_framos_ws/src/cabot_msgs
+      - ./cabot_people:/home/developer/people_framos_ws/src/cabot_people
+      - ./track_people_py:/home/developer/people_framos_ws/src/track_people_py
+      - ./track_people_msgs:/home/developer/people_framos_ws/src/track_people_msgs
+      - ./track_people_cpp:/home/developer/people_framos_ws/src/track_people_cpp
 
   people-framos-all-dev:
     extends:
@@ -276,12 +276,12 @@ services:
     extends:
       service: people-framos-camera-base
     volumes:
-      - ./cabot-common/cabot_common:/home/developer/people_ws/src/cabot_common
-      - ./cabot-common/cabot_msgs:/home/developer/people_ws/src/cabot_msgs
-      - ./cabot_people:/home/developer/people_ws/src/cabot_people
-      - ./track_people_py:/home/developer/people_ws/src/track_people_py
-      - ./track_people_msgs:/home/developer/people_ws/src/track_people_msgs
-      - ./track_people_cpp:/home/developer/people_ws/src/track_people_cpp
+      - ./cabot-common/cabot_common:/home/developer/people_framos_ws/src/cabot_common
+      - ./cabot-common/cabot_msgs:/home/developer/people_framos_ws/src/cabot_msgs
+      - ./cabot_people:/home/developer/people_framos_ws/src/cabot_people
+      - ./track_people_py:/home/developer/people_framos_ws/src/track_people_py
+      - ./track_people_msgs:/home/developer/people_framos_ws/src/track_people_msgs
+      - ./track_people_cpp:/home/developer/people_framos_ws/src/track_people_cpp
 
   people-framos-camera-prod-base:
     extends:
@@ -310,12 +310,12 @@ services:
     extends:
       service: people-framos-detection-base
     volumes:
-      - ./cabot-common/cabot_common:/home/developer/people_ws/src/cabot_common
-      - ./cabot-common/cabot_msgs:/home/developer/people_ws/src/cabot_msgs
-      - ./cabot_people:/home/developer/people_ws/src/cabot_people
-      - ./track_people_py:/home/developer/people_ws/src/track_people_py
-      - ./track_people_msgs:/home/developer/people_ws/src/track_people_msgs
-      - ./track_people_cpp:/home/developer/people_ws/src/track_people_cpp
+      - ./cabot-common/cabot_common:/home/developer/people_framos_ws/src/cabot_common
+      - ./cabot-common/cabot_msgs:/home/developer/people_framos_ws/src/cabot_msgs
+      - ./cabot_people:/home/developer/people_framos_ws/src/cabot_people
+      - ./track_people_py:/home/developer/people_framos_ws/src/track_people_py
+      - ./track_people_msgs:/home/developer/people_framos_ws/src/track_people_msgs
+      - ./track_people_cpp:/home/developer/people_framos_ws/src/track_people_cpp
 
   people-framos-detection-prod-base:
     extends:

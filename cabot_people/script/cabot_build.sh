@@ -30,13 +30,17 @@ while getopts "s" arg; do
 done
 shift $((OPTIND-1))
 
-WS=$HOME/people_ws
+# change directory to where this script exists
+pwd=`pwd`
+scriptdir=`dirname $0`
+cd $scriptdir
+scriptdir=`pwd`
 
 if [[ $skip_model -eq 0 ]]; then
     arch=$(uname -m)
     if { [ $arch = "x86_64" ] && [ -n "$(which nvidia-smi)" ]; } || [ $arch = "aarch64" ]; then
         echo "Setup model"
-        /setup-model.sh $WS/src/track_people_py/models
+        /setup-model.sh $scriptdir/../../track_people_py/models
         if [ $? -ne 0 ]; then
             echo "Failed to setup model"
             exit 1
@@ -49,5 +53,5 @@ else
 fi
 
 echo "Build workspace"
-cd $WS
+cd $scriptdir/../../../
 colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release
