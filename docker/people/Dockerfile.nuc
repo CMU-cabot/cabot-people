@@ -137,5 +137,5 @@ FROM build as final
 # change location of ros base
 COPY ros_entrypoint.sh /ros_entrypoint.sh
 
-COPY --from=cache $HOME/people_nuc_ws/install $HOME/people_nuc_ws/install
-COPY --from=cache $HOME/people_nuc_ws/src/cabot_people/script $HOME/people_nuc_ws/src/cabot_people/script
+COPY --chown=$USERNAME:$USERNAME --from=cache $HOME/people_nuc_ws/install $HOME/people_nuc_ws/install
+COPY --chown=$USERNAME:$USERNAME --from=cache $HOME/people_nuc_ws/src/cabot_people/script $HOME/people_nuc_ws/src/cabot_people/script
