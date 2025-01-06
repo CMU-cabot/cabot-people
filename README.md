@@ -19,12 +19,18 @@
 
 - assume you have docker (Nvidia docker) and docker compose
 - make sure you have a PC with a NVIDIA GPU, or a Jeston (Xavier, Orin, Xavier NX)
-- run one of the following scripts to build image and workspaces
+
+- if you build docker image, run the script to build image
 
 ```
-./build-docker.sh -p -i -w              # build image and workspaces for RealSense
-./build-docker.sh -p -i -w -c framos    # build image and workspaces for FRAMOS
-./build-docker.sh -p -i -w -c all       # build image and workspaces for RealSense and FRAMOS
+./bake-docker.sh -i         # run docker image build for your platform
+```
+
+- if you run in development mode, run the script to build workspaces
+
+```
+./build-workspace.sh        # run workspace build
+./build-workspace.sh -d     # run workspace debug build (symlink-install)
 ```
 
 ### Bringup Realsense(s), detection, and tracking
@@ -39,21 +45,23 @@ CABOT_REALSENSE_SERIAL_3=
 - run one of the following script after the build
 
 ```
-docker compose -f docker-compose-test-rs3.yaml up rs1 track                   # 1 Realsense on PC
-docker compose -f docker-compose-test-rs3.yaml up rs1 rs2 track               # 2 Realsenses on PC
-docker compose -f docker-compose-test-rs3.yaml up                             # 3 Realsenses on PC
-docker compose -f docker-compose-jetson-test-rs3.yaml up rs1 track            # 1 Realsense on Jetson
-docker compose -f docker-compose-jetson-test-rs3.yaml up rs1 rs2 track        # 2 Realsenses on Jetson
-docker compose -f docker-compose-jetson-test-rs3.yaml up                      # 3 Realsenses on Jetson
+docker compose -f docker-compose-test-rs3.yaml --profile prod up rs1-prod track-prod           # 1 Realsense in production mode
+docker compose -f docker-compose-test-rs3.yaml --profile prod up rs1-prod rs2-prod track-prod  # 2 Realsenses in production mode
+docker compose -f docker-compose-test-rs3.yaml --profile prod up                               # 3 Realsenses in production mode
+
+docker compose -f docker-compose-test-rs3.yaml --profile dev up rs1-dev track-dev           # 1 Realsense in development mode
+docker compose -f docker-compose-test-rs3.yaml --profile dev up rs1-dev rs2-dev track-dev   # 2 Realsenses in development mode
+docker compose -f docker-compose-test-rs3.yaml --profile dev up                             # 3 Realsenses in development mode
 ```
 
 ```
-docker compose -f docker-compose-test-rs3-framos.yaml up rs1-framos-camera rs1-framos-detection track-framos                                                # 1 FRAMOS on PC
-docker compose -f docker-compose-test-rs3-framos.yaml up rs1-framos-camera rs1-framos-detection rs2-framos-camera rs2-framos-detection track-framos         # 2 FRAMOSes on PC
-docker compose -f docker-compose-test-rs3-framos.yaml up                                                                                                    # 3 FRAMOSes on PC
-docker compose -f docker-compose-jetson-test-rs3-framos.yaml up rs1-framos-camera rs1-framos-detection track-framos                                         # 1 FRAMOS on Jetson
-docker compose -f docker-compose-jetson-test-rs3-framos.yaml up rs1-framos-camera rs1-framos-detection rs2-framos-camera rs2-framos-detection track-framos  # 2 FRAMOSes on Jetson
-docker compose -f docker-compose-jetson-test-rs3-framos.yaml up                                                                                             # 3 FRAMOSes on Jetson
+docker compose -f docker-compose-test-rs3-framos.yaml --profile prod up rs1-framos-camera-prod rs1-framos-detection-prod track-framos-prod                                                      # 1 FRAMOS in production mode
+docker compose -f docker-compose-test-rs3-framos.yaml --profile prod up rs1-framos-camera-prod rs1-framos-detection-prod rs2-framos-camera-prod rs2-framos-detection-prod track-framos-prod     # 2 FRAMOSes in production mode
+docker compose -f docker-compose-test-rs3-framos.yaml --profile prod up                                                                                                                         # 3 FRAMOSes in production mode
+
+docker compose -f docker-compose-test-rs3-framos.yaml --profile dev up rs1-framos-camera-dev rs1-framos-detection-dev track-framos-dev                                                  # 1 FRAMOS in development mode
+docker compose -f docker-compose-test-rs3-framos.yaml --profile dev up rs1-framos-camera-dev rs1-framos-detection-dev rs2-framos-camera-dev rs2-framos-detection-dev track-framos-dev   # 2 FRAMOSes in development mode
+docker compose -f docker-compose-test-rs3-framos.yaml --profile dev up                                                                                                                  # 3 FRAMOSes in development mode
 ```
 
 ### Check `/people` topic
