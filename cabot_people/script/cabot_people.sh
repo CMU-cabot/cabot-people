@@ -372,8 +372,8 @@ if [ $realsense_camera -eq 1 ]; then
         echo "launch $launch_file"
         eval "$command ros2 launch $launch_file \
                         align_depth.enable:=true \
-                        depth_module.profile:=$width,$height,$depth_fps \
-                        rgb_camera.profile:=$width,$height,$rgb_fps \
+                        depth_module.depth_profile:=$width,$height,$depth_fps \
+                        rgb_camera.color_profile:=$width,$height,$rgb_fps \
                         use_intra_process_comms:=$use_intra_process_comms \
                         jetpack5_workaround:=$jetpack5_workaround \
                         $option \
