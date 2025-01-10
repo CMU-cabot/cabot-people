@@ -20,6 +20,12 @@
 - assume you have docker (Nvidia docker) and docker compose
 - make sure you have a PC with a NVIDIA GPU, or a Jeston (Xavier, Orin, Xavier NX)
 
+- if you pull the latest docker images from docker hub, run the following command
+
+```
+docker compose --profile build pull
+```
+
 - if you build docker image, run the script to build image
 
 ```
