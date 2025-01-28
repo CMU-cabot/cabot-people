@@ -1,0 +1,20 @@
+name: Test Building Docker Image and Workspace
+
+on:
+  push:
+    branches: [ daisukes/docker-buildx-bake ]
+
+jobs:
+  build-realsense:
+    uses: cmu-cabot/cabot-people/.github/workflows/build.yaml@daisukes/docker-buildx-bake
+    with:
+      camera: realsense
+    secrets:
+      dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
+
+  build-framos:
+    uses: cmu-cabot/cabot-people/.github/workflows/build.yaml@daisukes/docker-buildx-bake
+    with:
+      camera: framos
+    secrets:
+      dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}

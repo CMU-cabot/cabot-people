@@ -1,8 +1,9 @@
 services:
-  rs1-framos-camera:
+  # dev
+  rs1-framos-camera-dev:
     extends:
-      file: docker-compose.yaml
-      service: people-framos
+      file: docker-compose-base.yaml
+      service: people-framos-all-dev
     environment:
       - CABOT_CAMERA_NAME=rs1
       - CABOT_REALSENSE_SERIAL=${CABOT_REALSENSE_SERIAL_1}
@@ -13,22 +14,26 @@ services:
       - "0"
       - "-c 2"
     cpuset: "11" # assume other processes don't use this cpu by isolcpus kernel option
+    profiles:
+      - dev
 
-  rs1-framos-detection:
+  rs1-framos-detection-dev:
     extends:
-      file: docker-compose.yaml
-      service: people-framos
+      file: docker-compose-base.yaml
+      service: people-framos-all-dev
     environment:
       - CABOT_USE_REALSENSE=0
       - CABOT_CAMERA_NAME=rs1
     command:
       - "/launch.sh"
       - "-D"
+    profiles:
+      - dev
 
-  rs2-framos-camera:
+  rs2-framos-camera-dev:
     extends:
-      file: docker-compose.yaml
-      service: people-framos
+      file: docker-compose-base.yaml
+      service: people-framos-all-dev
     environment:
       - CABOT_CAMERA_NAME=rs2
       - CABOT_REALSENSE_SERIAL=${CABOT_REALSENSE_SERIAL_2}
@@ -39,22 +44,26 @@ services:
       - "0"
       - "-c 2"
     cpuset: "11" # assume other processes don't use this cpu by isolcpus kernel option
+    profiles:
+      - dev
 
-  rs2-framos-detection:
+  rs2-framos-detection-dev:
     extends:
-      file: docker-compose.yaml
-      service: people-framos
+      file: docker-compose-base.yaml
+      service: people-framos-all-dev
     environment:
       - CABOT_USE_REALSENSE=0
       - CABOT_CAMERA_NAME=rs2
     command:
       - "/launch.sh"
       - "-D"
+    profiles:
+      - dev
 
-  rs3-framos-camera:
+  rs3-framos-camera-dev:
     extends:
-      file: docker-compose.yaml
-      service: people-framos
+      file: docker-compose-base.yaml
+      service: people-framos-all-dev
     environment:
       - CABOT_CAMERA_NAME=rs3
       - CABOT_REALSENSE_SERIAL=${CABOT_REALSENSE_SERIAL_3}
@@ -65,24 +74,133 @@ services:
       - "0"
       - "-c 2"
     cpuset: "11" # assume other processes don't use this cpu by isolcpus kernel option
+    profiles:
+      - dev
 
-  rs3-framos-detection:
+  rs3-framos-detection-dev:
     extends:
-      file: docker-compose.yaml
-      service: people-framos
+      file: docker-compose-base.yaml
+      service: people-framos-all-dev
     environment:
       - CABOT_USE_REALSENSE=0
       - CABOT_CAMERA_NAME=rs3
     command:
       - "/launch.sh"
       - "-D"
+    profiles:
+      - dev
 
-  track-framos:
+  track-framos-dev:
     extends:
-      file: docker-compose.yaml
-      service: people-framos
+      file: docker-compose-base.yaml
+      service: people-framos-all-dev
     environment:
       - CABOT_USE_REALSENSE=0
     command:
       - "/launch.sh"
       - "-K"
+    profiles:
+      - dev
+
+  # prodimg
+  rs1-framos-camera-prod:
+    extends:
+      file: docker-compose-base.yaml
+      service: people-framos-all-prod
+    environment:
+      - CABOT_CAMERA_NAME=rs1
+      - CABOT_REALSENSE_SERIAL=${CABOT_REALSENSE_SERIAL_1}
+    command:
+      - "/launch.sh"
+      - "-a"
+      - "-t"
+      - "0"
+      - "-c 2"
+    cpuset: "11" # assume other processes don't use this cpu by isolcpus kernel option
+    profiles:
+      - prod
+
+  rs1-framos-detection-prod:
+    extends:
+      file: docker-compose-base.yaml
+      service: people-framos-all-prod
+    environment:
+      - CABOT_USE_REALSENSE=0
+      - CABOT_CAMERA_NAME=rs1
+    command:
+      - "/launch.sh"
+      - "-D"
+    profiles:
+      - prod
+
+  rs2-framos-camera-prod:
+    extends:
+      file: docker-compose-base.yaml
+      service: people-framos-all-prod
+    environment:
+      - CABOT_CAMERA_NAME=rs2
+      - CABOT_REALSENSE_SERIAL=${CABOT_REALSENSE_SERIAL_2}
+    command:
+      - "/launch.sh"
+      - "-a"
+      - "-t"
+      - "0"
+      - "-c 2"
+    cpuset: "11" # assume other processes don't use this cpu by isolcpus kernel option
+    profiles:
+      - prod
+
+  rs2-framos-detection-prod:
+    extends:
+      file: docker-compose-base.yaml
+      service: people-framos-all-prod
+    environment:
+      - CABOT_USE_REALSENSE=0
+      - CABOT_CAMERA_NAME=rs2
+    command:
+      - "/launch.sh"
+      - "-D"
+    profiles:
+      - prod
+
+  rs3-framos-camera-prod:
+    extends:
+      file: docker-compose-base.yaml
+      service: people-framos-all-prod
+    environment:
+      - CABOT_CAMERA_NAME=rs3
+      - CABOT_REALSENSE_SERIAL=${CABOT_REALSENSE_SERIAL_3}
+    command:
+      - "/launch.sh"
+      - "-a"
+      - "-t"
+      - "0"
+      - "-c 2"
+    cpuset: "11" # assume other processes don't use this cpu by isolcpus kernel option
+    profiles:
+      - prod
+
+  rs3-framos-detection-prod:
+    extends:
+      file: docker-compose-base.yaml
+      service: people-framos-all-prod
+    environment:
+      - CABOT_USE_REALSENSE=0
+      - CABOT_CAMERA_NAME=rs3
+    command:
+      - "/launch.sh"
+      - "-D"
+    profiles:
+      - prod
+
+  track-framos-prod:
+    extends:
+      file: docker-compose-base.yaml
+      service: people-framos-all-prod
+    environment:
+      - CABOT_USE_REALSENSE=0
+    command:
+      - "/launch.sh"
+      - "-K"
+    profiles:
+      - prod

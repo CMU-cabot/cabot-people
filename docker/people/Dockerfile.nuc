@@ -18,10 +18,10 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-ARG PREFIX
-ARG FROM_IMAGE=${PREFIX}__jammy-humble-custom-mesa
-FROM $FROM_IMAGE
+ARG BASE_IMAGE=cabot-base
+ARG FROM_IMAGE=cmucal/${BASE_IMAGE}:humble-base-custom-mesa
 
+FROM $FROM_IMAGE AS build
 ARG ROS_DISTRO=humble \
     UBUNTU_DISTRO=jammy \
     GAZEBOV=11 \
@@ -36,11 +36,15 @@ RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 RUN apt update && \
 	apt install -y --no-install-recommends \
 	git \
+	gosu \
 	libarmadillo-dev \
         libglu1-mesa-dev \
         libfreetype6-dev \
 	libc++-dev \
+	libopencv-dev \
+	ros-$ROS_DISTRO-cv-bridge \
 	ros-$ROS_DISTRO-diagnostic-updater \
+	ros-$ROS_DISTRO-tf2 \
 	ros-$ROS_DISTRO-tf2-geometry-msgs \
 	ros-$ROS_DISTRO-tf-transformations \
         libfreetype6-dev \
@@ -111,7 +115,28 @@ RUN useradd -m $USERNAME && \
         usermod  --uid $UID $USERNAME && \
         groupmod --gid $UID $USERNAME
 
+ENV HOME /home/$USERNAME
+
+WORKDIR $HOME/people_nuc_ws
+RUN chown $USERNAME:$USERNAME $HOME/people_nuc_ws
+
+FROM build as cache
+
 USER $USERNAME
 
-ENV HOME /home/$USERNAME
-WORKDIR $HOME/people_nuc_ws
+COPY --from=src ./cabot-common/cabot_common src/cabot_common
+COPY --from=src ./cabot-common/cabot_msgs src/cabot_msgs
+COPY --from=src ./cabot_people src/cabot_people
+COPY --from=src ./track_people_py src/track_people_py
+COPY --from=src ./track_people_msgs src/track_people_msgs
+COPY --from=src ./track_people_cpp src/track_people_cpp
+
+RUN /ros_entrypoint.sh /launch.sh build -s
+
+FROM build as final
+
+# change location of ros base
+COPY ros_entrypoint.sh /ros_entrypoint.sh
+
+COPY --chown=$USERNAME:$USERNAME --from=cache $HOME/people_nuc_ws/install $HOME/people_nuc_ws/install
+COPY --chown=$USERNAME:$USERNAME --from=cache $HOME/people_nuc_ws/src/cabot_people/script $HOME/people_nuc_ws/src/cabot_people/script

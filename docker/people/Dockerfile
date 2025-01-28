@@ -18,10 +18,12 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-ARG PREFIX
-ARG FROM_IMAGE=${PREFIX}__jammy-cuda11.8.0-cudnn8-devel-realsense-humble-custom-opencv-mmdeploy-open3d-mesa
+ARG BASE_IMAGE=cabot-gpu-base
+ARG FROM_IMAGE=cmucal/${BASE_IMAGE}:realsense-final
 
 FROM $FROM_IMAGE AS build
+
+ARG TARGETARCH
 ARG ROS_DISTRO=humble \
     UBUNTU_DISTRO=jammy \
     GAZEBOV=11 \
@@ -32,50 +34,62 @@ ENV ROS_DISTRO=$ROS_DISTRO \
 
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
-RUN apt update && \
-	apt install -y --no-install-recommends \
-	git \
-	bc \
-	jq \
+RUN if [ "${TARGETARCH}" = "amd64" ]; then \
+        apt update && \
+        apt install -y --no-install-recommends \
+        git \
+        bc \
+        gosu \
+        jq \
         libfreetype6-dev \
         libglu1-mesa-dev \
-	python-tk \
-	python3-pip \
-	python3-vcstool \
-	rsync \
-	software-properties-common \
-	unzip \
-	usbutils \
-	wget \
-	xorg-dev \
-	&& \
-	apt clean && \
-	rm -rf /var/lib/apt/lists/*
+        python-tk \
+        python3-pip \
+        python3-vcstool \
+        rsync \
+        software-properties-common \
+        unzip \
+        usbutils \
+        wget \
+        xorg-dev \
+        && \
+        apt clean && \
+        rm -rf /var/lib/apt/lists/* ; \
+    elif [ "${TARGETARCH}" = "arm64" ]; then \
+        apt update && \
+        apt install -y --no-install-recommends \
+        bc \
+        gosu \
+        jq \
+        && \
+        apt clean && \
+        rm -rf /var/lib/apt/lists/* ; \
+    fi
 
 # install ros packages
-RUN apt update && \
-	apt install -y --no-install-recommends \
-	libogg-dev \
+RUN if [ "${TARGETARCH}" = "amd64" ]; then \
+        apt update && \
+        apt install -y --no-install-recommends \
+        libogg-dev \
         libtheora-dev \
-	libturbojpeg0-dev \
-	ros-$ROS_DISTRO-diagnostic-updater \
-	ros-$ROS_DISTRO-compressed-image-transport \
-	ros-$ROS_DISTRO-gazebo-msgs \
-#	ros-$ROS_DISTRO-people-msgs \
-	ros-$ROS_DISTRO-rviz2 \
-#	ros-$ROS_DISTRO-rviz \
-	ros-$ROS_DISTRO-tf2-geometry-msgs \
-	ros-$ROS_DISTRO-tf-transformations \
-	ros-$ROS_DISTRO-rmw-cyclonedds-cpp \
-	ros-$ROS_DISTRO-realsense2-camera-msgs \
-	ros-$ROS_DISTRO-realsense2-camera \
-	ros-$ROS_DISTRO-realsense2-description \
-	ros-dev-tools \
-	qtbase5-dev \
-	libarmadillo-dev \
-	&& \
-	apt clean && \
-	rm -rf /var/lib/apt/lists/*
+        libturbojpeg0-dev \
+        ros-$ROS_DISTRO-diagnostic-updater \
+        ros-$ROS_DISTRO-compressed-image-transport \
+        ros-$ROS_DISTRO-gazebo-msgs \
+        # ros-$ROS_DISTRO-people-msgs \
+        ros-$ROS_DISTRO-rviz2 \
+        # ros-$ROS_DISTRO-rviz \
+        ros-$ROS_DISTRO-tf2 \
+        ros-$ROS_DISTRO-tf2-geometry-msgs \
+        ros-$ROS_DISTRO-tf-transformations \
+        ros-$ROS_DISTRO-rmw-cyclonedds-cpp \
+        ros-dev-tools \
+        qtbase5-dev \
+        libarmadillo-dev \
+        && \
+        apt clean && \
+        rm -rf /var/lib/apt/lists/* ; \
+    fi
 
 COPY requirements.txt /
 RUN pip3 install --no-cache-dir \
@@ -111,8 +125,34 @@ RUN useradd -m $USERNAME && \
         chmod 0440 /etc/sudoers.d/$USERNAME && \
         usermod  --uid $UID $USERNAME && \
         groupmod --gid $UID $USERNAME
+# on jetson, add user to video group to use CUDA
+RUN if [ "${TARGETARCH}" = "arm64" ]; then \
+        usermod -aG video $USERNAME ; \
+    fi
+
+ENV HOME /home/$USERNAME
+
+WORKDIR $HOME/people_ws
+RUN chown $USERNAME:$USERNAME $HOME/people_ws
+
+FROM build as cache
 
 USER $USERNAME
 
-ENV HOME /home/$USERNAME
-WORKDIR $HOME/people_ws
+COPY --from=src ./cabot-common/cabot_common src/cabot_common
+COPY --from=src ./cabot-common/cabot_msgs src/cabot_msgs
+COPY --from=src ./cabot_people src/cabot_people
+COPY --from=src ./track_people_py src/track_people_py
+COPY --from=src ./track_people_msgs src/track_people_msgs
+COPY --from=src ./track_people_cpp src/track_people_cpp
+
+RUN /ros_entrypoint.sh /launch.sh build -s
+
+FROM build as final
+
+# change location of ros base
+COPY ros_entrypoint.sh /ros_entrypoint.sh
+
+COPY --chown=$USERNAME:$USERNAME --from=cache $HOME/people_ws/install $HOME/people_ws/install
+COPY --chown=$USERNAME:$USERNAME --from=cache $HOME/people_ws/src/cabot_people/script $HOME/people_ws/src/cabot_people/script
+

@@ -19,28 +19,49 @@
 # SOFTWARE.
 
 ARG FROM_IMAGE
-
-FROM $FROM_IMAGE AS build
-ARG UBUNTU_DISTRO=bionic
+FROM $FROM_IMAGE AS base
+ARG ROS_DISTRO=humble
 ENV DEBIAN_FRONTEND="noninteractive"
 
 RUN apt update && \
-	apt-get install -y --no-install-recommends \
-	libogg-dev \
-	libtheora-dev \
-	software-properties-common \
-	&& \
-	apt-get clean && \
-	rm -rf /var/lib/apt/lists/*
+    apt-get install -y --no-install-recommends \
+        libogg-dev \
+        libtheora-dev \
+        software-properties-common \
+    && \
+    apt clean && \
+    rm -rf /var/lib/apt/lists/*
 
 # install librealsense
 RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-key F6E65AC044F831AC80A06380C8B3A55A6F3EFCDE || \
-	apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-key F6E65AC044F831AC80A06380C8B3A55A6F3EFCDE && \
-	add-apt-repository "deb https://librealsense.intel.com/Debian/apt-repo $UBUNTU_DISTRO main" -u \
-	&& apt update && \
-	apt install -y --no-install-recommends \
-	librealsense2-utils \
-	librealsense2-dev \
-	&& \
-	apt-get clean && \
-	rm -rf /var/lib/apt/lists/*
+    apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-key F6E65AC044F831AC80A06380C8B3A55A6F3EFCDE && \
+    add-apt-repository "deb https://librealsense.intel.com/Debian/apt-repo $(lsb_release -cs) main" -u && \
+    apt update && \
+    apt install -y --no-install-recommends \
+        librealsense2-utils \
+        librealsense2-dev \
+    && \
+    apt clean && \
+    rm -rf /var/lib/apt/lists/*
+
+FROM base AS cache
+
+ENV PEOPLE_CUSTOM_WS=/opt/people_custom_ws
+
+RUN mkdir -p $PEOPLE_CUSTOM_WS/src
+COPY ./realsense_ros $PEOPLE_CUSTOM_WS/src/
+
+WORKDIR $PEOPLE_CUSTOM_WS
+
+RUN apt update && rosdep update && rosdep install --from-paths src --ignore-src --rosdistro=${ROS_DISTRO} -r -y
+
+RUN . /opt/custom_ws/install/setup.sh && \
+    colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release  # --executor sequential
+    
+FROM base as build
+
+ENV PEOPLE_CUSTOM_WS=/opt/people_custom_ws
+
+RUN mkdir -p $PEOPLE_CUSTOM_WS/install
+COPY --from=cache $PEOPLE_CUSTOM_WS/install $PEOPLE_CUSTOM_WS/install
+RUN sed -i 's:custom_ws:people_custom_ws:' /ros_entrypoint.sh

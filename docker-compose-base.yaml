@@ -1,13 +1,14 @@
 services:
   people-base:
-    build:
-      context: ./docker/people
     environment:
       - DISPLAY
       - XAUTHORITY=/tmp/.docker.xauth
       - NVIDIA_DRIVER_CAPABILITIES=compute,graphics,utility,video,display
       - NVIDIA_VISIBLE_DEVICES=all
       - OMP_NUM_THREADS=1
+      - HOST_UID
+      - HOST_GID
+      - HOST_TZ
       - ROS_LOG_DIR
 # CaBot
       - CABOT_GAZEBO=${CABOT_GAZEBO:-1}
@@ -50,9 +51,30 @@ services:
   people-nuc-base:
     extends:
       service: people-base
+    image: cmucal/cabot-people-nuc
     build:
       context: ./docker/people
+      additional_contexts:
+        - src=./
       dockerfile: Dockerfile.nuc
+      args:
+        - BASE_IMAGE=${NUC_BASE_IMAGE:-cabot-base}
+      x-bake:
+        tags:
+          - ${REGISTRY:-cmucal}/cabot-people-nuc
+        platforms:
+          - linux/amd64
+        output:
+          - type=registry
+    command:
+      - "/launch.sh"
+      - "-W"                                # wait roscore
+      - "-K"                                # tracking
+      - "-O"                                # obstacle
+
+  people-nuc-dev-base:
+    extends:
+      service: people-nuc-base
     volumes:
       - ./cabot-common/cabot_common:/home/developer/people_nuc_ws/src/cabot_common
       - ./cabot-common/cabot_msgs:/home/developer/people_nuc_ws/src/cabot_msgs
@@ -60,22 +82,47 @@ services:
       - ./track_people_py:/home/developer/people_nuc_ws/src/track_people_py
       - ./track_people_msgs:/home/developer/people_nuc_ws/src/track_people_msgs
       - ./track_people_cpp:/home/developer/people_nuc_ws/src/track_people_cpp
-    command:
-      - "/launch.sh"
-      - "-W"                                # wait roscore
-      - "-K"                                # tracking
-      - "-O"                                # obstacle
+
+  people-nuc-dev:
+    extends:
+      service: people-nuc-dev-base
+    environment:
+      - CABOT_GAZEBO=0
+      - CABOT_USE_REALSENSE=1
+    volumes:
+      - ./docker/home:/home/developer/
+
+  people-nuc-prod-base:
+    extends:
+      service: people-nuc-base
+    volumes:
+      - ./docker/home/.ros:/home/developer/.ros
+
+  people-nuc-prod:
+    extends:
+      service: people-nuc-prod-base
+    environment:
+      - CABOT_GAZEBO=0
+      - CABOT_USE_REALSENSE=1
 
   people-all-base:
     extends:
       service: people-base
-    volumes:
-      - ./cabot-common/cabot_common:/home/developer/people_ws/src/cabot_common
-      - ./cabot-common/cabot_msgs:/home/developer/people_ws/src/cabot_msgs
-      - ./cabot_people:/home/developer/people_ws/src/cabot_people
-      - ./track_people_py:/home/developer/people_ws/src/track_people_py
-      - ./track_people_msgs:/home/developer/people_ws/src/track_people_msgs
-      - ./track_people_cpp:/home/developer/people_ws/src/track_people_cpp
+    image: cmucal/cabot-people
+    build:
+      context: ./docker/people
+      additional_contexts:
+        - src=./
+      args:
+        - BASE_IMAGE=${BASE_IMAGE:-cabot-gpu-base}
+      x-bake:
+        tags:
+          - ${REGISTRY:-cmucal}/cabot-people
+        platforms:
+          - linux/amd64
+          - linux/arm64
+        output:
+          - type=registry
     command:
       - "/launch.sh"
       # - "/launch-core.sh"                 # use core dump
@@ -85,9 +132,42 @@ services:
       - "-K"                                # tracking
       - "-O"                                # obstacle
 
+  people-all-dev-base:
+    extends:
+      service: people-all-base
+    volumes:
+      - ./cabot-common/cabot_common:/home/developer/people_ws/src/cabot_common
+      - ./cabot-common/cabot_msgs:/home/developer/people_ws/src/cabot_msgs
+      - ./cabot_people:/home/developer/people_ws/src/cabot_people
+      - ./track_people_py:/home/developer/people_ws/src/track_people_py
+      - ./track_people_msgs:/home/developer/people_ws/src/track_people_msgs
+      - ./track_people_cpp:/home/developer/people_ws/src/track_people_cpp
+
+  people-all-dev:
+    extends:
+      service: people-all-dev-base
+    environment:
+      - CABOT_GAZEBO=0
+      - CABOT_USE_REALSENSE=1
+    volumes:
+      - ./docker/home:/home/developer/
+
+  people-all-prod-base:
+    extends:
+      service: people-all-base
+    volumes:
+      - ./docker/home/.ros:/home/developer/.ros
+
+  people-all-prod:
+    extends:
+      service: people-all-prod-base
+    environment:
+      - CABOT_GAZEBO=0
+      - CABOT_USE_REALSENSE=1
+
   people-detection-base:
     extends:
-      service: people
+      service: people-all-base
     command:
       - "/launch.sh"
       # - "/launch-core.sh"   # use core dump
@@ -96,12 +176,94 @@ services:
       - "-D"                                # detection
       - "-a"                                # no resetrs individually
 
-  people-framos-camera-base:
+  people-detection-dev-base:
     extends:
-      service: people
+      service: people-detection-base
+    volumes:
+      - ./cabot-common/cabot_common:/home/developer/people_ws/src/cabot_common
+      - ./cabot-common/cabot_msgs:/home/developer/people_ws/src/cabot_msgs
+      - ./cabot_people:/home/developer/people_ws/src/cabot_people
+      - ./track_people_py:/home/developer/people_ws/src/track_people_py
+      - ./track_people_msgs:/home/developer/people_ws/src/track_people_msgs
+      - ./track_people_cpp:/home/developer/people_ws/src/track_people_cpp
+
+  people-detection-prod-base:
+    extends:
+      service: people-detection-base
+    volumes:
+      - ./docker/home/.ros:/home/developer/.ros
+
+  people-track-base:
+    extends:
+      service: people-all-base
+    command:
+      - "/launch.sh"
+      - "-W"                                # wait roscore
+      - "-K"                                # tracking
+      - "-O"                                # obstacle
+
+  people-track-dev-base:
+    extends:
+      service: people-track-base
+    volumes:
+      - ./cabot-common/cabot_common:/home/developer/people_ws/src/cabot_common
+      - ./cabot-common/cabot_msgs:/home/developer/people_ws/src/cabot_msgs
+      - ./cabot_people:/home/developer/people_ws/src/cabot_people
+      - ./track_people_py:/home/developer/people_ws/src/track_people_py
+      - ./track_people_msgs:/home/developer/people_ws/src/track_people_msgs
+      - ./track_people_cpp:/home/developer/people_ws/src/track_people_cpp
+
+  people-track-prod-base:
+    extends:
+      service: people-track-base
+    volumes:
+      - ./docker/home/.ros:/home/developer/.ros
+
+  people-framos-all-base:
+    extends:
+      service: people-all-base
+    image: cmucal/cabot-people-framos
     build:
       context: ./docker/people
       dockerfile: Dockerfile.framos
+      x-bake:
+        tags:
+          - ${REGISTRY:-cmucal}/cabot-people-framos
+        platforms:
+          - linux/amd64
+          - linux/arm64
+        output:
+          - type=registry
+
+  people-framos-all-dev-base:
+    extends:
+      service: people-framos-all-base
+    volumes:
+      - ./cabot-common/cabot_common:/home/developer/people_framos_ws/src/cabot_common
+      - ./cabot-common/cabot_msgs:/home/developer/people_framos_ws/src/cabot_msgs
+      - ./cabot_people:/home/developer/people_framos_ws/src/cabot_people
+      - ./track_people_py:/home/developer/people_framos_ws/src/track_people_py
+      - ./track_people_msgs:/home/developer/people_framos_ws/src/track_people_msgs
+      - ./track_people_cpp:/home/developer/people_framos_ws/src/track_people_cpp
+
+  people-framos-all-dev:
+    extends:
+      service: people-framos-all-dev-base
+    environment:
+      - CABOT_GAZEBO=0
+      - CABOT_USE_REALSENSE=1
+    volumes:
+      - ./docker/home:/home/developer/
+
+  people-framos-all-prod-base:
+    extends:
+      service: people-framos-all-base
+    volumes:
+      - ./docker/home/.ros:/home/developer/.ros
+
+  people-framos-camera-base:
+    extends:
+      service: people-framos-all-base
     command:
       - "/launch.sh"
       # - "/launch-core.sh"   # use core dump
@@ -110,12 +272,33 @@ services:
       - "-c 2"                              # use FRAMOS camera
       - "-a"                                # no resetrs individually
 
+  people-framos-camera-dev-base:
+    extends:
+      service: people-framos-camera-base
+    volumes:
+      - ./cabot-common/cabot_common:/home/developer/people_framos_ws/src/cabot_common
+      - ./cabot-common/cabot_msgs:/home/developer/people_framos_ws/src/cabot_msgs
+      - ./cabot_people:/home/developer/people_framos_ws/src/cabot_people
+      - ./track_people_py:/home/developer/people_framos_ws/src/track_people_py
+      - ./track_people_msgs:/home/developer/people_framos_ws/src/track_people_msgs
+      - ./track_people_cpp:/home/developer/people_framos_ws/src/track_people_cpp
+
+  people-framos-camera-prod-base:
+    extends:
+      service: people-framos-camera-base
+    volumes:
+      - ./docker/home/.ros:/home/developer/.ros
+
+  people-framos-all-prod:
+    extends:
+      service: people-framos-all-prod-base
+    environment:
+      - CABOT_GAZEBO=0
+      - CABOT_USE_REALSENSE=1
+
   people-framos-detection-base:
     extends:
-      service: people
-    build:
-      context: ./docker/people
-      dockerfile: Dockerfile.framos
+      service: people-framos-all-base
     command:
       - "/launch.sh"
       # - "/launch-core.sh"   # use core dump
@@ -123,20 +306,19 @@ services:
       # - "-p"                                # people topic is simulation groundtruth
       - "-D"                                # detection
 
-  people:
+  people-framos-detection-dev-base:
     extends:
-      service: people-all-base
+      service: people-framos-detection-base
     volumes:
-      - ./docker/home:/home/developer
+      - ./cabot-common/cabot_common:/home/developer/people_framos_ws/src/cabot_common
+      - ./cabot-common/cabot_msgs:/home/developer/people_framos_ws/src/cabot_msgs
+      - ./cabot_people:/home/developer/people_framos_ws/src/cabot_people
+      - ./track_people_py:/home/developer/people_framos_ws/src/track_people_py
+      - ./track_people_msgs:/home/developer/people_framos_ws/src/track_people_msgs
+      - ./track_people_cpp:/home/developer/people_framos_ws/src/track_people_cpp
 
-  people-detection:
+  people-framos-detection-prod-base:
     extends:
-      service: people-detection-base
+      service: people-framos-detection-base
     volumes:
-      - ./docker/home:/home/developer
-
-  people-detection-framos:
-    extends:
-      service: people-detection-framos-base
-    volumes:
-      - ./docker/home:/home/developer
+      - ./docker/home/.ros:/home/developer/.ros

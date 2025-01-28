@@ -1,19 +1,66 @@
 services:
+  # build
   people:
     extends:
       file: docker-compose-base.yaml
-      service: people
-    environment:
-      - CABOT_GAZEBO=0
-      - CABOT_USE_REALSENSE=1
+      service: people-all-dev
+    profiles:
+      - build
+
+  people-nuc:
+    extends:
+      file: docker-compose-base.yaml
+      service: people-nuc-dev
+    profiles:
+      - build
 
   people-framos:
     extends:
       file: docker-compose-base.yaml
-      service: people
-    build:
-      context: ./docker/people
-      dockerfile: Dockerfile.framos
-    environment:
-      - CABOT_GAZEBO=0
-      - CABOT_USE_REALSENSE=1
+      service: people-framos-all-dev
+    profiles:
+      - build
+
+  # dev
+  people-dev:
+    extends:
+      file: docker-compose-base.yaml
+      service: people-all-dev
+    profiles:
+      - dev
+
+  people-nuc-dev:
+    extends:
+      file: docker-compose-base.yaml
+      service: people-nuc-dev
+    profiles:
+      - dev
+
+  people-framos-dev:
+    extends:
+      file: docker-compose-base.yaml
+      service: people-framos-all-dev
+    profiles:
+      - dev
+
+  # prodimg
+  people-prod:
+    extends:
+      file: docker-compose-base.yaml
+      service: people-all-prod
+    profiles:
+      - prod
+
+  people-nuc-prod:
+    extends:
+      file: docker-compose-base.yaml
+      service: people-nuc-prod
+    profiles:
+      - prod
+
+  people-framos-prod:
+    extends:
+      file: docker-compose-base.yaml
+      service: people-framos-all-prod
+    profiles:
+      - prod

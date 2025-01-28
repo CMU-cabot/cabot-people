@@ -424,14 +424,23 @@ if [ $detection -eq 1 ]; then
     mmdeploy_model_option=''
     segment_model_option=''
     if [ $cabot_detect_ver -ge 4 ] && [ $cabot_detect_ver -le 9 ]; then
+        install_model_dir=$scriptdir/../../../install/track_people_py/share/track_people_py/models
         mmdeploy_model_dir=/tmp/mmdeploy_model
 
         # copy mmdeploy model
         rm -rf $mmdeploy_model_dir
         if [ $cabot_detect_ver -ge 4 ] && [ $cabot_detect_ver -le 6 ]; then
-            cp -r $scriptdir/../../track_people_py/models/rtmdet $mmdeploy_model_dir
+            if [ ! -e "$install_model_dir/rtmdet/$processor/end2end.engine" ]; then
+                red "model does not exists"
+                exit
+            fi
+            cp -r $install_model_dir/rtmdet/$processor $mmdeploy_model_dir
         else
-            cp -r $scriptdir/../../track_people_py/models/rtmdet-ins $mmdeploy_model_dir
+            if [ ! -e "$install_model_dir/rtmdet-ins/$processor/end2end.engine" ]; then
+                red "model does not exists"
+                exit
+            fi
+            cp -r $install_model_dir/rtmdet-ins/$processor $mmdeploy_model_dir
         fi
 
         # read input size

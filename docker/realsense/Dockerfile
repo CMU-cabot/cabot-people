@@ -21,35 +21,46 @@
 ARG FROM_IMAGE
 
 FROM $FROM_IMAGE AS build
-ARG UBUNTU_DISTRO=jammy
+
+ARG ROS_DISTRO=humble
 ENV DEBIAN_FRONTEND="noninteractive"
 
 RUN apt update && \
     apt install -y --no-install-recommends \
-    dirmngr \
-    gpg-agent \
-    software-properties-common \
-    curl \
-    && \
+        dirmngr \
+        gpg-agent \
+        software-properties-common \
+        curl \
+        && \
     apt clean && \
     rm -rf /var/lib/apt/lists/*
 
-# install realsense
+# install librealsense
 RUN mkdir -p /etc/apt/keyrings && \
     curl -sSf https://librealsense.intel.com/Debian/librealsense.pgp | tee /etc/apt/keyrings/librealsense.pgp > /dev/null && \
     echo "deb [signed-by=/etc/apt/keyrings/librealsense.pgp] https://librealsense.intel.com/Debian/apt-repo `lsb_release -cs` main" | \
-    tee /etc/apt/sources.list.d/librealsense.list && \
+        tee /etc/apt/sources.list.d/librealsense.list && \
     apt-get update && \
     apt install -y --no-install-recommends \
-    librealsense2 \
-    librealsense2-gl \
-#    librealsense2-net \  # avoid dependency error @ 2023.06.07, may not be used
-    librealsense2-udev-rules \
-    librealsense2-utils \
-    librealsense2-dev \
-    librealsense2-dbg \
-    # librealsense2-dkms 1.3.28 fails @ 2024.11.21
-    librealsense2-dkms=1.3.27-0ubuntu1 \
+        librealsense2 \
+        librealsense2-gl \
+        # librealsense2-net \  # avoid dependency error @ 2023.06.07, may not be used
+        librealsense2-udev-rules \
+        librealsense2-utils \
+        librealsense2-dev \
+        librealsense2-dbg \
+        # librealsense2-dkms 1.3.28 fails @ 2024.11.21
+        librealsense2-dkms=1.3.27-0ubuntu1 \
+        && \
+    apt clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# install ros packages
+RUN apt update && \
+    apt install -y --no-install-recommends \
+        ros-$ROS_DISTRO-realsense2-camera-msgs \
+        ros-$ROS_DISTRO-realsense2-camera \
+        ros-$ROS_DISTRO-realsense2-description \
     && \
     apt clean && \
     rm -rf /var/lib/apt/lists/*
