@@ -51,7 +51,7 @@ services:
   people-nuc-base:
     extends:
       service: people-base
-    image: cmucal/cabot-people-nuc
+    image: cmucal/cabot-people-nuc:${CABOT_LAUNCH_IMAGE_TAG:-latest}
     build:
       context: ./docker/people
       additional_contexts:
@@ -108,7 +108,7 @@ services:
   people-all-base:
     extends:
       service: people-base
-    image: cmucal/cabot-people
+    image: cmucal/cabot-people:${CABOT_LAUNCH_IMAGE_TAG:-latest}
     build:
       context: ./docker/people
       additional_contexts:
@@ -222,7 +222,7 @@ services:
   people-framos-all-base:
     extends:
       service: people-all-base
-    image: cmucal/cabot-people-framos
+    image: cmucal/cabot-people-framos:${CABOT_LAUNCH_IMAGE_TAG:-latest}
     build:
       context: ./docker/people
       dockerfile: Dockerfile.framos
