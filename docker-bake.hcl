@@ -112,7 +112,7 @@ target "ros-common-amd64" {
 
 target "ros-core-amd64" {
   inherits   = [ "ros-common-amd64" ]
-  context    = "./cabot-common/docker/docker_images/ros/${ROS_DISTRO}/ubuntu/${UBUNTU_DISTRO}/ros-core"
+  context    = "./cabot-base/docker/docker_images/ros/${ROS_DISTRO}/ubuntu/${UBUNTU_DISTRO}/ros-core"
   dockerfile = "Dockerfile.tmp"
   contexts   = { "${REGISTRY}/${BASE_IMAGE}:base" = "target:base" }
   args       = {
@@ -123,7 +123,7 @@ target "ros-core-amd64" {
 
 target "ros-base-amd64" {
   inherits   = [ "ros-common-amd64" ]
-  context    = "./cabot-common/docker/docker_images/ros/${ROS_DISTRO}/ubuntu/${UBUNTU_DISTRO}/ros-base"
+  context    = "./cabot-base/docker/docker_images/ros/${ROS_DISTRO}/ubuntu/${UBUNTU_DISTRO}/ros-base"
   dockerfile = "Dockerfile.tmp"
   contexts   = { "${REGISTRY}/${BASE_IMAGE}:${ROS_DISTRO}-amd64" = "target:ros-core-amd64" }
   args       = {
@@ -134,7 +134,7 @@ target "ros-base-amd64" {
 
 target "ros-desktop-amd64" {
   inherits   = [ "ros-common-amd64" ]
-  context    = "./cabot-common/docker/docker_images/ros/${ROS_DISTRO}/ubuntu/${UBUNTU_DISTRO}/desktop"
+  context    = "./cabot-base/docker/docker_images/ros/${ROS_DISTRO}/ubuntu/${UBUNTU_DISTRO}/desktop"
   dockerfile = "Dockerfile.tmp"
   contexts   = { "${REGISTRY}/${BASE_IMAGE}:${ROS_DISTRO}-base-amd64" = "target:ros-base-amd64" }
   args       = {
@@ -145,7 +145,7 @@ target "ros-desktop-amd64" {
 
 target "ros-desktop-custom-amd64" {
   inherits   = [ "ros-common-amd64" ]
-  context    = "./cabot-common/docker/humble-custom"
+  context    = "./cabot-base/docker/humble-custom"
   dockerfile = "Dockerfile"
   contexts   = { "${REGISTRY}/${BASE_IMAGE}:${ROS_DISTRO}-desktop-amd64" = "target:ros-desktop-amd64" }
   args       = {
@@ -189,7 +189,7 @@ target "ros-desktop-custom-opencv-mmdeploy-open3d-amd64" {
 
 target "ros-desktop-custom-opencv-mmdeploy-open3d-mesa-amd64" {
   inherits   = [ "ros-common-amd64" ]
-  context    = "./cabot-common/docker/mesa"
+  context    = "./cabot-base/docker/mesa"
   dockerfile = "Dockerfile"
   contexts   = { "${REGISTRY}/${BASE_IMAGE}:${ROS_DISTRO}-desktop-custom-opencv-mmdeploy-open3d-amd64" = "target:ros-desktop-custom-opencv-mmdeploy-open3d-amd64" }
   args       = {
@@ -236,7 +236,7 @@ target "opencv-arm64" {
 
 target "opencv-ros-base-arm64" {
   inherits   = [ "ros-common-arm64" ]
-  context    = "./cabot-common/docker/jetson-humble-base-src"
+  context    = "./cabot-base/docker/jetson-humble-base-src"
   dockerfile = "Dockerfile"
   contexts   = { "${REGISTRY}/${BASE_IMAGE}:opencv-arm64" = "target:opencv-arm64" }
   args       = {
