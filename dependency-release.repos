@@ -42,7 +42,7 @@ repositories:
   cabot-base/docker/humble-custom/navigation2:
     type: git
     url: https://github.com/ros-planning/navigation2
-    version: e7f37b95e0cafc2192c0c841a65dfba9f5632157
+    version: 1.1.18
   cabot-base/docker/humble-custom/people:
     type: git
     url: https://github.com/wg-perception/people.git
@@ -86,7 +86,7 @@ repositories:
   cabot-common:
     type: git
     url: https://github.com/CMU-cabot/cabot-common
-    version: 1d784dce364ad6e7e4b9f1da54baa4c51a8a8254
+    version: a5f2524ef5ff3537aa1ce63f2c04f98f309fae15
   docker/jetson-humble-custom/people:
     type: git
     url: https://github.com/wg-perception/people.git
