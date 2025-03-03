@@ -174,7 +174,7 @@ services:
       - "-W"                                # wait roscore
       # - "-p"                                # people topic is simulation groundtruth
       - "-D"                                # detection
-      - "-a"                                # no resetrs individually
+      # - "-a"                                # no resetrs individually
 
   people-detection-dev-base:
     extends:
@@ -270,7 +270,7 @@ services:
       - "-W"                                # wait roscore
       # - "-p"                                # people topic is simulation groundtruth
       - "-c 2"                              # use FRAMOS camera
-      - "-a"                                # no resetrs individually
+      # - "-a"                                # no resetrs individually
 
   people-framos-camera-dev-base:
     extends:

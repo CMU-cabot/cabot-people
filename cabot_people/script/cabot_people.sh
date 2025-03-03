@@ -401,7 +401,9 @@ if [ $realsense_camera -eq 1 ]; then
                         use_intra_process_comms:=$use_intra_process_comms \
                         jetpack5_workaround:=$jetpack5_workaround \
                         $option \
-                        camera_name:=${namespace} $commandpost"
+                        camera_name:=${namespace} \
+                        camera_link_frame:=${camera_link_frame} \
+                        $commandpost"
         pids+=($!)
     else
         red "invalid camera type"

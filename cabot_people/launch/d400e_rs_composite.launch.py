@@ -30,6 +30,7 @@ from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
 from launch.substitutions import LaunchConfiguration
 from launch.substitutions import PathJoinSubstitution
+from launch_ros.actions import Node
 from launch_ros.actions import ComposableNodeContainer
 from launch_ros.descriptions import ComposableNode
 
@@ -111,14 +112,25 @@ def set_configurable_parameters(parameters):
 def generate_launch_description():
     log_level = 'info'
     use_intra_process_comms = LaunchConfiguration("use_intra_process_comms")
+    camera_link_frame = LaunchConfiguration("camera_link_frame")
 
     jetpack5_workaround = LaunchConfiguration('jetpack5_workaround')
-    
+
     return LaunchDescription(declare_configurable_parameters(configurable_parameters) + [
         # Realsense
         DeclareLaunchArgument("use_intra_process_comms", default_value="false"),
+        DeclareLaunchArgument("camera_link_frame", default_value="camera_link"),
         DeclareLaunchArgument('jetpack5_workaround', default_value='false'),
         SetEnvironmentVariable(name='LD_PRELOAD', value='/usr/local/lib/libOpen3D.so', condition=IfCondition(jetpack5_workaround)),
+        Node(
+            package="cabot_people",
+            executable="framos_initialize_node.py",
+            name="framos_initialize_node",
+            namespace=LaunchConfiguration("camera_name"),
+            parameters=[{
+                'camera_link_frame': camera_link_frame
+            }]
+        ),
         ComposableNodeContainer(
             name="camera_manager",
             namespace=LaunchConfiguration("camera_name"),
