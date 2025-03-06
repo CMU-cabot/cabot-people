@@ -124,7 +124,7 @@ def generate_launch_description():
         SetEnvironmentVariable(name='LD_PRELOAD', value='/usr/local/lib/libOpen3D.so', condition=IfCondition(jetpack5_workaround)),
         Node(
             package="cabot_people",
-            executable="framos_initialize_node.py",
+            executable="framos_initialize_node",
             name="framos_initialize_node",
             namespace=LaunchConfiguration("camera_name"),
             parameters=[{

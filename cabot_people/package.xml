@@ -28,6 +28,11 @@
   <maintainer email="tisihara@jp.ibm.com">Tatsuya Ishihara</maintainer>
   <license>MIT</license>
 
+  <depend>rclcpp</depend>
+  <depend>sensor_msgs</depend>
+  <depend>std_srvs</depend>
+  <depend>tf2_ros</depend>
+
   <buildtool_depend>ament_cmake</buildtool_depend>
 
   <export>
