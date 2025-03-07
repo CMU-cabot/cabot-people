@@ -18,8 +18,8 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#ifndef CABOT_PEOPLE_FRAMOS_INITIALIZE_HPP_
-#define CABOT_PEOPLE_FRAMOS_INITIALIZE_HPP_
+#ifndef CABOT_PEOPLE_FRAMOS_INITIALIZE_NODE_HPP_
+#define CABOT_PEOPLE_FRAMOS_INITIALIZE_NODE_HPP_
 
 #include <mutex>
 #include <queue>
@@ -57,8 +57,8 @@ private:
   float min_rgb_fps_;
   float min_depth_fps_;
   int max_buffer_size_;
-  float wait_time_after_camera_ready_;
-  float wait_time_after_tf_ready_;
+  float min_wait_after_camera_ready_;
+  float max_wait_after_tf_ready_;
 
   bool is_ready_;
   bool is_reset_running_;
@@ -82,4 +82,4 @@ private:
 
 }  // namespace cabot_people
 
-#endif  // CABOT_PEOPLE_FRAMOS_INITIALIZE_HPP_
+#endif  // CABOT_PEOPLE_FRAMOS_INITIALIZE_NODE_HPP_

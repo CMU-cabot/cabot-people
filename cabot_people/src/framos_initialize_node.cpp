@@ -33,8 +33,8 @@ FramosInitializeNode::FramosInitializeNode(const rclcpp::NodeOptions & options)
   min_rgb_fps_(10.0),
   min_depth_fps_(10.0),
   max_buffer_size_(100),
-  wait_time_after_camera_ready_(10.0),
-  wait_time_after_tf_ready_(100.0),
+  min_wait_after_camera_ready_(5.0),
+  max_wait_after_tf_ready_(100.0),
   is_ready_(false),
   is_reset_running_(false),
   time_tf_ready_(0.0),
@@ -47,8 +47,8 @@ FramosInitializeNode::FramosInitializeNode(const rclcpp::NodeOptions & options)
   min_rgb_fps_ = this->declare_parameter("min_rgb_fps", min_rgb_fps_);
   min_depth_fps_ = this->declare_parameter("min_depth_fps", min_depth_fps_);
   max_buffer_size_ = this->declare_parameter("max_buffer_size", max_buffer_size_);
-  wait_time_after_camera_ready_ = this->declare_parameter("wait_time_after_camera_ready", wait_time_after_camera_ready_);
-  wait_time_after_tf_ready_ = this->declare_parameter("wait_time_after_tf_ready", wait_time_after_tf_ready_);
+  min_wait_after_camera_ready_ = this->declare_parameter("min_wait_after_camera_ready", min_wait_after_camera_ready_);
+  max_wait_after_tf_ready_ = this->declare_parameter("max_wait_after_tf_ready", max_wait_after_tf_ready_);
 
   tf_buffer_ = new tf2_ros::Buffer(get_clock());
   tf_listener_ = new tf2_ros::TransformListener(*tf_buffer_, this);
@@ -80,7 +80,7 @@ void FramosInitializeNode::rgb_cb(const sensor_msgs::msg::CameraInfo::SharedPtr 
   double now = rclcpp::Time(msg->header.stamp).seconds();
   if (time_camera_ready_ <= 0) {
     time_camera_ready_ = now;
-  } else {
+  } else if ((now - time_camera_ready_) > min_wait_after_camera_ready_) {
     std::lock_guard<std::mutex> rgb_times_lock(rgb_times_mutex_);
     if (rgb_times_.size() >= max_buffer_size_) {
       rgb_times_.pop();
@@ -94,7 +94,7 @@ void FramosInitializeNode::depth_cb(const sensor_msgs::msg::CameraInfo::SharedPt
   double now = rclcpp::Time(msg->header.stamp).seconds();
   if (time_camera_ready_ <= 0) {
     time_camera_ready_ = now;
-  } else {
+  } else if ((now - time_camera_ready_) > min_wait_after_camera_ready_) {
     std::lock_guard<std::mutex> depth_times_lock(depth_times_mutex_);
     if (depth_times_.size() >= max_buffer_size_) {
       depth_times_.pop();
@@ -193,7 +193,7 @@ void FramosInitializeNode::check_transform()
       RCLCPP_WARN(this->get_logger(), "Reset FRAMOS because FPS is low, RGB FPS: %.2f, depth FPS: %.2f", rgb_fps, depth_fps);
       reset_framos();
     }
-  } else if ((now - time_tf_ready_) > wait_time_after_tf_ready_) {
+  } else if ((now - time_tf_ready_) > max_wait_after_tf_ready_) {
     // reset FRAMOS if buffers are not filled for a long time
     RCLCPP_WARN(this->get_logger(), "Reset FRAMOS because FRAMOS seems not working");
     reset_framos();
