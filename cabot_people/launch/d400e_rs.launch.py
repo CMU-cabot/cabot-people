@@ -30,8 +30,7 @@ from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
 from launch.substitutions import LaunchConfiguration
 from launch.substitutions import PathJoinSubstitution
-from launch_ros.actions import ComposableNodeContainer
-from launch_ros.descriptions import ComposableNode
+from launch_ros.actions import Node
 
 
 configurable_parameters = [{'name': 'camera_name',                  'default': 'camera', 'description': 'camera unique name'},
@@ -98,7 +97,7 @@ configurable_parameters = [{'name': 'camera_name',                  'default': '
                            {'name': 'stereo_module.gain.1',         'default': '16', 'description': 'Initial value for hdr_merge filter'},
                            {'name': 'stereo_module.exposure.2',     'default': '1', 'description': 'Initial value for hdr_merge filter'},
                            {'name': 'stereo_module.gain.2',         'default': '16', 'description': 'Initial value for hdr_merge filter'},
-                           {'name': 'wait_for_device_timeout',      'default': '-1.', 'description': 'Timeout for waiting for device to connect (Seconds)'},
+                           {'name': 'wait_for_device_timeout',      'default': '30.', 'description': 'Timeout for waiting for device to connect (Seconds)'},
                            {'name': 'reconnect_timeout',            'default': '6.', 'description': 'Timeout(seconds) between consequtive reconnection attempts'},
                            ]
 
@@ -110,32 +109,30 @@ def set_configurable_parameters(parameters):
 
 def generate_launch_description():
     log_level = 'info'
-    use_intra_process_comms = LaunchConfiguration("use_intra_process_comms")
+    camera_link_frame = LaunchConfiguration("camera_link_frame")
 
-    jetpack5_workaround = LaunchConfiguration('jetpack5_workaround')
-    
     return LaunchDescription(declare_configurable_parameters(configurable_parameters) + [
         # Realsense
-        DeclareLaunchArgument("use_intra_process_comms", default_value="false"),
-        DeclareLaunchArgument('jetpack5_workaround', default_value='false'),
-        SetEnvironmentVariable(name='LD_PRELOAD', value='/usr/local/lib/libOpen3D.so', condition=IfCondition(jetpack5_workaround)),
-        ComposableNodeContainer(
-            name="camera_manager",
+        DeclareLaunchArgument("camera_link_frame", default_value="camera_link"),
+        Node(
+            package="cabot_people",
+            executable="framos_initialize_node",
+            name="framos_initialize_node",
             namespace=LaunchConfiguration("camera_name"),
-            package='rclcpp_components',
-            executable='component_container',
-            composable_node_descriptions=[
-                ComposableNode(
-                    package='realsense2_camera',
-                    namespace=LaunchConfiguration("camera_name"),
-                    plugin='realsense2_camera::FramosRealSenseNodeFactory',
-                    name=LaunchConfiguration("camera_name"),
-                    parameters=[set_configurable_parameters(configurable_parameters)],
-                    extra_arguments=[{'use_intra_process_comms': use_intra_process_comms}],
-                )
-            ],
-            output='screen',
+            parameters=[{
+                'camera_link_frame': camera_link_frame
+            }]
+        ),
+        Node(
+            package='realsense2_camera', 
+            namespace=LaunchConfiguration("camera_name"),
+            name=LaunchConfiguration("camera_name"),
+            executable='framos_realsense2_camera_node',
+            parameters = [set_configurable_parameters(configurable_parameters)],
+            output='log',
             arguments=['--ros-args', '--log-level', LaunchConfiguration('log_level')],
             emulate_tty=True,
-        )
+            respawn=True,
+            respawn_delay=5.0
+            )
     ])

@@ -275,9 +275,15 @@ else
     exit
 fi
 
-if [ $camera_type -eq 2 ] && { [ $cabot_detect_ver -eq 3 ] || [ $cabot_detect_ver -eq 6 ] || [ $cabot_detect_ver -eq 9 ]; }; then
-    red "FRAMOS SDK does not support intra process communication yet, do not set 3, 6, 9 for CABOT_DETECT_VERSION"
-    exit
+if [ $camera_type -eq 2 ]; then
+    if [ $rgb_fps -lt 15 ] || [ $depth_fps -lt 15 ]; then
+        red "FRAMOS camera will be reset if FPS is low, do not set FPS less than 15"
+        exit
+    fi
+    if [ $cabot_detect_ver -eq 3 ] || [ $cabot_detect_ver -eq 6 ] || [ $cabot_detect_ver -eq 9 ]; then
+        red "FRAMOS SDK does not support intra process communication yet, do not set 3, 6, 9 for CABOT_DETECT_VERSION"
+        exit
+    fi
 fi
 
 if [ $check_required -eq 1 ]; then
@@ -388,7 +394,7 @@ if [ $realsense_camera -eq 1 ]; then
             depth_fps="${depth_fps}.0" 
         fi
 
-        launch_file="cabot_people d400e_rs_composite.launch.py"
+        launch_file="cabot_people d400e_rs.launch.py"
         echo "launch $launch_file"
         eval "$command ros2 launch $launch_file \
                         align_depth:=true \
@@ -398,10 +404,10 @@ if [ $realsense_camera -eq 1 ]; then
                         color_width:=$width \
                         color_height:=$height \
                         color_fps:=$rgb_fps \
-                        use_intra_process_comms:=$use_intra_process_comms \
-                        jetpack5_workaround:=$jetpack5_workaround \
                         $option \
-                        camera_name:=${namespace} $commandpost"
+                        camera_name:=${namespace} \
+                        camera_link_frame:=${camera_link_frame} \
+                        $commandpost"
         pids+=($!)
     else
         red "invalid camera type"
