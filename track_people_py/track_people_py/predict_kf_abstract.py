@@ -64,7 +64,7 @@ class PredictKfAbstract(rclpy.node.Node):
         # start initialization
         self.input_time = self.declare_parameter('input_time', 5).value # number of frames to start prediction
         self.kf_init_var = self.declare_parameter('kf_init_var', 1.0).value
-        self.kf_process_var = self.declare_parameter('kf_process_var', 1000.0).value
+        self.kf_process_var = self.declare_parameter('kf_process_var', 1.0).value
         self.kf_measure_var = self.declare_parameter('kf_measure_var', 1.0).value
         self.duration_inactive_to_remove = self.declare_parameter('duration_inactive_to_remove', 2.0).value # duration (seconds) to remove an inactive track (this value should be enough long because track_obstacle_py returns recovered tracks)
         self.duration_inactive_to_stop_publish = self.declare_parameter('duration_inactive_to_stop_publish', 0.2).value # duration (seconds) to stop publishing an inactive track in people topic

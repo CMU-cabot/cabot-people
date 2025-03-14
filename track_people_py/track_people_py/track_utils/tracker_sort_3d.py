@@ -30,7 +30,7 @@ from . import kf_utils
 
 
 class TrackerSort3D:
-    def __init__(self, iou_threshold=0.01, iou_circle_size=0.5, kf_init_var=1.0, kf_process_var=1000.0, kf_measure_var=1.0,
+    def __init__(self, iou_threshold=0.01, iou_circle_size=0.5, kf_init_var=1.0, kf_process_var=1.0, kf_measure_var=1.0,
                  minimum_valid_track_duration=0.3, duration_inactive_to_remove=2.0, n_colors=100):
         # Initialization
         #

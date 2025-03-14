@@ -61,7 +61,7 @@ def generate_launch_description():
         DeclareLaunchArgument('iou_threshold', default_value='0.01'),
         DeclareLaunchArgument('iou_circle_size', default_value='0.5'),
         DeclareLaunchArgument('kf_init_var', default_value='1.0'),
-        DeclareLaunchArgument('kf_process_var', default_value='1000.0'),
+        DeclareLaunchArgument('kf_process_var', default_value='1.0'),
         DeclareLaunchArgument('kf_measure_var', default_value='1.0'),
         DeclareLaunchArgument('minimum_valid_track_duration', default_value='0.0'),
         DeclareLaunchArgument('duration_inactive_to_remove', default_value='2.0'),
