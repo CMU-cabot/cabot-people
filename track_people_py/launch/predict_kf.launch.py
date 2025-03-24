@@ -57,7 +57,7 @@ def generate_launch_description():
         LogInfo(msg=["no cabot_common"]) if workaround else RegisterEventHandler(OnShutdown(on_shutdown=[AppendLogDirPrefix("track_people_cpp-detect_darknet")])),
 
         DeclareLaunchArgument('kf_init_var', default_value='1.0'),
-        DeclareLaunchArgument('kf_process_var', default_value='1000.0'),
+        DeclareLaunchArgument('kf_process_var', default_value='1.0'),
         DeclareLaunchArgument('kf_measure_var', default_value='1.0'),
         DeclareLaunchArgument('duration_inactive_to_stop_publish', default_value=EnvironmentVariable('CABOT_DETECT_PEOPLE_CLEAR_TIME', default_value='0.2')),
         DeclareLaunchArgument('target_fps', default_value=EnvironmentVariable('CABOT_PEOPLE_PREDICT_FPS', default_value='15.0')),

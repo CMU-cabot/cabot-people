@@ -44,7 +44,7 @@ class AbsTrackPeople(rclpy.node.Node):
         self.iou_threshold = self.declare_parameter('iou_threshold', 0.01).value
         self.iou_circle_size = self.declare_parameter('iou_circle_size', 0.5).value
         self.kf_init_var = self.declare_parameter('kf_init_var', 1.0).value
-        self.kf_process_var = self.declare_parameter('kf_process_var', 1000.0).value
+        self.kf_process_var = self.declare_parameter('kf_process_var', 1.0).value
         self.kf_measure_var = self.declare_parameter('kf_measure_var', 1.0).value
         self.minimum_valid_track_duration = self.declare_parameter('minimum_valid_track_duration', 0.0).value
         self.duration_inactive_to_remove = self.declare_parameter('duration_inactive_to_remove', 2.0).value
