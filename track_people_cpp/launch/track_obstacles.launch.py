@@ -40,6 +40,7 @@ except ImportError:
 def generate_launch_description():
     # ToDo: workaround https://github.com/CMU-cabot/cabot/issues/86
     jetpack5_workaround = LaunchConfiguration('jetpack5_workaround')
+    target_fps = LaunchConfiguration('target_fps')
 
     return LaunchDescription([
         # save all log file in the directory where the launch.log file is saved
@@ -48,6 +49,7 @@ def generate_launch_description():
         LogInfo(msg=["no cabot_common"]) if workaround else RegisterEventHandler(OnShutdown(on_shutdown=[AppendLogDirPrefix("track_people_cpp-track_obstacles")])),
 
         DeclareLaunchArgument('jetpack5_workaround', default_value='false'),
+        DeclareLaunchArgument('target_fps', default_value=10.0),
 
         SetEnvironmentVariable(name='LD_PRELOAD', value='/usr/local/lib/libOpen3D.so', condition=IfCondition(jetpack5_workaround)),
 
@@ -57,7 +59,7 @@ def generate_launch_description():
             name='track_obstacle',
             namespace='obstacle',
             parameters=[{
-                'target_fps': 15.0,
+                'target_fps': target_fps,
                 'diagnostic_name': 'ObstacleTrack'
             }]
         ),
