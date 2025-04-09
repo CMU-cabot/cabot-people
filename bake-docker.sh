@@ -148,6 +148,29 @@ if [[ -z $(docker buildx ls | grep "mybuilder\*") ]]; then
     fi
 fi
 
+# setup buildx cache
+cache_dir=~/.cache/docker-buildx-mybuilder
+bake_json=$(docker buildx bake --print)
+readarray -t bake_targets < <(echo "$bake_json" | jq -r '.target | keys[]')
+for target in "${bake_targets[@]}"; do
+    target_cache_dir=$cache_dir/$base_name-$target
+    if [[ ! -d $target_cache_dir ]]; then
+        echo "create $target cache directory"
+        mkdir -p $target_cache_dir
+    else
+        echo "$target cache directory already exists"
+    fi
+done
+for service in ${services}; do
+    target_cache_dir=$cache_dir/cabot-${service}
+    if [[ ! -d $target_cache_dir ]]; then
+        echo "create cabot-${service} cache directory"
+        mkdir -p $target_cache_dir
+    else
+        echo "cabot-${service} cache directory already exists"
+    fi
+done
+
 # replace ros Dockerfile FROM instruction to replace base image
 # this isn't good, but cannot find alternative
 if [[ -e ./cabot-base/docker/docker_images ]]; then
@@ -193,9 +216,10 @@ fi
 
 # run bake for cabot-gpu-base images
 if [[ -n $camera_option ]]; then
-    com="$camera_option docker buildx bake -f docker-bake.hcl $platform_option $tag_option $target"
+    com="$camera_option docker buildx bake -f docker-bake.hcl --allow=fs=$cache_dir $platform_option $tag_option $target"
     export BASE_IMAGE=$base_name
     export NUC_BASE_IMAGE=$nuc_base_name
+    export BUILDX_CACHE_DIR=$cache_dir
     echo $com
     eval $com
     if [[ $? -ne 0 ]]; then
@@ -244,9 +268,10 @@ for service in ${services}; do
 done
 
 # run bake for cabot-people images
-com="docker buildx bake -f docker-compose.yaml $platform_option $tag_option $services"
+com="docker buildx bake -f docker-compose.yaml --allow=fs=$cache_dir $platform_option $tag_option $services"
 export BASE_IMAGE=$base_name
 export NUC_BASE_IMAGE=$nuc_base_name
+export BUILDX_CACHE_DIR=$cache_dir
 echo $com
 eval $com
 if [[ $? -ne 0 ]]; then

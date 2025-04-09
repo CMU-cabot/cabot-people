@@ -27,6 +27,10 @@ variable "REGISTRY" {
   default = "registry"
 }
 
+variable "BUILDX_CACHE_DIR" {
+  default = "~/.cache/docker-buildx-mybuilder"
+}
+
 variable "L4T_V" {
   default = "35.3.1"
 #  default = "36.2.0"
@@ -100,6 +104,8 @@ FROM build-$TARGETARCH
 EOF
   platforms  = "${PLATFORMS}"
   tags       = [ "${REGISTRY}/${BASE_IMAGE}:base" ]
+  cache-from = ["type=local,src=${BUILDX_CACHE_DIR}/${BASE_IMAGE}-base"]
+  cache-to   = ["type=local,dest=${BUILDX_CACHE_DIR}/${BASE_IMAGE}-base,mode=max"]
   output     = [ "type=cacheonly" ]
 }
 
@@ -119,6 +125,8 @@ target "ros-core-amd64" {
     FROM_IMAGE = "${REGISTRY}/${BASE_IMAGE}:base"
   }
   tags       = [ "${REGISTRY}/${BASE_IMAGE}:${ROS_DISTRO}-amd64" ]
+  cache-from = ["type=local,src=${BUILDX_CACHE_DIR}/${BASE_IMAGE}-ros-core-amd64"]
+  cache-to   = ["type=local,dest=${BUILDX_CACHE_DIR}/${BASE_IMAGE}-ros-core-amd64,mode=max"]
 }
 
 target "ros-base-amd64" {
@@ -130,6 +138,8 @@ target "ros-base-amd64" {
     FROM_IMAGE = "${REGISTRY}/${BASE_IMAGE}:${ROS_DISTRO}-amd64"
   }
   tags       = [ "${REGISTRY}/${BASE_IMAGE}:${ROS_DISTRO}-base-amd64" ]
+  cache-from = ["type=local,src=${BUILDX_CACHE_DIR}/${BASE_IMAGE}-ros-base-amd64"]
+  cache-to   = ["type=local,dest=${BUILDX_CACHE_DIR}/${BASE_IMAGE}-ros-base-amd64,mode=max"]
 }
 
 target "ros-desktop-amd64" {
@@ -141,6 +151,8 @@ target "ros-desktop-amd64" {
     FROM_IMAGE = "${REGISTRY}/${BASE_IMAGE}:${ROS_DISTRO}-base-amd64"
   }
   tags       = [ "${REGISTRY}/${BASE_IMAGE}:${ROS_DISTRO}-desktop-amd64" ]
+  cache-from = ["type=local,src=${BUILDX_CACHE_DIR}/${BASE_IMAGE}-ros-desktop-amd64"]
+  cache-to   = ["type=local,dest=${BUILDX_CACHE_DIR}/${BASE_IMAGE}-ros-desktop-amd64,mode=max"]
 }
 
 target "ros-desktop-custom-amd64" {
@@ -152,6 +164,8 @@ target "ros-desktop-custom-amd64" {
     FROM_IMAGE = "${REGISTRY}/${BASE_IMAGE}:${ROS_DISTRO}-desktop-amd64"
   }
   tags       = [ "${REGISTRY}/${BASE_IMAGE}:${ROS_DISTRO}-desktop-custom-amd64" ]
+  cache-from = ["type=local,src=${BUILDX_CACHE_DIR}/${BASE_IMAGE}-ros-desktop-custom-amd64"]
+  cache-to   = ["type=local,dest=${BUILDX_CACHE_DIR}/${BASE_IMAGE}-ros-desktop-custom-amd64,mode=max"]
 }
 
 target "ros-desktop-custom-opencv-amd64" {
@@ -163,6 +177,8 @@ target "ros-desktop-custom-opencv-amd64" {
     FROM_IMAGE = "${REGISTRY}/${BASE_IMAGE}:${ROS_DISTRO}-desktop-custom-amd64"
   }
   tags       = [ "${REGISTRY}/${BASE_IMAGE}:${ROS_DISTRO}-desktop-custom-opencv-amd64" ]
+  cache-from = ["type=local,src=${BUILDX_CACHE_DIR}/${BASE_IMAGE}-ros-desktop-custom-opencv-amd64"]
+  cache-to   = ["type=local,dest=${BUILDX_CACHE_DIR}/${BASE_IMAGE}-ros-desktop-custom-opencv-amd64,mode=max"]
 }
 
 target "ros-desktop-custom-opencv-mmdeploy-amd64" {
@@ -174,6 +190,8 @@ target "ros-desktop-custom-opencv-mmdeploy-amd64" {
     FROM_IMAGE = "${REGISTRY}/${BASE_IMAGE}:${ROS_DISTRO}-desktop-custom-opencv-amd64"
   }
   tags       = [ "${REGISTRY}/${BASE_IMAGE}:${ROS_DISTRO}-desktop-custom-opencv-mmdeploy-amd64" ]
+  cache-from = ["type=local,src=${BUILDX_CACHE_DIR}/${BASE_IMAGE}-ros-desktop-custom-opencv-mmdeploy-amd64"]
+  cache-to   = ["type=local,dest=${BUILDX_CACHE_DIR}/${BASE_IMAGE}-ros-desktop-custom-opencv-mmdeploy-amd64,mode=max"]
 }
 
 target "ros-desktop-custom-opencv-mmdeploy-open3d-amd64" {
@@ -185,6 +203,8 @@ target "ros-desktop-custom-opencv-mmdeploy-open3d-amd64" {
     FROM_IMAGE = "${REGISTRY}/${BASE_IMAGE}:${ROS_DISTRO}-desktop-custom-opencv-mmdeploy-amd64"
   }
   tags       = [ "${REGISTRY}/${BASE_IMAGE}:${ROS_DISTRO}-desktop-custom-opencv-mmdeploy-open3d-amd64" ]
+  cache-from = ["type=local,src=${BUILDX_CACHE_DIR}/${BASE_IMAGE}-ros-desktop-custom-opencv-mmdeploy-open3d-amd64"]
+  cache-to   = ["type=local,dest=${BUILDX_CACHE_DIR}/${BASE_IMAGE}-ros-desktop-custom-opencv-mmdeploy-open3d-amd64,mode=max"]
 }
 
 target "ros-desktop-custom-opencv-mmdeploy-open3d-mesa-amd64" {
@@ -196,6 +216,8 @@ target "ros-desktop-custom-opencv-mmdeploy-open3d-mesa-amd64" {
     FROM_IMAGE = "${REGISTRY}/${BASE_IMAGE}:${ROS_DISTRO}-desktop-custom-opencv-mmdeploy-open3d-amd64"
   }
   tags       = [ "${REGISTRY}/${BASE_IMAGE}:${ROS_DISTRO}-desktop-custom-opencv-mmdeploy-open3d-mesa-amd64" ]
+  cache-from = ["type=local,src=${BUILDX_CACHE_DIR}/${BASE_IMAGE}-ros-desktop-custom-opencv-mmdeploy-open3d-mesa-amd64"]
+  cache-to   = ["type=local,dest=${BUILDX_CACHE_DIR}/${BASE_IMAGE}-ros-desktop-custom-opencv-mmdeploy-open3d-mesa-amd64,mode=max"]
 }
 
 target "ros-desktop-custom-opencv-mmdeploy-open3d-mesa-camera-amd64" {
@@ -211,6 +233,8 @@ target "ros-desktop-custom-opencv-mmdeploy-open3d-mesa-camera-amd64" {
     FROM_IMAGE = "${REGISTRY}/${BASE_IMAGE}:${ROS_DISTRO}-desktop-custom-opencv-mmdeploy-open3d-mesa-amd64"
   }
   tags       = [ "${REGISTRY}/${BASE_IMAGE}:${ROS_DISTRO}-desktop-custom-opencv-mmdeploy-open3d-mesa-${camera}-amd64" ]
+  cache-from = ["type=local,src=${BUILDX_CACHE_DIR}/${BASE_IMAGE}-ros-desktop-custom-opencv-mmdeploy-open3d-mesa-${camera}-amd64"]
+  cache-to   = ["type=local,dest=${BUILDX_CACHE_DIR}/${BASE_IMAGE}-ros-desktop-custom-opencv-mmdeploy-open3d-mesa-${camera}-amd64,mode=max"]
 }
 
 
@@ -232,6 +256,8 @@ target "opencv-arm64" {
     CUDA_V     = "${L4T_CUDA}",
   }
   tags       = [ "${REGISTRY}/${BASE_IMAGE}:opencv-arm64" ]
+  cache-from = ["type=local,src=${BUILDX_CACHE_DIR}/${BASE_IMAGE}-opencv-arm64"]
+  cache-to   = ["type=local,dest=${BUILDX_CACHE_DIR}/${BASE_IMAGE}-opencv-arm64,mode=max"]
 }
 
 target "opencv-ros-base-arm64" {
@@ -243,6 +269,8 @@ target "opencv-ros-base-arm64" {
     FROM_IMAGE = "${REGISTRY}/${BASE_IMAGE}:opencv-arm64"
   }
   tags       = [ "${REGISTRY}/${BASE_IMAGE}:opencv-${ROS_DISTRO}-base-arm64" ]
+  cache-from = ["type=local,src=${BUILDX_CACHE_DIR}/${BASE_IMAGE}-opencv-ros-base-arm64"]
+  cache-to   = ["type=local,dest=${BUILDX_CACHE_DIR}/${BASE_IMAGE}-opencv-ros-base-arm64,mode=max"]
 }
 
 target "opencv-ros-custom-arm64" {
@@ -254,6 +282,8 @@ target "opencv-ros-custom-arm64" {
     FROM_IMAGE = "${REGISTRY}/${BASE_IMAGE}:opencv-${ROS_DISTRO}-base-arm64"
   }
   tags       = [ "${REGISTRY}/${BASE_IMAGE}:opencv-${ROS_DISTRO}-custom-arm64" ]
+  cache-from = ["type=local,src=${BUILDX_CACHE_DIR}/${BASE_IMAGE}-opencv-ros-custom-arm64"]
+  cache-to   = ["type=local,dest=${BUILDX_CACHE_DIR}/${BASE_IMAGE}-opencv-ros-custom-arm64,mode=max"]
 }
 
 target "opencv-ros-custom-mmdeploy-arm64" {
@@ -268,6 +298,8 @@ target "opencv-ros-custom-mmdeploy-arm64" {
     TEGRA_V    = "${TEGRA_V}",
   }
   tags       = [ "${REGISTRY}/${BASE_IMAGE}:opencv-${ROS_DISTRO}-custom-mmdeploy-arm64" ]
+  cache-from = ["type=local,src=${BUILDX_CACHE_DIR}/${BASE_IMAGE}-opencv-ros-custom-mmdeploy-arm64"]
+  cache-to   = ["type=local,dest=${BUILDX_CACHE_DIR}/${BASE_IMAGE}-opencv-ros-custom-mmdeploy-arm64,mode=max"]
 }
 
 target "opencv-ros-custom-mmdeploy-open3d-arm64" {
@@ -279,6 +311,8 @@ target "opencv-ros-custom-mmdeploy-open3d-arm64" {
     FROM_IMAGE = "${REGISTRY}/${BASE_IMAGE}:opencv-${ROS_DISTRO}-custom-mmdeploy-arm64"
   }
   tags       = [ "${REGISTRY}/${BASE_IMAGE}:opencv-${ROS_DISTRO}-custom-mmdeploy-open3d-arm64" ]
+  cache-from = ["type=local,src=${BUILDX_CACHE_DIR}/${BASE_IMAGE}-opencv-ros-custom-mmdeploy-open3d-arm64"]
+  cache-to   = ["type=local,dest=${BUILDX_CACHE_DIR}/${BASE_IMAGE}-opencv-ros-custom-mmdeploy-open3d-arm64,mode=max"]
 }
 
 target "opencv-ros-custom-mmdeploy-open3d-camera-arm64" {
@@ -294,6 +328,8 @@ target "opencv-ros-custom-mmdeploy-open3d-camera-arm64" {
     FROM_IMAGE = "${REGISTRY}/${BASE_IMAGE}:opencv-${ROS_DISTRO}-custom-mmdeploy-open3d-arm64"
   }
   tags       = [ "${REGISTRY}/${BASE_IMAGE}:opencv-${ROS_DISTRO}-custom-mmdeploy-open3d-${camera}-arm64" ]
+  cache-from = ["type=local,src=${BUILDX_CACHE_DIR}/${BASE_IMAGE}-opencv-ros-custom-mmdeploy-open3d-${camera}-arm64"]
+  cache-to   = ["type=local,dest=${BUILDX_CACHE_DIR}/${BASE_IMAGE}-opencv-ros-custom-mmdeploy-open3d-${camera}-arm64,mode=max"]
 }
 
 
@@ -314,6 +350,8 @@ FROM build-$TARGETARCH
 EOF
   platforms  = [ "linux/amd64" ]
   tags       = [ "${REGISTRY}/${BASE_IMAGE}:${camera}-final-amd64" ]
+  cache-from = ["type=local,src=${BUILDX_CACHE_DIR}/${BASE_IMAGE}-${camera}-final-amd64"]
+  cache-to   = ["type=local,dest=${BUILDX_CACHE_DIR}/${BASE_IMAGE}-${camera}-final-amd64,mode=max"]
   output     = [ "type=registry" ]
 }
 
@@ -332,5 +370,7 @@ FROM build-$TARGETARCH
 EOF
   platforms  = [ "linux/arm64" ]
   tags       = [ "${REGISTRY}/${BASE_IMAGE}:${camera}-final-arm64" ]
+  cache-from = ["type=local,src=${BUILDX_CACHE_DIR}/${BASE_IMAGE}-${camera}-final-arm64"]
+  cache-to   = ["type=local,dest=${BUILDX_CACHE_DIR}/${BASE_IMAGE}-${camera}-final-arm64,mode=max"]
   output     = [ "type=registry" ]
 }

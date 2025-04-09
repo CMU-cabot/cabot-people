@@ -66,6 +66,10 @@ services:
           - ${REGISTRY:-cmucal}/cabot-people-nuc
         platforms:
           - linux/amd64
+        cache-from:
+          - type=local,src=${BUILDX_CACHE_DIR:-~/.cache/docker-buildx-mybuilder}/cabot-people-nuc
+        cache-to:
+          - type=local,dest=${BUILDX_CACHE_DIR:-~/.cache/docker-buildx-mybuilder}/cabot-people-nuc,mode=max
         output:
           - type=registry
     command:
@@ -123,6 +127,10 @@ services:
         platforms:
           - linux/amd64
           - linux/arm64
+        cache-from:
+          - type=local,src=${BUILDX_CACHE_DIR:-~/.cache/docker-buildx-mybuilder}/cabot-people
+        cache-to:
+          - type=local,dest=${BUILDX_CACHE_DIR:-~/.cache/docker-buildx-mybuilder}/cabot-people,mode=max
         output:
           - type=registry
     command:
@@ -234,6 +242,10 @@ services:
         platforms:
           - linux/amd64
           - linux/arm64
+        cache-from:
+          - type=local,src=${BUILDX_CACHE_DIR:-~/.cache/docker-buildx-mybuilder}/cabot-people-framos
+        cache-to:
+          - type=local,dest=${BUILDX_CACHE_DIR:-~/.cache/docker-buildx-mybuilder}/cabot-people-framos,mode=max
         output:
           - type=registry
 
