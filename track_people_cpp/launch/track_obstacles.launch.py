@@ -49,7 +49,7 @@ def generate_launch_description():
         LogInfo(msg=["no cabot_common"]) if workaround else RegisterEventHandler(OnShutdown(on_shutdown=[AppendLogDirPrefix("track_people_cpp-track_obstacles")])),
 
         DeclareLaunchArgument('jetpack5_workaround', default_value='false'),
-        DeclareLaunchArgument('target_fps', default_value=10.0),
+        DeclareLaunchArgument('target_fps', default_value='10.0'),
 
         SetEnvironmentVariable(name='LD_PRELOAD', value='/usr/local/lib/libOpen3D.so', condition=IfCondition(jetpack5_workaround)),
 
