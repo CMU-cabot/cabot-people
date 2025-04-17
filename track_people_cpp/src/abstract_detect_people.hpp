@@ -84,9 +84,11 @@ protected:
   bool is_camera_ready_;
 
   // config parameters
+  bool remove_ground_;
   double detection_threshold_;
   double minimum_detection_size_threshold_;
   std::string map_frame_name_;
+  std::string robot_footprint_frame_name_;
   std::string camera_id_;
   std::string camera_link_frame_name_;
   std::string camera_info_topic_name_;
@@ -102,6 +104,8 @@ protected:
   double focal_length_;
   double center_x_;
   double center_y_;
+  open3d::camera::PinholeCameraIntrinsic pinhole_camera_intrinsic_;
+  std::shared_ptr<Eigen::Matrix4d> camera_to_robot_footprint_matrix_;
 
 private:
   void enable_detect_people_cb(
@@ -117,11 +121,9 @@ private:
   void publish_detect_image(DetectData & dd);
   void process_depth(DetectData & dd);
   std::shared_ptr<open3d::geometry::PointCloud> generatePointCloudFromDepthAndBox(
-    DetectData & dd,
-    track_people_msgs::msg::BoundingBox & box);
+    cv::Mat & depth_img, track_people_msgs::msg::BoundingBox & box);
   std::shared_ptr<open3d::geometry::PointCloud> generatePointCloudFromDepthAndMask(
-    DetectData & dd,
-    track_people_msgs::msg::BoundingBox & box, cv::Mat & mask);
+    cv::Mat & depth_img, track_people_msgs::msg::BoundingBox & box, cv::Mat & mask);
   Eigen::Vector3d getMedianOfPoints(open3d::geometry::PointCloud & pc);
 
   std::shared_ptr<DetectData> temp_dd_;

@@ -19,6 +19,7 @@
 // SOFTWARE.
 
 #include <vector>
+#include <tf2_eigen/tf2_eigen.h>
 
 #include "abstract_detect_people.hpp"
 
@@ -45,11 +46,13 @@ AbstractDetectPeople::AbstractDetectPeople(const std::string & node_name, rclcpp
   cv::setNumThreads(0);
 
   // declare parameters
+  remove_ground_ = this->declare_parameter("remove_ground", remove_ground_);
   detection_threshold_ = this->declare_parameter("detection_threshold", detection_threshold_);
   // minimum vertical size of box to consider a detection as a track
   minimum_detection_size_threshold_ = this->declare_parameter("minimum_detection_size_threshold", minimum_detection_size_threshold_);
 
   map_frame_name_ = this->declare_parameter("map_frame", map_frame_name_);
+  robot_footprint_frame_name_ = this->declare_parameter("robot_footprint_frame", robot_footprint_frame_name_);
   camera_id_ = this->declare_parameter("camera_id", camera_id_);
   camera_link_frame_name_ = this->declare_parameter("camera_link_frame", camera_link_frame_name_);
   camera_info_topic_name_ = this->declare_parameter("camera_info_topic", camera_info_topic_name_);
@@ -115,6 +118,10 @@ void AbstractDetectPeople::camera_info_cb(const sensor_msgs::msg::CameraInfo::Sh
   center_y_ = info->k[5];
   camera_info_sub_.reset();
   RCLCPP_INFO(this->get_logger(), "Found camera_info topic.");
+
+  // ROS_INFO("%d %d %.2f %.2f %.2f %.2f", image_width_, image_height_, focal_length_, focal_length_, center_x_, center_y_);
+  pinhole_camera_intrinsic_ = open3d::camera::PinholeCameraIntrinsic(image_width_, image_height_, focal_length_, focal_length_, center_x_, center_y_);
+
   is_camera_ready_ = true;
 }
 
@@ -343,13 +350,51 @@ void AbstractDetectPeople::process_depth(DetectData & dd)
     return;
   }
 
+  // ROS_INFO("depth_msg_ptr.use_count() %d", dd.depth_msg_ptr.use_count());
+  auto cv_depth_ptr = cv_bridge::toCvShare(dd.depth_msg_ptr, sensor_msgs::image_encodings::TYPE_16UC1);
+  // ROS_INFO("cv_depth_ptr.use_count() %d", cv_depth_ptr.use_count());
+  auto depth_img = cv_depth_ptr->image;
+  // ROS_INFO("depth_img %d %d", depth_img.cols, depth_img.rows);
+
+  // set ground region in depth image as 0
+  if (remove_ground_) {
+    if (!camera_to_robot_footprint_matrix_) {
+      try {
+        geometry_msgs::msg::TransformStamped camera_to_robot_footprint_msg = tfBuffer->lookupTransform(
+          robot_footprint_frame_name_, camera_link_frame_name_,
+          dd.depth_msg_ptr->header.stamp, std::chrono::duration<float>(1.0));
+
+        Eigen::Isometry3d camera_to_robot_footprint_isometry3d = tf2::transformToEigen(camera_to_robot_footprint_msg);
+        camera_to_robot_footprint_matrix_ = std::make_shared<Eigen::Matrix4d>(camera_to_robot_footprint_isometry3d.matrix());
+      } catch (tf2::TransformException & ex) {
+        RCLCPP_INFO(this->get_logger(), "TF is not ready");
+        return;
+      }
+    }
+
+    double max_distance = 30000.0;
+    cv::threshold(depth_img, depth_img, max_distance, 0, cv::THRESH_TOZERO_INV);
+
+    open3d::geometry::Image o3d_depth_img;
+    o3d_depth_img.Prepare(depth_img.cols, depth_img.rows, 1, 2);
+    memcpy(o3d_depth_img.data_.data(), depth_img.data, depth_img.total() * depth_img.elemSize());
+    
+    auto o3d_pc = open3d::geometry::PointCloud::CreateFromDepthImage(o3d_depth_img, pinhole_camera_intrinsic_);
+    RCLCPP_INFO(this->get_logger(), "o3d_pc size : %d", o3d_pc->points_.size());
+
+    auto o3d_pc_transform = o3d_pc->Transform(*camera_to_robot_footprint_matrix_);
+    RCLCPP_INFO(this->get_logger(), "o3d_pc_transform size : %d", o3d_pc_transform.points_.size());
+
+    RCLCPP_INFO(this->get_logger(), "TODO: set ground region in depth image as 0");
+  }
+
   for (auto it = tracked_boxes.begin(); it != tracked_boxes.end(); ) {
     std::shared_ptr<open3d::geometry::PointCloud> pc;
     if (dd.masks.size()>0) {
       size_t idx = std::distance(tracked_boxes.begin(), it);
-      pc = generatePointCloudFromDepthAndMask(dd, it->box, dd.masks[idx]);
+      pc = generatePointCloudFromDepthAndMask(depth_img, it->box, dd.masks[idx]);
     } else {
-      pc = generatePointCloudFromDepthAndBox(dd, it->box);
+      pc = generatePointCloudFromDepthAndBox(depth_img, it->box);
     }
     if (!pc->HasPoints()) {
       RCLCPP_INFO(this->get_logger(), "no points found");
@@ -388,72 +433,48 @@ void AbstractDetectPeople::process_depth(DetectData & dd)
 }
 
 std::shared_ptr<open3d::geometry::PointCloud> AbstractDetectPeople::generatePointCloudFromDepthAndBox(
-  DetectData & dd, track_people_msgs::msg::BoundingBox & box)
+  cv::Mat & depth_img, track_people_msgs::msg::BoundingBox & box)
 {
   auto o3d_depth_ptr = std::make_shared<open3d::geometry::Image>();
-
-  // ROS_INFO("depth_msg_ptr.use_count() %d", dd.depth_msg_ptr.use_count());
-  auto cv_depth_ptr = cv_bridge::toCvShare(dd.depth_msg_ptr, sensor_msgs::image_encodings::TYPE_16UC1);
-  // ROS_INFO("cv_depth_ptr.use_count() %d", cv_depth_ptr.use_count());
-  auto img = cv_depth_ptr->image;
-  // ROS_INFO("img %d %d", img.cols, img.rows);
-
-  o3d_depth_ptr->Prepare(img.cols, img.rows, 1 /* channel */, 4 /* bytes per channel */);  // convert to float image
+  o3d_depth_ptr->Prepare(depth_img.cols, depth_img.rows, 1 /* channel */, 4 /* bytes per channel */);  // convert to float image
   fill(o3d_depth_ptr->data_.begin(), o3d_depth_ptr->data_.end(), 0);
 
   for (int row = box.ymin; row < box.ymax; row++) {
     for (int col = box.xmin; col < box.xmax; col++) {
       auto p = o3d_depth_ptr->PointerAt<float>(col, row);
-      *p = static_cast<float>(img.at<uint16_t>(row, col)) / 1000;
+      *p = static_cast<float>(depth_img.at<uint16_t>(row, col)) / 1000;
     }
   }
 
-  // ROS_INFO("%d %d %.2f %.2f %.2f %.2f", image_width_, image_height_, focal_length_, focal_length_, center_x_, center_y_);
-  auto pinhole_camera_intrinsic = open3d::camera::PinholeCameraIntrinsic(
-    image_width_, image_height_, focal_length_,
-    focal_length_, center_x_, center_y_);
-
-  return open3d::geometry::PointCloud::CreateFromDepthImage(*o3d_depth_ptr, pinhole_camera_intrinsic);
+  return open3d::geometry::PointCloud::CreateFromDepthImage(*o3d_depth_ptr, pinhole_camera_intrinsic_);
 }
 
 std::shared_ptr<open3d::geometry::PointCloud> AbstractDetectPeople::generatePointCloudFromDepthAndMask(
-  DetectData & dd, track_people_msgs::msg::BoundingBox & box, cv::Mat & mask)
+  cv::Mat & depth_img, track_people_msgs::msg::BoundingBox & box, cv::Mat & mask)
 {
   auto o3d_depth_ptr = std::make_shared<open3d::geometry::Image>();
-
-  // ROS_INFO("depth_msg_ptr.use_count() %d", dd.depth_msg_ptr.use_count());
-  auto cv_depth_ptr = cv_bridge::toCvShare(dd.depth_msg_ptr, sensor_msgs::image_encodings::TYPE_16UC1);
-  // ROS_INFO("cv_depth_ptr.use_count() %d", cv_depth_ptr.use_count());
-  auto img = cv_depth_ptr->image;
-  // ROS_INFO("img %d %d", img.cols, img.rows);
-
-  o3d_depth_ptr->Prepare(img.cols, img.rows, 1 /* channel */, 4 /* bytes per channel */);  // convert to float image
+  o3d_depth_ptr->Prepare(depth_img.cols, depth_img.rows, 1 /* channel */, 4 /* bytes per channel */);  // convert to float image
   fill(o3d_depth_ptr->data_.begin(), o3d_depth_ptr->data_.end(), 0);
 
   std::vector<cv::Point> mask_points;
   cv::Mat mask_img;
-  if (mask.cols==img.cols && mask.rows==img.rows) {
+  if (mask.cols==depth_img.cols && mask.rows==depth_img.rows) {
     // rtmdet-inst
     mask_img = mask;
   } else {
     // maskrcnn
     int x0 = std::max(int(std::floor(box.xmin)) - 1, 0);
     int y0 = std::max(int(std::floor(box.ymin)) - 1, 0);
-    mask_img = cv::Mat::zeros(img.size(), CV_8UC1);
+    mask_img = cv::Mat::zeros(depth_img.size(), CV_8UC1);
     mask.copyTo(mask_img(cv::Rect(x0, y0, mask.cols, mask.rows)));
   }
   cv::findNonZero(mask_img, mask_points);
   for (auto mask_point : mask_points) {
     auto p = o3d_depth_ptr->PointerAt<float>(mask_point.x, mask_point.y);
-    *p = static_cast<float>(img.at<uint16_t>(mask_point.y, mask_point.x)) / 1000;
+    *p = static_cast<float>(depth_img.at<uint16_t>(mask_point.y, mask_point.x)) / 1000;
   }
 
-  // ROS_INFO("%d %d %.2f %.2f %.2f %.2f", image_width_, image_height_, focal_length_, focal_length_, center_x_, center_y_);
-  auto pinhole_camera_intrinsic = open3d::camera::PinholeCameraIntrinsic(
-    image_width_, image_height_, focal_length_,
-    focal_length_, center_x_, center_y_);
-
-  return open3d::geometry::PointCloud::CreateFromDepthImage(*o3d_depth_ptr, pinhole_camera_intrinsic);
+  return open3d::geometry::PointCloud::CreateFromDepthImage(*o3d_depth_ptr, pinhole_camera_intrinsic_);
 }
 
 Eigen::Vector3d AbstractDetectPeople::getMedianOfPoints(open3d::geometry::PointCloud & pc)
