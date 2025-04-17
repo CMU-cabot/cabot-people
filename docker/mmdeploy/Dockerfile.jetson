@@ -115,7 +115,9 @@ RUN git clone --branch v0.16.1 https://github.com/pytorch/vision torchvision && 
         rm -rf torchvision
 
 # install mmdeploy requirements
-RUN pip3 install --no-cache-dir openmim==0.3.9 && \
+# install pyopenssl for openmim
+RUN pip3 install --no-cache-dir pyopenssl==25.0.0 && \
+        pip3 install --no-cache-dir openmim==0.3.9 && \
         # install all requirements for mmengine except opencv-python
         pip3 install --no-cache-dir addict termcolor pyyaml matplotlib yapf numpy rich && \
         # install mmengine withtout opencv-python to use opencv-python built from source
@@ -268,7 +270,9 @@ COPY --from=cache /usr/local/lib/python3.8/dist-packages/torchvision /usr/local/
 COPY --from=cache /usr/local/lib/python3.8/dist-packages/torchvision-0.16.1.dist-info /usr/local/lib/python3.8/dist-packages/torchvision-0.16.1.dist-info
 
 # install mmdeploy requirements
-RUN pip3 install --no-cache-dir openmim==0.3.9 && \
+# install pyopenssl for openmim
+RUN pip3 install --no-cache-dir pyopenssl==25.0.0 && \
+        pip3 install --no-cache-dir openmim==0.3.9 && \
         # install all requirements for mmengine except opencv-python
         pip3 install --no-cache-dir addict termcolor pyyaml matplotlib yapf numpy rich && \
         # install mmengine withtout opencv-python to use opencv-python built from source

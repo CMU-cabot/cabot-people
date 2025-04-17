@@ -71,11 +71,14 @@ RUN if [ "${TARGETARCH}" = "amd64" ]; then \
         apt update && \
         apt install -y --no-install-recommends \
         libogg-dev \
+        libpcl-dev \
         libtheora-dev \
         libturbojpeg0-dev \
+        python3-pcl \
         ros-$ROS_DISTRO-diagnostic-updater \
         ros-$ROS_DISTRO-compressed-image-transport \
         ros-$ROS_DISTRO-gazebo-msgs \
+        ros-$ROS_DISTRO-pcl-msgs \
         # ros-$ROS_DISTRO-people-msgs \
         ros-$ROS_DISTRO-rviz2 \
         # ros-$ROS_DISTRO-rviz \
@@ -86,6 +89,14 @@ RUN if [ "${TARGETARCH}" = "amd64" ]; then \
         ros-dev-tools \
         qtbase5-dev \
         libarmadillo-dev \
+        && \
+        apt clean && \
+        rm -rf /var/lib/apt/lists/* ; \
+    elif [ "${TARGETARCH}" = "arm64" ]; then \
+        apt update && \
+        apt install -y --no-install-recommends \
+        libpcl-dev \
+        python3-pcl \
         && \
         apt clean && \
         rm -rf /var/lib/apt/lists/* ; \
