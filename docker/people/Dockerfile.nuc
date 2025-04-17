@@ -42,8 +42,11 @@ RUN apt update && \
         libfreetype6-dev \
 	libc++-dev \
 	libopencv-dev \
+	libpcl-dev \
+	python3-pcl \
 	ros-$ROS_DISTRO-cv-bridge \
 	ros-$ROS_DISTRO-diagnostic-updater \
+	ros-$ROS_DISTRO-pcl-msgs \
 	ros-$ROS_DISTRO-tf2 \
 	ros-$ROS_DISTRO-tf2-geometry-msgs \
 	ros-$ROS_DISTRO-tf-transformations \
