@@ -49,6 +49,7 @@
 #include <rclcpp/node.hpp>
 #include <sensor_msgs/msg/camera_info.hpp>
 #include <sensor_msgs/msg/image.hpp>
+#include <sensor_msgs/msg/point_cloud2.hpp>
 #include <sensor_msgs/image_encodings.hpp>
 #include <std_srvs/srv/set_bool.hpp>
 #include <track_people_msgs/msg/bounding_box.hpp>
@@ -84,9 +85,11 @@ protected:
   bool is_camera_ready_;
 
   // config parameters
+  bool remove_ground_;
   double detection_threshold_;
   double minimum_detection_size_threshold_;
   std::string map_frame_name_;
+  std::string robot_footprint_frame_name_;
   std::string camera_id_;
   std::string camera_link_frame_name_;
   std::string camera_info_topic_name_;
@@ -102,6 +105,8 @@ protected:
   double focal_length_;
   double center_x_;
   double center_y_;
+  open3d::camera::PinholeCameraIntrinsic pinhole_camera_intrinsic_;
+  std::shared_ptr<Eigen::Matrix4d> camera_to_robot_footprint_matrix_;
 
 private:
   void enable_detect_people_cb(
@@ -117,11 +122,9 @@ private:
   void publish_detect_image(DetectData & dd);
   void process_depth(DetectData & dd);
   std::shared_ptr<open3d::geometry::PointCloud> generatePointCloudFromDepthAndBox(
-    DetectData & dd,
-    track_people_msgs::msg::BoundingBox & box);
+    cv::Mat & depth_img, track_people_msgs::msg::BoundingBox & box);
   std::shared_ptr<open3d::geometry::PointCloud> generatePointCloudFromDepthAndMask(
-    DetectData & dd,
-    track_people_msgs::msg::BoundingBox & box, cv::Mat & mask);
+    cv::Mat & depth_img, track_people_msgs::msg::BoundingBox & box, cv::Mat & mask);
   Eigen::Vector3d getMedianOfPoints(open3d::geometry::PointCloud & pc);
 
   std::shared_ptr<DetectData> temp_dd_;
@@ -132,6 +135,16 @@ private:
   std::mutex queue_camera_mutex_;
   std::mutex queue_ready_mutex_;
   std::mutex queue_detect_mutex_;
+
+  double estimate_ground_max_distance_;
+  int ransac_max_iteration_;
+  double ransac_probability_;
+  double ransac_eps_angle_;
+  double ransac_input_min_height_;
+  double ransac_input_max_height_;
+  double ransac_inlier_threshold_;
+  double ground_distance_threshold_;
+  double ignore_detect_ground_point_ratio_;
 
   bool enable_detect_people_;
 
@@ -148,6 +161,7 @@ private:
   rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr toggle_srv_;
   rclcpp::Subscription<sensor_msgs::msg::CameraInfo>::SharedPtr camera_info_sub_;
   rclcpp::Publisher<track_people_msgs::msg::TrackedBoxes>::SharedPtr detected_boxes_pub_;
+  rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr ground_pub_;
   rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr detect_image_pub_;
   rclcpp::CallbackGroup::SharedPtr fps_loop_cb_group_;
   rclcpp::CallbackGroup::SharedPtr detect_loop_cb_group_;
