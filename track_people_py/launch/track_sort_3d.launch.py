@@ -84,5 +84,6 @@ def generate_launch_description():
             package="track_people_py",
             executable="track_sort_3d_people.py",
             name="track_sort_3d_people_py",
+            # arguments=['--ros-args', '--log-level', 'track_sort_3d_people_py:=debug']
         ),
     ])

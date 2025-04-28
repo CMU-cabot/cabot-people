@@ -95,7 +95,8 @@ class TrackSort3dPeople(AbsTrackPeople):
 
         self.pub_result(combined_msg, id_list, color_list, tracked_duration)
 
-        self.vis_result(combined_msg, id_list, color_list, tracked_duration)
+        if self.get_logger().get_effective_level() == rclpy.logging.LoggingSeverity.DEBUG:
+            self.vis_result(combined_msg, id_list, color_list, tracked_duration)
 
         self.frame_id += 1
         # self.prev_detect_time_sec = cur_detect_time_sec

@@ -304,4 +304,5 @@ class PredictKfAbstract(rclpy.node.Node):
 
         self.pub_result(msg, alive_track_id_list, track_pos_dict, track_vel_dict, self.predict_buf.track_vel_hist_dict)
 
-        self.vis_result(msg, alive_track_id_list, track_pos_dict, track_vel_dict)
+        if self.get_logger().get_effective_level() == rclpy.logging.LoggingSeverity.DEBUG:
+            self.vis_result(msg, alive_track_id_list, track_pos_dict, track_vel_dict)
