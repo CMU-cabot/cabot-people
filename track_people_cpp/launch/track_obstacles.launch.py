@@ -72,6 +72,7 @@ def generate_launch_description():
             parameters=[{
                 'duration_inactive_to_stop_publish': 0.2,
                 'stationary_detect_threshold_duration': 1.0,
+                'target_fps': target_fps,
                 'diagnostic_name': 'ObstaclePredict'
             }],
             remappings=[('/obstacle/people', '/obstacles')],
