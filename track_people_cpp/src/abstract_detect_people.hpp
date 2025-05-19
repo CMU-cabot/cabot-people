@@ -25,7 +25,6 @@
 #include <message_filters/subscriber.h>
 #include <message_filters/sync_policies/approximate_time.h>
 #include <message_filters/synchronizer.h>
-#include <open3d/camera/PinholeCameraIntrinsic.h>
 #include <open3d/geometry/Image.h>
 #include <open3d/geometry/PointCloud.h>
 #include <tf2/LinearMath/Transform.h>
@@ -105,7 +104,6 @@ protected:
   double focal_length_;
   double center_x_;
   double center_y_;
-  open3d::camera::PinholeCameraIntrinsic pinhole_camera_intrinsic_;
   std::shared_ptr<Eigen::Matrix4d> camera_to_robot_footprint_matrix_;
 
 private:
@@ -121,6 +119,7 @@ private:
   void depth_loop_cb();
   void publish_detect_image(DetectData & dd);
   void process_depth(DetectData & dd);
+  std::shared_ptr<open3d::geometry::PointCloud> generatePointCloudFromDepth(cv::Mat & depth_img);
   std::shared_ptr<open3d::geometry::PointCloud> generatePointCloudFromDepthAndBox(
     cv::Mat & depth_img, track_people_msgs::msg::BoundingBox & box);
   std::shared_ptr<open3d::geometry::PointCloud> generatePointCloudFromDepthAndMask(
@@ -136,10 +135,11 @@ private:
   std::mutex queue_ready_mutex_;
   std::mutex queue_detect_mutex_;
 
-  double estimate_ground_max_distance_;
+  double estimate_ground_ransac_;
   int ransac_max_iteration_;
   double ransac_probability_;
   double ransac_eps_angle_;
+  double ransac_input_max_distance_;
   double ransac_input_min_height_;
   double ransac_input_max_height_;
   double ransac_inlier_threshold_;

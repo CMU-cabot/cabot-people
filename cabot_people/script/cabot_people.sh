@@ -339,8 +339,8 @@ echo "Obstacle      : $obstacle"
 
 
 if [ $publish_tf -eq 1 ]; then
-    eval "$command ros2 run tf2_ros static_transform_publisher 0 0 0 0 0 $roll map ${camera_link_frame} $commandpost"
-    eval "$command ros2 run tf2_ros static_transform_publisher 0 0 0 0 0 0 ${camera_link_frame} base_footprint $commandpost"
+    eval "$command ros2 run tf2_ros static_transform_publisher 0 0 0 0 0 0 map base_footprint $commandpost"
+    eval "$command ros2 run tf2_ros static_transform_publisher 0 0 1 0 0 $roll base_footprint ${camera_link_frame} $commandpost"
     pids+=($!)
 fi
 
