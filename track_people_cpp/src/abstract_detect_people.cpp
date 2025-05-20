@@ -373,11 +373,10 @@ void AbstractDetectPeople::process_depth(DetectData & dd)
   auto depth_img = cv_depth_ptr->image;
   // ROS_INFO("depth_img %d %d", depth_img.cols, depth_img.rows);
 
-  // calculate ground plane to ignore invalid detection
   Eigen::Vector4d ground_plane(0, 0, 0, 1);
   if (remove_ground_) {
+    // create transformation matrix from camera frame to robot footprint frame
     if (!camera_to_robot_footprint_matrix_) {
-      // create transformation matrix from camera frame to robot footprint frame
       try {
         geometry_msgs::msg::TransformStamped camera_to_robot_footprint_msg = tfBuffer->lookupTransform(
           robot_footprint_frame_name_, camera_link_frame_name_,
@@ -391,6 +390,7 @@ void AbstractDetectPeople::process_depth(DetectData & dd)
       }
     }
 
+    // calculate ground plane by RANSAC to ignore invalid detection
     if (estimate_ground_ransac_) {
       // ignore far depth points
       cv::threshold(depth_img, depth_img, ransac_input_max_distance_ * 1000.0, 0, cv::THRESH_TOZERO_INV);
@@ -398,26 +398,21 @@ void AbstractDetectPeople::process_depth(DetectData & dd)
       // create depth point cloud in robot footprint frame
       auto o3d_pc = generatePointCloudFromDepth(depth_img);
 
-      // convert coordinate from x-right,y-down,z-forward coordinate to x-forward,y-left,z-up coordinate
-      for (auto& pt : o3d_pc->points_) {
-        pt = Eigen::Vector3d(pt.z(), -pt.x(), -pt.y());
-      }
-
       // convert coordinate from camera to robot footprint
-      auto o3d_pc_transform = o3d_pc->Transform(*camera_to_robot_footprint_matrix_);
+      o3d_pc->Transform(*camera_to_robot_footprint_matrix_);
 
       // select point cloud by height
-      pcl::PointCloud<pcl::PointXYZ>::Ptr pcl_pc_transform(new pcl::PointCloud<pcl::PointXYZ>);
-      for (const auto& pt : o3d_pc_transform.points_) {
+      pcl::PointCloud<pcl::PointXYZ>::Ptr pcl_pc(new pcl::PointCloud<pcl::PointXYZ>);
+      for (const auto& pt : o3d_pc->points_) {
         if (pt.z() >= ransac_input_min_height_ && pt.z() <= ransac_input_max_height_) {
-          pcl_pc_transform->points.emplace_back(pt.x(), pt.y(), pt.z());
+          pcl_pc->points.emplace_back(pt.x(), pt.y(), pt.z());
         }
       }
 
       // estimate ground plane
       pcl::ModelCoefficients::Ptr ground_coefficients(new pcl::ModelCoefficients);
       pcl::PointIndices::Ptr ground_inliers(new pcl::PointIndices);
-      if (pcl_pc_transform->points.size() > 0) {
+      if (pcl_pc->points.size() > 0) {
         pcl::SACSegmentation<pcl::PointXYZ> seg;
         seg.setOptimizeCoefficients(true);
         seg.setModelType(pcl::SACMODEL_PERPENDICULAR_PLANE);
@@ -427,7 +422,7 @@ void AbstractDetectPeople::process_depth(DetectData & dd)
         seg.setAxis(Eigen::Vector3f(0.0, 0.0, 1.0));
         seg.setEpsAngle(ransac_eps_angle_ * (M_PI / 180.0));
         seg.setProbability(ransac_probability_);
-        seg.setInputCloud(pcl_pc_transform);
+        seg.setInputCloud(pcl_pc);
         seg.segment(*ground_inliers, *ground_coefficients);
       }
 
@@ -441,8 +436,8 @@ void AbstractDetectPeople::process_depth(DetectData & dd)
 
       if (debug_) {
         pcl::PointIndices ground_indices;
-        for (int i = 0; i < pcl_pc_transform->points.size(); i++) {
-          const pcl::PointXYZ & pt = pcl_pc_transform->points[i];
+        for (int i = 0; i < pcl_pc->points.size(); i++) {
+          const pcl::PointXYZ & pt = pcl_pc->points[i];
           if (pt.z >= ransac_input_min_height_ && pt.z <= ransac_input_max_height_) {
             double ground_plane_distance = ground_plane.dot(Eigen::Vector4d(pt.x, pt.y, pt.z, 1.0));
             if (abs(ground_plane_distance) <= ground_distance_threshold_) {
@@ -454,7 +449,7 @@ void AbstractDetectPeople::process_depth(DetectData & dd)
         pcl::PointCloud<pcl::PointXYZ>::Ptr pcl_ground(new pcl::PointCloud<pcl::PointXYZ>);
         pcl::ExtractIndices<pcl::PointXYZ> ground_extract_indices;
         ground_extract_indices.setIndices(pcl::make_shared<const pcl::PointIndices>(ground_indices));
-        ground_extract_indices.setInputCloud(pcl_pc_transform);
+        ground_extract_indices.setInputCloud(pcl_pc);
         ground_extract_indices.filter(*pcl_ground);
 
         sensor_msgs::msg::PointCloud2 ros_ground;
@@ -480,20 +475,15 @@ void AbstractDetectPeople::process_depth(DetectData & dd)
       continue;
     }
     if (remove_ground_) {
-      // convert coordinate from x-right,y-down,z-forward coordinate to x-forward,y-left,z-up coordinate
-      open3d::geometry::PointCloud pc_x_forward;
-      for (auto& pt : pc->points_) {
-        pc_x_forward.points_.emplace_back(pt.z(), -pt.x(), -pt.y());
-      }
-
       // convert coordinate from camera to robot footprint
-      auto pc_x_forward_transform = pc_x_forward.Transform(*camera_to_robot_footprint_matrix_);
+      auto pc_robot_footprint = std::make_shared<open3d::geometry::PointCloud>(*pc);
+      pc_robot_footprint->Transform(*camera_to_robot_footprint_matrix_);
 
       // ignore the detection result if the ratio of points that are close to ground is large
       int ground_point_num = 0;
       if (estimate_ground_ransac_) {
-        for (int i = 0; i < pc_x_forward_transform.points_.size(); i++) {
-          const Eigen::Vector3d & pt = pc_x_forward_transform.points_[i];
+        for (int i = 0; i < pc_robot_footprint->points_.size(); i++) {
+          const Eigen::Vector3d & pt = pc_robot_footprint->points_[i];
           if (pt(2) >= ransac_input_min_height_ && pt(2) <= ransac_input_max_height_) {
             double ground_plane_distance = ground_plane.dot(Eigen::Vector4d(pt(0), pt(1), pt(2), 1.0));
             if (abs(ground_plane_distance) <= ground_distance_threshold_) {
@@ -502,15 +492,15 @@ void AbstractDetectPeople::process_depth(DetectData & dd)
           }
         }
       } else {
-        for (int i = 0; i < pc_x_forward_transform.points_.size(); i++) {
-          const Eigen::Vector3d & pt = pc_x_forward_transform.points_[i];
+        for (int i = 0; i < pc_robot_footprint->points_.size(); i++) {
+          const Eigen::Vector3d & pt = pc_robot_footprint->points_[i];
           if (abs(pt(2)) <= ground_distance_threshold_) {
             ground_point_num += 1;
           }
         }
       }
 
-      double ground_point_ratio = ground_point_num / pc_x_forward_transform.points_.size();
+      double ground_point_ratio = ground_point_num / pc_robot_footprint->points_.size();
       if (ground_point_ratio > ignore_detect_ground_point_ratio_) {
         RCLCPP_INFO(this->get_logger(), "ignore detection on ground, ground point ratio %f", ground_point_ratio);
         tracked_boxes.erase(it);
@@ -526,16 +516,14 @@ void AbstractDetectPeople::process_depth(DetectData & dd)
       continue;
     }
 
-    // convert realsense coordinate (x:left-right, y:top-down,   z:back-front) to
-    //               ROS coordinate (x:back-front, y:right-left, z:down-top)
-    double x = median(2);
-    double y = -median(0);
+    double x = median(0);
+    double y = median(1);
     double z = 0;  // do not use height
 
     // if camera is sideway: roll = 90 or 270 degree
     if (dd.rotate % 2 == 1) {
       y = 0;
-      z = -median(1);
+      z = median(2);
     }
 
     tf2::Transform median_tf(tf2::Quaternion(0, 0, 0, 1), tf2::Vector3(x, y, z));
@@ -557,7 +545,8 @@ std::shared_ptr<open3d::geometry::PointCloud> AbstractDetectPeople::generatePoin
       if (z > 0) {
         double x = (col - center_x_) * z / focal_length_;
         double y = (row - center_y_) * z / focal_length_;
-        o3d_pc_ptr->points_.emplace_back(x, y, z);
+        // convert coordinate from x-right,y-down,z-forward coordinate to x-forward,y-left,z-up coordinate
+        o3d_pc_ptr->points_.emplace_back(z, -x, -y);
       }
     }
   }
@@ -574,7 +563,8 @@ std::shared_ptr<open3d::geometry::PointCloud> AbstractDetectPeople::generatePoin
       if (z > 0) {
         double x = (col - center_x_) * z / focal_length_;
         double y = (row - center_y_) * z / focal_length_;
-        o3d_pc_ptr->points_.emplace_back(x, y, z);
+        // convert coordinate from x-right,y-down,z-forward coordinate to x-forward,y-left,z-up coordinate
+        o3d_pc_ptr->points_.emplace_back(z, -x, -y);
       }
     }
   }
@@ -605,7 +595,8 @@ std::shared_ptr<open3d::geometry::PointCloud> AbstractDetectPeople::generatePoin
     if (z > 0) {
       double x = (mask_point.x - center_x_) * z / focal_length_;
       double y = (mask_point.y - center_y_) * z / focal_length_;
-      o3d_pc_ptr->points_.emplace_back(x, y, z);
+      // convert coordinate from x-right,y-down,z-forward coordinate to x-forward,y-left,z-up coordinate
+      o3d_pc_ptr->points_.emplace_back(z, -x, -y);
     }
   }
   return o3d_pc_ptr;

@@ -25,7 +25,6 @@
 #include <message_filters/subscriber.h>
 #include <message_filters/sync_policies/approximate_time.h>
 #include <message_filters/synchronizer.h>
-#include <open3d/geometry/Image.h>
 #include <open3d/geometry/PointCloud.h>
 #include <tf2/LinearMath/Transform.h>
 #include <tf2/transform_datatypes.h>
