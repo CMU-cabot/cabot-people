@@ -105,5 +105,6 @@ def generate_launch_description():
             executable="detect_mmdet_people.py",
             name="detect_mmdet_people_py",
             namespace=namespace,
+            output={},
         ),
     ])

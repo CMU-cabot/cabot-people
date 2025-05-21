@@ -58,6 +58,7 @@ def generate_launch_description():
             executable='track_sort_3d_people.py',
             name='track_obstacle',
             namespace='obstacle',
+            output={},
             parameters=[{
                 'target_fps': target_fps,
                 'diagnostic_name': 'ObstacleTrack'
@@ -69,6 +70,7 @@ def generate_launch_description():
             executable="predict_kf_obstacle.py",
             name="predict_obstacle",
             namespace='obstacle',
+            output={},
             parameters=[{
                 'duration_inactive_to_stop_publish': 0.2,
                 'stationary_detect_threshold_duration': 1.0,

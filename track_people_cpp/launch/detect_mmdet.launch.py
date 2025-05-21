@@ -111,6 +111,7 @@ def generate_launch_description():
             executable="detect_mmdet_node",
             name="detect_mmdet_people_cpp",
             namespace=namespace,
+            output={},
             condition=UnlessCondition(use_composite)
         ),
 

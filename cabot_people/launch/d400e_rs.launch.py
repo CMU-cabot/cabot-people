@@ -128,6 +128,7 @@ def generate_launch_description():
             executable="framos_initialize_node",
             name="framos_initialize_node",
             namespace=LaunchConfiguration("camera_name"),
+            output={},
             parameters=[{
                 'camera_link_frame': camera_link_frame
             }]
@@ -138,7 +139,7 @@ def generate_launch_description():
             name=LaunchConfiguration("camera_name"),
             executable='framos_realsense2_camera_node',
             parameters = [set_configurable_parameters(configurable_parameters)],
-            output='log',
+            output={},
             arguments=['--ros-args', '--log-level', LaunchConfiguration('log_level')],
             emulate_tty=True,
             respawn=True,

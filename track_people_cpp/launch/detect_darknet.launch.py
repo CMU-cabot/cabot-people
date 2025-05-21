@@ -125,6 +125,7 @@ def generate_launch_description():
             executable="detect_darknet_opencv_node",
             name="detect_darknet_people_cpp",
             namespace=namespace,
+            output={},
             condition=UnlessCondition(use_composite)
         ),
 

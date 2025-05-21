@@ -110,7 +110,7 @@ def generate_launch_description():
                     extra_arguments=[{'use_intra_process_comms': use_intra_process_comms}],
                 )
             ],
-            output='screen',
+            output={},
             arguments=['--ros-args', '--log-level', LaunchConfiguration('log_level')],
             emulate_tty=True,
         )

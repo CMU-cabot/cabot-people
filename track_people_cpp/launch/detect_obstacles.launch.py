@@ -60,5 +60,6 @@ def generate_launch_description():
             executable='detect_obstacle_on_path_node',
             name='detect_obstacle_on_path',
             namespace='obstacle',
+            output={},
         )
     ])

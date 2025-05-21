@@ -78,5 +78,6 @@ def generate_launch_description():
             package="track_people_py",
             executable="predict_kf_people.py",
             name="predict_kf_people_py",
+            output={},
         ),
     ])

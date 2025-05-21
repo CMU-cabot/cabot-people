@@ -77,6 +77,9 @@ services:
   people-nuc-dev-base:
     extends:
       service: people-nuc-base
+    environment: &dev-environment
+      - OVERRIDE_LAUNCH_PROCESS_OUTPUT=screen
+      - RCUTILS_CONSOLE_OUTPUT_FORMAT={time}	[{severity}]	[{file_name}#L{line_number}][{name}]	{message}
     volumes:
       - ./cabot-common/cabot_common:/home/developer/people_nuc_ws/src/cabot_common
       - ./cabot-common/cabot_msgs:/home/developer/people_nuc_ws/src/cabot_msgs
@@ -137,6 +140,7 @@ services:
   people-all-dev-base:
     extends:
       service: people-all-base
+    environment: *dev-environment
     volumes:
       - ./cabot-common/cabot_common:/home/developer/people_ws/src/cabot_common
       - ./cabot-common/cabot_msgs:/home/developer/people_ws/src/cabot_msgs
@@ -181,6 +185,7 @@ services:
   people-detection-dev-base:
     extends:
       service: people-detection-base
+    environment: *dev-environment
     volumes:
       - ./cabot-common/cabot_common:/home/developer/people_ws/src/cabot_common
       - ./cabot-common/cabot_msgs:/home/developer/people_ws/src/cabot_msgs
@@ -207,6 +212,7 @@ services:
   people-track-dev-base:
     extends:
       service: people-track-base
+    environment: *dev-environment
     volumes:
       - ./cabot-common/cabot_common:/home/developer/people_ws/src/cabot_common
       - ./cabot-common/cabot_msgs:/home/developer/people_ws/src/cabot_msgs
@@ -240,6 +246,7 @@ services:
   people-framos-all-dev-base:
     extends:
       service: people-framos-all-base
+    environment: *dev-environment
     volumes:
       - ./cabot-common/cabot_common:/home/developer/people_framos_ws/src/cabot_common
       - ./cabot-common/cabot_msgs:/home/developer/people_framos_ws/src/cabot_msgs
@@ -277,6 +284,7 @@ services:
   people-framos-camera-dev-base:
     extends:
       service: people-framos-camera-base
+    environment: *dev-environment
     volumes:
       - ./cabot-common/cabot_common:/home/developer/people_framos_ws/src/cabot_common
       - ./cabot-common/cabot_msgs:/home/developer/people_framos_ws/src/cabot_msgs
@@ -311,6 +319,7 @@ services:
   people-framos-detection-dev-base:
     extends:
       service: people-framos-detection-base
+    environment: *dev-environment
     volumes:
       - ./cabot-common/cabot_common:/home/developer/people_framos_ws/src/cabot_common
       - ./cabot-common/cabot_msgs:/home/developer/people_framos_ws/src/cabot_msgs

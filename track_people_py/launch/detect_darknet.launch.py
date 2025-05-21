@@ -107,5 +107,6 @@ def generate_launch_description():
             executable="detect_darknet_opencv_people.py",
             name="detect_darknet_people_py",
             namespace=namespace,
+            output={},
         ),
     ])
