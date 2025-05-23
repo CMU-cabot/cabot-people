@@ -39,6 +39,7 @@ except ImportError:
 
 
 def generate_launch_description():
+    output = {'stderr': {'log'}}
     kf_init_var = LaunchConfiguration('kf_init_var')
     kf_process_var = LaunchConfiguration('kf_process_var')
     kf_measure_var = LaunchConfiguration('kf_measure_var')
@@ -78,6 +79,6 @@ def generate_launch_description():
             package="track_people_py",
             executable="predict_kf_people.py",
             name="predict_kf_people_py",
-            output={},
+            output=output,
         ),
     ])

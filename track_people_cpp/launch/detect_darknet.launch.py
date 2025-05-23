@@ -76,6 +76,7 @@ def generate_launch_description():
     coco_names = PathJoinSubstitution([get_package_share_directory('track_people_py'), 'models', 'coco.names'])
 
     return LaunchDescription([
+        output = {'stderr': {'log'}}
         # save all log file in the directory where the launch.log file is saved
         SetEnvironmentVariable('ROS_LOG_DIR', launch_config.log_dir),
         # append prefix name to the log directory for convenience
@@ -125,7 +126,7 @@ def generate_launch_description():
             executable="detect_darknet_opencv_node",
             name="detect_darknet_people_cpp",
             namespace=namespace,
-            output={},
+            output=output,
             condition=UnlessCondition(use_composite)
         ),
 

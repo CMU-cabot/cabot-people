@@ -39,6 +39,7 @@ except ImportError:
 
 
 def generate_launch_description():
+    output = {'stderr': {'log'}}
     sensor_id = LaunchConfiguration('sensor_id')
     scan_topic = LaunchConfiguration('scan_topic')
 
@@ -60,6 +61,6 @@ def generate_launch_description():
             executable='detect_obstacle_on_path_node',
             name='detect_obstacle_on_path',
             namespace='obstacle',
-            output={},
+            output=output,
         )
     ])

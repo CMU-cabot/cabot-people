@@ -45,6 +45,7 @@ except ImportError:
 
 
 def generate_launch_description():
+    output = {'stderr': {'log'}}
     map_frame = LaunchConfiguration('map_frame')
     namespace = LaunchConfiguration('namespace')
     camera_link_frame = LaunchConfiguration('camera_link_frame')
@@ -119,7 +120,7 @@ def generate_launch_description():
             executable="detect_mmdet_seg_node",
             name="detect_mmdet_seg_people_cpp",
             namespace=namespace,
-            output={},
+            output=output,
             condition=UnlessCondition(use_composite)
         ),
 

@@ -41,6 +41,7 @@ except ImportError:
 
 
 def generate_launch_description():
+    output = {'stderr': {'log'}}
     map_frame = LaunchConfiguration('map_frame')
     namespace = LaunchConfiguration('namespace')
     camera_link_frame = LaunchConfiguration('camera_link_frame')
@@ -107,6 +108,6 @@ def generate_launch_description():
             executable="detect_darknet_opencv_people.py",
             name="detect_darknet_people_py",
             namespace=namespace,
-            output={},
+            output=output,
         ),
     ])

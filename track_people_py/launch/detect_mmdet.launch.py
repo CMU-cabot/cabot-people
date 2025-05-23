@@ -41,6 +41,7 @@ except ImportError:
 
 
 def generate_launch_description():
+    output = {'stderr': {'log'}}
     map_frame = LaunchConfiguration('map_frame')
     namespace = LaunchConfiguration('namespace')
     camera_link_frame = LaunchConfiguration('camera_link_frame')
@@ -105,6 +106,6 @@ def generate_launch_description():
             executable="detect_mmdet_people.py",
             name="detect_mmdet_people_py",
             namespace=namespace,
-            output={},
+            output=output,
         ),
     ])

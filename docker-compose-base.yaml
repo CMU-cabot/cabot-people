@@ -9,7 +9,6 @@ services:
       - HOST_UID
       - HOST_GID
       - HOST_TZ
-      - ROS_LOG_DIR
 # CaBot
       - CABOT_GAZEBO=${CABOT_GAZEBO:-1}
       - CABOT_SITE
@@ -29,6 +28,9 @@ services:
       - CABOT_DETECT_PEOPLE_FPS
       - CABOT_PEOPLE_TRACK_FPS
       - CABOT_PEOPLE_PREDICT_FPS
+# ROS2/DDS
+      - RCUTILS_LOGGING_USE_STDOUT=1
+      - ROS_LOG_DIR
       - RMW_IMPLEMENTATION
       - ROS_LOCALHOST_ONLY
       - ROS_DOMAIN_ID
@@ -78,8 +80,9 @@ services:
     extends:
       service: people-nuc-base
     environment: &dev-environment
+      - RCUTILS_LOGGING_USE_STDOUT=0
       - OVERRIDE_LAUNCH_PROCESS_OUTPUT=screen
-      - RCUTILS_CONSOLE_OUTPUT_FORMAT={time}	[{severity}]	[{file_name}#L{line_number}][{name}]	{message}
+      - RCUTILS_CONSOLE_OUTPUT_FORMAT=[{severity}]	{time}	[{name}({file_name}#L{line_number})]	{message}
     volumes:
       - ./cabot-common/cabot_common:/home/developer/people_nuc_ws/src/cabot_common
       - ./cabot-common/cabot_msgs:/home/developer/people_nuc_ws/src/cabot_msgs

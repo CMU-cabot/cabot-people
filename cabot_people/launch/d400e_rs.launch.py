@@ -113,6 +113,7 @@ def set_configurable_parameters(parameters):
     return dict([(param['name'], LaunchConfiguration(param['name'])) for param in parameters])
 
 def generate_launch_description():
+    output = {'stderr': {'log'}}
     log_level = 'info'
     camera_link_frame = LaunchConfiguration("camera_link_frame")
 
@@ -128,7 +129,7 @@ def generate_launch_description():
             executable="framos_initialize_node",
             name="framos_initialize_node",
             namespace=LaunchConfiguration("camera_name"),
-            output={},
+            output=output,
             parameters=[{
                 'camera_link_frame': camera_link_frame
             }]
@@ -139,7 +140,7 @@ def generate_launch_description():
             name=LaunchConfiguration("camera_name"),
             executable='framos_realsense2_camera_node',
             parameters = [set_configurable_parameters(configurable_parameters)],
-            output={},
+            output=output,
             arguments=['--ros-args', '--log-level', LaunchConfiguration('log_level')],
             emulate_tty=True,
             respawn=True,

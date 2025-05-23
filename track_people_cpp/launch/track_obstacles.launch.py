@@ -38,6 +38,7 @@ except ImportError:
 
 
 def generate_launch_description():
+    output = {'stderr': {'log'}}
     # ToDo: workaround https://github.com/CMU-cabot/cabot/issues/86
     jetpack5_workaround = LaunchConfiguration('jetpack5_workaround')
     target_fps = LaunchConfiguration('target_fps')
@@ -58,7 +59,7 @@ def generate_launch_description():
             executable='track_sort_3d_people.py',
             name='track_obstacle',
             namespace='obstacle',
-            output={},
+            output=output,
             parameters=[{
                 'target_fps': target_fps,
                 'diagnostic_name': 'ObstacleTrack'
@@ -70,7 +71,7 @@ def generate_launch_description():
             executable="predict_kf_obstacle.py",
             name="predict_obstacle",
             namespace='obstacle',
-            output={},
+            output=output,
             parameters=[{
                 'duration_inactive_to_stop_publish': 0.2,
                 'stationary_detect_threshold_duration': 1.0,

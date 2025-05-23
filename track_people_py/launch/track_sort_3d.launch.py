@@ -39,6 +39,7 @@ except ImportError:
 
 
 def generate_launch_description():
+    output = {'stderr': {'log'}}
     iou_threshold = LaunchConfiguration('iou_threshold')
     iou_circle_size = LaunchConfiguration('iou_circle_size')
     kf_init_var = LaunchConfiguration('kf_init_var')
@@ -84,6 +85,6 @@ def generate_launch_description():
             package="track_people_py",
             executable="track_sort_3d_people.py",
             name="track_sort_3d_people_py",
-            output={},
+            output=output,
         ),
     ])

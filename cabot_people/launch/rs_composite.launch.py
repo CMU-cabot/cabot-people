@@ -81,6 +81,7 @@ def set_configurable_parameters(parameters):
     return dict([(param['name'], LaunchConfiguration(param['name'])) for param in parameters])
 
 def generate_launch_description():
+    output = {'stderr': {'log'}}
     log_level = 'info'
     use_intra_process_comms = LaunchConfiguration("use_intra_process_comms")
 
@@ -110,7 +111,7 @@ def generate_launch_description():
                     extra_arguments=[{'use_intra_process_comms': use_intra_process_comms}],
                 )
             ],
-            output={},
+            output=output,
             arguments=['--ros-args', '--log-level', LaunchConfiguration('log_level')],
             emulate_tty=True,
         )
