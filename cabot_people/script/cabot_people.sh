@@ -20,6 +20,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+set -m
 
 ## termination hook
 trap ctrl_c INT QUIT TERM
@@ -27,13 +28,11 @@ trap ctrl_c INT QUIT TERM
 function ctrl_c() {
     echo "trap cabot_people.sh "
 
-    kill -INT -1
-
-#    for pid in ${pids[@]}; do
-#       echo "send SIGINT to $pid"
-#        com="kill -INT $pid"
-#        eval $com
-#    done
+    for pid in ${pids[@]}; do
+        echo "send SIGINT to $pid"
+        com="kill -INT $pid"
+        eval $com
+    done
     for pid in ${pids[@]}; do
         count=0
          while kill -0 $pid 2> /dev/null; do
@@ -376,7 +375,7 @@ if [ $realsense_camera -eq 1 ]; then
     if [ $camera_type -eq 1 ]; then
         launch_file="cabot_people rs_composite.launch.py"
         echo "launch $launch_file"
-        eval "$command ros2 launch $launch_file \
+        eval "$command ros2 launch -n $launch_file \
                         align_depth.enable:=true \
                         depth_module.depth_profile:=$width,$height,$depth_fps \
                         rgb_camera.color_profile:=$width,$height,$rgb_fps \
@@ -396,7 +395,7 @@ if [ $realsense_camera -eq 1 ]; then
 
         launch_file="cabot_people d400e_rs.launch.py"
         echo "launch $launch_file"
-        eval "$command ros2 launch $launch_file \
+        eval "$command ros2 launch -n $launch_file \
                         align_depth:=true \
                         depth_width:=$width \
                         depth_height:=$height \
@@ -490,7 +489,7 @@ if [ $detection -eq 1 ]; then
     if [ $cabot_detect_ver -eq 1 ] || [ $cabot_detect_ver -eq 4 ] || [ $cabot_detect_ver -eq 7 ]; then
         # python
         echo "launch track_people_py $launch_file"
-        com="$command ros2 launch track_people_py $launch_file \
+        com="$command ros2 launch -n track_people_py $launch_file \
                       namespace:=$namespace \
                       map_frame:=$map_frame \
                       camera_link_frame:=$camera_link_frame \
@@ -514,7 +513,7 @@ if [ $detection -eq 1 ]; then
         fi
         # cpp
         echo "launch track_people_cpp $launch_file"
-        com="$command ros2 launch track_people_cpp $launch_file \
+        com="$command ros2 launch -n track_people_cpp $launch_file \
                       namespace:=$namespace \
                       map_frame:=$map_frame \
                       camera_link_frame:=$camera_link_frame \
@@ -536,7 +535,7 @@ if [ $tracking -eq 1 ]; then
     ### launch people track
     launch_file="track_people_py track_sort_3d.launch.py"
     echo "launch $launch_file"
-    com="$command ros2 launch $launch_file \
+    com="$command ros2 launch -n $launch_file \
                   jetpack5_workaround:=$jetpack5_workaround \
                   $commandpost"
     echo $com
@@ -550,7 +549,7 @@ if [ $tracking -eq 1 ]; then
     fi
     launch_file="track_people_py predict_kf.launch.py"
     echo "launch $launch_file"
-    com="$command ros2 launch $launch_file $opt_predict \
+    com="$command ros2 launch -n $launch_file $opt_predict \
                   jetpack5_workaround:=$jetpack5_workaround \
                   $commandpost"
     echo $com
@@ -563,7 +562,7 @@ if [ $obstacle -eq 1 ]; then
     target_fps=10.0
     launch_file="track_people_cpp detect_obstacles.launch.py sensor_id:=velodyne scan_topic:=/scan"
     echo "launch $launch_file"
-    com="$command ros2 launch $launch_file \
+    com="$command ros2 launch -n $launch_file \
                   sensor_id:=velodyne \
                   scan_topic:=/scan \
                   $commandpost"
@@ -575,7 +574,7 @@ if [ $obstacle -eq 1 ]; then
 	target_fps=20.0
         launch_file="track_people_cpp detect_obstacles.launch.py sensor_id:=livox scan_topic:=/livox_scan"
         echo "launch $launch_file"
-        com="$command ros2 launch $launch_file \
+        com="$command ros2 launch -n $launch_file \
                     sensor_id:=livox \
                     scan_topic:=/livox_scan \
                     $commandpost"
@@ -586,7 +585,7 @@ if [ $obstacle -eq 1 ]; then
 
     launch_file="track_people_cpp track_obstacles.launch.py"
     echo "launch $launch_file"
-    com="$command ros2 launch $launch_file \
+    com="$command ros2 launch -n $launch_file \
                   jetpack5_workaround:=$jetpack5_workaround \
                   target_fps:=$target_fps \
                   $commandpost"
