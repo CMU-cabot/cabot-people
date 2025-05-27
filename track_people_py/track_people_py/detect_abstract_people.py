@@ -285,11 +285,10 @@ class AbsDetectPeople(rclpy.node.Node):
         center3d_list = []
         center_bird_eye_global_list = []
         if len(detect_results) > 0:
-            # calculate ground plane to ignore invalid detection
             ground_plane = np.array([0, 0, 0, 1])
             if self.remove_ground:
+                # create transformation matrix from camera frame to robot footprint frame
                 if self.camera_to_robot_footprint_matrix is None:
-                    # create transformation matrix from camera frame to robot footprint frame
                     try:
                         t = self.tf2_buffer.lookup_transform(self.robot_footprint_frame, self.camera_link_frame_name, 
                                                              Time.from_msg(depth_img_msg.header.stamp), Duration(seconds=self.lookup_transform_duration))
@@ -302,6 +301,7 @@ class AbsDetectPeople(rclpy.node.Node):
                         self.get_logger().error('LookupTransform Error')
                         return
 
+                # calculate ground plane by RANSAC to ignore invalid detection
                 if self.estimate_ground_ransac_:
                     # ignore far depth points
                     input_depth_image[input_depth_image >= self.ransac_input_max_distance * 1000.0] = 0.0
@@ -338,7 +338,7 @@ class AbsDetectPeople(rclpy.node.Node):
                         seg.set_eps_angle(self.ransac_eps_angle * (math.pi / 180.0))
                         indices, ground_coefficients = seg.segment()
 
-                    # if ground plane is found, set z=0 as ground plane
+                    # ground plane is found
                     if len(indices) > 0:
                         ground_plane = np.array(ground_coefficients)
 
