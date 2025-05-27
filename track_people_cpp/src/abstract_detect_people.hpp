@@ -134,7 +134,7 @@ private:
   std::mutex queue_ready_mutex_;
   std::mutex queue_detect_mutex_;
 
-  double estimate_ground_ransac_;
+  bool estimate_ground_ransac_;
   int ransac_max_iteration_;
   double ransac_probability_;
   double ransac_eps_angle_;
