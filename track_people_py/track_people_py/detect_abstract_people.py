@@ -36,7 +36,6 @@ import rclpy.node
 from rclpy.duration import Duration
 from rclpy.time import Time
 
-import open3d as o3d
 import pcl
 from scipy.spatial.transform import Rotation as R
 from sensor_msgs.msg import Image, CameraInfo, PointCloud2, PointField
