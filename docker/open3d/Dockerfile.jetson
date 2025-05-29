@@ -37,13 +37,6 @@ RUN apt update && \
 	apt clean && \
 	rm -rf /var/lib/apt/lists/*
 
-ARG CMAKE_V=3.19.3
-
-# install cmake
-RUN wget https://github.com/Kitware/CMake/releases/download/v${CMAKE_V}/cmake-${CMAKE_V}-linux-aarch64.sh && \
-    sh cmake-${CMAKE_V}-linux-aarch64.sh --skip-license --prefix=/usr && \
-    rm cmake-${CMAKE_V}-linux-aarch64.sh
-
 # need to run build, install, and delete to reduce image size
 RUN git clone --recursive https://github.com/intel-isl/Open3D && \
 	cd Open3D && \
