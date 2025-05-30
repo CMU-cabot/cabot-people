@@ -1,4 +1,3 @@
-Cython==0.29.33
 filterpy==1.4.5
 matplotlib==3.6.3
 numpy==1.24.1

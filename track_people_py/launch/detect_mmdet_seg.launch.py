@@ -43,6 +43,7 @@ except ImportError:
 def generate_launch_description():
     output = {'stderr': {'log'}}
     map_frame = LaunchConfiguration('map_frame')
+    robot_footprint_frame = LaunchConfiguration('robot_footprint_frame')
     namespace = LaunchConfiguration('namespace')
     camera_link_frame = LaunchConfiguration('camera_link_frame')
     camera_info_topic = LaunchConfiguration('camera_info_topic')
@@ -52,6 +53,7 @@ def generate_launch_description():
     target_fps = LaunchConfiguration('target_fps')
     publish_simulator_people = LaunchConfiguration('publish_simulator_people')
     publish_detect_image = LaunchConfiguration('publish_detect_image')
+    remove_ground = LaunchConfiguration('remove_ground')
     detection_threshold = LaunchConfiguration('detection_threshold')
     minimum_detection_size_threshold = LaunchConfiguration('minimum_detection_size_threshold')
 
@@ -71,6 +73,7 @@ def generate_launch_description():
         LogInfo(msg=["no cabot_common"]) if workaround else RegisterEventHandler(OnShutdown(on_shutdown=[AppendLogDirPrefix("track_people_cpp-detect_darknet")])),
 
         DeclareLaunchArgument('map_frame', default_value='map'),
+        DeclareLaunchArgument('robot_footprint_frame', default_value='base_footprint'),
         DeclareLaunchArgument('namespace', default_value='camera'),
         DeclareLaunchArgument('camera_link_frame', default_value='camera_link'),
         DeclareLaunchArgument('camera_info_topic', default_value='color/camera_info'),
@@ -82,6 +85,7 @@ def generate_launch_description():
         DeclareLaunchArgument('target_container', default_value=''),
         DeclareLaunchArgument('publish_simulator_people', default_value='false'),
         DeclareLaunchArgument('publish_detect_image', default_value='false'),
+        DeclareLaunchArgument('remove_ground', default_value='true'),
         DeclareLaunchArgument('detection_threshold', default_value=EnvironmentVariable('CABOT_DETECT_PEOPLE_CONF_THRES', default_value='0.6')),
         DeclareLaunchArgument('minimum_detection_size_threshold', default_value='50.0'),
 
@@ -93,6 +97,7 @@ def generate_launch_description():
 
         # overwrite parameters
         SetParameter(name='map_frame', value=map_frame),
+        SetParameter(name='robot_footprint_frame', value=robot_footprint_frame),
         SetParameter(name='camera_id', value=namespace),
         SetParameter(name='camera_link_frame', value=camera_link_frame),
         SetParameter(name='camera_info_topic', value=camera_info_topic),
@@ -103,6 +108,7 @@ def generate_launch_description():
         SetParameter(name='publish_simulator_people', value=publish_simulator_people),
         SetParameter(name='publish_detect_image', value=publish_detect_image),
         SetParameter(name='detection_threshold', value=detection_threshold),
+        SetParameter(name='remove_ground', value=remove_ground),
         SetParameter(name='minimum_detection_size_threshold', value=minimum_detection_size_threshold),
         SetParameter(name='detect_model_dir', value=detect_model_dir),
         SetParameter(name='model_input_width', value=model_input_width),

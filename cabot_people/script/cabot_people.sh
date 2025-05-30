@@ -103,6 +103,7 @@ commandpost='&'
 : ${CABOT_DETECT_VERSION:=3}
 : ${CABOT_DETECT_PEOPLE_CONF_THRES:=0.6}
 : ${CABOT_DETECT_PEOPLE_CLEAR_TIME:=0.2}
+: ${CABOT_DETECT_PEOPLE_REMOVE_GROUND:=1}
 : ${CABOT_LOW_OBSTABLE_DETECT_VERSION:=0}
 : ${CABOT_HEADLESS:=0}
 if [[ $CABOT_HEADLESS -eq 1 ]]; then
@@ -126,6 +127,10 @@ depth_fps=$CABOT_CAMERA_DEPTH_FPS
 resolution=$CABOT_CAMERA_RESOLUTION
 
 cabot_detect_ver=$CABOT_DETECT_VERSION
+remove_ground=false
+if [[ $CABOT_DETECT_PEOPLE_REMOVE_GROUND -eq 1 ]]; then
+    remove_ground=true
+fi
 
 cabot_low_obstacle_detect_ver=$CABOT_LOW_OBSTABLE_DETECT_VERSION
 
@@ -333,7 +338,8 @@ echo "Obstacle      : $obstacle"
 
 
 if [ $publish_tf -eq 1 ]; then
-    eval "$command ros2 run tf2_ros static_transform_publisher 0 0 0 0 0 $roll map ${camera_link_frame} $commandpost"
+    eval "$command ros2 run tf2_ros static_transform_publisher 0 0 0 0 0 0 map base_footprint $commandpost"
+    eval "$command ros2 run tf2_ros static_transform_publisher 0 0 1 0 0 $roll base_footprint ${camera_link_frame} $commandpost"
     pids+=($!)
 fi
 
@@ -494,6 +500,7 @@ if [ $detection -eq 1 ]; then
                       map_frame:=$map_frame \
                       camera_link_frame:=$camera_link_frame \
                       depth_registered_topic:=$depth_registered_topic \
+                      remove_ground:=$remove_ground \
                       minimum_detection_size_threshold:=$min_bbox_size \
                       publish_detect_image:=$publish_detect_image \
                       jetpack5_workaround:=$jetpack5_workaround \
@@ -519,6 +526,7 @@ if [ $detection -eq 1 ]; then
                       camera_link_frame:=$camera_link_frame \
                       use_composite:=$use_composite \
                       depth_registered_topic:=$depth_registered_topic \
+                      remove_ground:=$remove_ground \
                       minimum_detection_size_threshold:=$min_bbox_size \
                       publish_detect_image:=$publish_detect_image \
                       jetpack5_workaround:=$jetpack5_workaround \

@@ -36,14 +36,16 @@ import rclpy.node
 from rclpy.duration import Duration
 from rclpy.time import Time
 
+import pcl
 from scipy.spatial.transform import Rotation as R
-from sensor_msgs.msg import Image, CameraInfo
+from sensor_msgs.msg import Image, CameraInfo, PointCloud2, PointField
 from std_msgs.msg import ColorRGBA
 from std_srvs.srv import SetBool
 
 from rclpy.qos import qos_profile_sensor_data
 
 import tf2_ros
+import tf_transformations
 from track_people_msgs.msg import BoundingBox, TrackedBox, TrackedBoxes
 
 from .pointcloud_utils import open3d_utils
@@ -61,12 +63,25 @@ class AbsDetectPeople(rclpy.node.Node):
 
         # constant parameters
         self.lookup_transform_duration = 1
+        self.estimate_ground_ransac_ = False
+        self.ransac_ksearch = 50
+        self.ransac_max_iteration = 10000
+        self.ransac_eps_angle = 5.0
+        self.ransac_input_max_distance = 10.0
+        self.ransac_input_min_height = -0.50
+        self.ransac_input_max_height = 0.50
+        self.ransac_inlier_threshold = 0.01
+        self.ground_distance_threshold = 0.20
+        self.ignore_detect_ground_point_ratio = 0.90
+        self.debug = False
 
         # load detect model
+        self.remove_ground = self.declare_parameter('remove_ground', True).value
         self.detection_threshold = self.declare_parameter('detection_threshold', 0.6).value
         self.minimum_detection_size_threshold = self.declare_parameter('minimum_detection_size_threshold', 50.0).value
 
         self.map_frame_name = self.declare_parameter('map_frame', 'map').value
+        self.robot_footprint_frame = self.declare_parameter('robot_footprint_frame', 'base_footprint').value
         self.camera_id = self.declare_parameter('camera_id', 'camera').value
         self.camera_link_frame_name = self.declare_parameter('camera_link_frame', 'camera_link').value
         self.camera_info_topic_name = self.declare_parameter('camera_info_topic', 'color/camera_info').value
@@ -95,6 +110,8 @@ class AbsDetectPeople(rclpy.node.Node):
         self.rgb_depth_img_synch = ApproximateTimeSynchronizer([self.rgb_image_sub, self.depth_image_sub], queue_size=10, slop=1.0/self.target_fps)
         self.rgb_depth_img_synch.registerCallback(self.rgb_depth_img_cb)
         self.detected_boxes_pub = self.create_publisher(TrackedBoxes, '/people/detected_boxes', 1)
+        if self.debug:
+            self.ground_pub = self.create_publisher(PointCloud2, 'detect_ground', 1)
         if self.publish_detect_image:
             self.detect_image_pub = self.create_publisher(Image, 'detect_image', 1)
 
@@ -103,6 +120,7 @@ class AbsDetectPeople(rclpy.node.Node):
         self.get_logger().info("set timer, %.2f" % (1.0 / self.target_fps))
         self.timer = self.create_timer(1.0/self.target_fps, self.fps_callback)
         self.current_input = None
+        self.camera_to_robot_footprint_matrix = None
 
         self.pipeline1_input = queue.Queue(maxsize=1)
         self.pipeline2_input = queue.Queue(maxsize=1)
@@ -267,6 +285,96 @@ class AbsDetectPeople(rclpy.node.Node):
         center3d_list = []
         center_bird_eye_global_list = []
         if len(detect_results) > 0:
+            ground_plane = np.array([0, 0, 0, 1])
+            if self.remove_ground:
+                # create transformation matrix from camera frame to robot footprint frame
+                if self.camera_to_robot_footprint_matrix is None:
+                    try:
+                        t = self.tf2_buffer.lookup_transform(self.robot_footprint_frame, self.camera_link_frame_name, 
+                                                             Time.from_msg(depth_img_msg.header.stamp), Duration(seconds=self.lookup_transform_duration))
+                        quat = [t.transform.rotation.x, t.transform.rotation.y, t.transform.rotation.z, t.transform.rotation.w]
+                        self.camera_to_robot_footprint_matrix = tf_transformations.quaternion_matrix(quat)
+                        self.camera_to_robot_footprint_matrix[0, 3] = t.transform.translation.x
+                        self.camera_to_robot_footprint_matrix[1, 3] = t.transform.translation.y
+                        self.camera_to_robot_footprint_matrix[2, 3] = t.transform.translation.z
+                    except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
+                        self.get_logger().error('LookupTransform Error')
+                        return
+
+                # calculate ground plane by RANSAC to ignore invalid detection
+                if self.estimate_ground_ransac_:
+                    # ignore far depth points
+                    input_depth_image[input_depth_image >= self.ransac_input_max_distance * 1000.0] = 0.0
+
+                    # create depth point cloud in robot footprint frame
+                    pc_points, _ = open3d_utils.generate_pointcloud(self.image_width, self.image_height, self.focal_length,
+                                                                    self.center_x, self.center_y, input_rgb_image, input_depth_image,
+                                                                    depth_unit_meter=self.depth_unit_meter)
+
+                    # convert coordinate from x-right,y-down,z-forward coordinate to x-forward,y-left,z-up coordinate
+                    np_pc_points = np.asarray(pc_points, dtype=np.float32)
+                    np_pc_points[:, [0, 1, 2]] = np_pc_points[:, [2, 0, 1]]
+
+                    # convert coordinate from camera to robot footprint
+                    np_pc_points_h = np.hstack([np_pc_points, np.ones((np_pc_points.shape[0], 1))])
+                    np_pc_points_h_transform = (self.camera_to_robot_footprint_matrix @ np_pc_points_h.T).T
+                    np_pc_points_transform = np_pc_points_h_transform[:, :3]
+
+                    # select point cloud by height
+                    np_pc_points_transform = np_pc_points_transform[(np_pc_points_transform[:, 2] >= self.ransac_input_min_height) & (np_pc_points_transform[:, 2] <= self.ransac_input_max_height)]
+                    pcl_pc_transform = pcl.PointCloud(np.asarray(np_pc_points_transform, dtype=np.float32))
+
+                    # estimate ground plane
+                    ground_coefficients = None
+                    indices = []
+                    if pcl_pc_transform.size > 0:
+                        seg = pcl_pc_transform.make_segmenter_normals(ksearch=self.ransac_ksearch)
+                        seg.set_optimize_coefficients(True)
+                        seg.set_model_type(pcl.SACMODEL_PERPENDICULAR_PLANE)
+                        seg.set_max_iterations(self.ransac_max_iteration)
+                        seg.set_method_type(pcl.SAC_RANSAC)
+                        seg.set_distance_threshold(self.ransac_inlier_threshold)
+                        seg.set_axis(0.0, 0.0, 1.0)
+                        seg.set_eps_angle(self.ransac_eps_angle * (math.pi / 180.0))
+                        indices, ground_coefficients = seg.segment()
+
+                    # ground plane is found
+                    if len(indices) > 0:
+                        ground_plane = np.array(ground_coefficients)
+
+                    if self.debug:
+                        ground_indices = []
+                        for i in range(0, pcl_pc_transform.size):
+                            p = pcl_pc_transform[i]
+                            if (p[2] >= self.ransac_input_min_height) and (p[2] <= self.ransac_input_max_height):
+                                signed_distance = ground_plane.dot(np.array(p + [1]))
+                                if abs(signed_distance) <= self.ground_distance_threshold:
+                                    ground_indices.append(i)
+
+                        pcl_ground = pcl_pc_transform.extract(ground_indices)
+
+                        np_ground_points = pcl_ground.to_array()
+
+                        ros_ground_data = np.empty(pcl_ground.size, dtype=[('x', np.float32), ('y', np.float32), ('z', np.float32)])
+                        ros_ground_data['x'] = np_ground_points[:, 0]
+                        ros_ground_data['y'] = np_ground_points[:, 1]
+                        ros_ground_data['z'] = np_ground_points[:, 2]
+
+                        ros_ground_msg = PointCloud2()
+                        ros_ground_msg.header.stamp = depth_img_msg.header.stamp
+                        ros_ground_msg.header.frame_id = self.robot_footprint_frame
+                        ros_ground_msg.height = 1
+                        ros_ground_msg.width = pcl_ground.size
+                        ros_ground_msg.fields = [PointField(name="x", offset=0, datatype=PointField.FLOAT32, count=1),
+                                                PointField(name="y", offset=4, datatype=PointField.FLOAT32, count=1),
+                                                PointField(name="z", offset=8, datatype=PointField.FLOAT32, count=1)]
+                        ros_ground_msg.point_step = 12
+                        ros_ground_msg.is_bigendian = False
+                        ros_ground_msg.is_dense = False
+                        ros_ground_msg.row_step = ros_ground_msg.point_step * pcl_ground.size
+                        ros_ground_msg.data = ros_ground_data.tobytes()
+                        self.ground_pub.publish(ros_ground_msg)
+
             # start_time = time.time()
             invalid_detect_list = []
             for detect_idx, detect_result in enumerate(detect_results):
@@ -300,6 +408,34 @@ class AbsDetectPeople(rclpy.node.Node):
                     if detect_idx not in invalid_detect_list:
                         invalid_detect_list.append(detect_idx)
                 else:
+                    if self.remove_ground:
+                        # convert coordinate from x-right,y-down,z-forward coordinate to x-forward,y-left,z-up coordinate
+                        np_box_points = np.asarray(box_points, dtype=np.float32)
+                        np_box_points[:, [0, 1, 2]] = np_box_points[:, [2, 0, 1]]
+
+                        # convert coordinate from camera to robot footprint
+                        np_box_points_h = np.hstack([np_box_points, np.ones((np_box_points.shape[0], 1))])
+                        np_box_points_h_transform = (self.camera_to_robot_footprint_matrix @ np_box_points_h.T).T 
+
+                        # ignore the detection result if the ratio of points that are close to ground is large
+                        ground_point_num = 0
+                        if self.estimate_ground_ransac_:
+                            for p_h in np_box_points_h_transform:
+                                if (p_h[2] >= self.ransac_input_min_height) and (p_h[2] <= self.ransac_input_max_height):
+                                    signed_distance = ground_plane.dot(p_h)
+                                    if abs(signed_distance) <= self.ground_distance_threshold:
+                                        ground_point_num += 1
+                        else:
+                            for p_h in np_box_points_h_transform:
+                                if abs(p_h[2]) <= self.ground_distance_threshold:
+                                    ground_point_num += 1
+
+                        ground_point_ratio = ground_point_num / len(np_box_points_h_transform)
+                        if ground_point_ratio > self.ignore_detect_ground_point_ratio:
+                            self.get_logger().info("Ignore detection on ground, ground point ratio " + str(ground_point_ratio))
+                            invalid_detect_list.append(detect_idx)
+                            continue
+
                     # obtain center in point cloud
                     box_center = np.median(np.asarray(box_points), axis=0)
                     if np.isnan(box_center).any() or np.isinf(box_center).any():

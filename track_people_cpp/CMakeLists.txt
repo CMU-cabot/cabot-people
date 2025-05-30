@@ -21,6 +21,7 @@ find_package(rclcpp REQUIRED)
 find_package(rclcpp_components REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
+find_package(tf2_eigen REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
@@ -29,6 +30,9 @@ find_package(track_people_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(cv_bridge REQUIRED)
 find_package(diagnostic_updater REQUIRED)
+find_package(pcl_conversions REQUIRED)
+find_package(pcl_ros REQUIRED)
+find_package(PCL REQUIRED COMPONENTS common io)
 
 find_package(OpenCV REQUIRED)
 find_package(Eigen3 REQUIRED)
@@ -40,6 +44,7 @@ include_directories(
   ${OpenCV_INCLUDE_DIRS}
   ${EIGEN3_INCLUDE_DIRS}
   ${Open3D_INCLUDE_DIRS}
+  ${PCL_INCLUDE_DIRS}
 )
 
 set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
@@ -49,6 +54,7 @@ set(dependencies
   rclcpp_components
   tf2_ros
   tf2_geometry_msgs
+  tf2_eigen
   geometry_msgs
   sensor_msgs
   std_msgs
@@ -60,6 +66,8 @@ set(dependencies
   EIGEN3
   Open3D
   OpenCV
+  pcl_conversions
+  pcl_ros
   MMDeploy
 )
 
@@ -99,6 +107,7 @@ ament_target_dependencies(detect_mmdet
 target_link_libraries(detect_mmdet
   ${OpenCV_LIBRARIES}
   ${Open3D_LIBRARIES}
+  ${PCL_LIBRARIES}
   mmdeploy
 )
 
@@ -122,6 +131,7 @@ ament_target_dependencies(detect_mmdet_seg
 target_link_libraries(detect_mmdet_seg
   ${OpenCV_LIBRARIES}
   ${Open3D_LIBRARIES}
+  ${PCL_LIBRARIES}
   mmdeploy
 )
 
@@ -143,6 +153,7 @@ ament_target_dependencies(detect_obstacle_on_path
 
 target_link_libraries(detect_darknet_opencv
   ${OpenCV_LIBRARIES}
+  ${PCL_LIBRARIES}
 )
 
 rclcpp_components_register_node(
