@@ -5,3 +5,7 @@
 # 
 
 repositories:
+  cabot-base:
+    type: git
+    url: https://github.com/CMU-cabot/cabot-base
+    version: dev
