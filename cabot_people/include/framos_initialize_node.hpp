@@ -26,8 +26,8 @@
 
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp/node.hpp>
+#include <rcl_interfaces/srv/set_parameters_atomically.hpp>
 #include <sensor_msgs/msg/camera_info.hpp>
-#include <std_srvs/srv/set_bool.hpp>
 #include <tf2_ros/buffer.h>
 #include <tf2_ros/transform_listener.h>
 
@@ -75,7 +75,7 @@ private:
   rclcpp::Subscription<sensor_msgs::msg::CameraInfo>::SharedPtr rgb_sub_;
   rclcpp::Subscription<sensor_msgs::msg::CameraInfo>::SharedPtr depth_sub_;
 
-  rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr enable_client_;
+  rclcpp::Client<rcl_interfaces::srv::SetParametersAtomically>::SharedPtr set_parameters_client_;
 
   rclcpp::TimerBase::SharedPtr timer_;
 };

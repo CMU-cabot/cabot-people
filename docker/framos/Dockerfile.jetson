@@ -23,7 +23,7 @@ ARG FROM_IMAGE
 FROM $FROM_IMAGE AS base
 ARG ROS_DISTRO=humble
 ENV DEBIAN_FRONTEND="noninteractive"
-ARG FRAMOS_V=2-9-0
+ARG FRAMOS_V=2-10-0
 
 RUN apt update && \
     apt install -y --no-install-recommends \
