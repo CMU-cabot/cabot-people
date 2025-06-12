@@ -25,22 +25,16 @@ echo 1 | sudo tee /proc/sys/kernel/core_uses_pid
 echo "/home/developer/core" | sudo tee /proc/sys/kernel/core_pattern
 ulimit -s 65536
 
-args=("$@")
-
 WS=$HOME/people_ws
 
 if [ "$1" == "build" ]; then
-    cd $WS
-    colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release
-
-    cd $WS/src/queue_utils_py
-    pip3 install .
-    exit
+    shift 1
+    exec $WS/src/cabot_people/script/cabot_build.sh $@
+    exit $?
 else
     echo "Skip building workscape"
 fi
 
 source install/setup.bash
 
-cd $WS/src/cabot_people/script
-exec ./cabot_people.sh ${args[@]}
+exec $WS/src/cabot_people/script/cabot_people.sh $@
