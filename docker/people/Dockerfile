@@ -158,7 +158,7 @@ COPY --from=src ./track_people_py src/track_people_py
 COPY --from=src ./track_people_msgs src/track_people_msgs
 COPY --from=src ./track_people_cpp src/track_people_cpp
 
-RUN /ros_entrypoint.sh /launch.sh build -s
+RUN /ros_entrypoint.sh /launch.sh build -m
 
 FROM build as final
 
