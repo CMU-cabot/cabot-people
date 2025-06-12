@@ -20,12 +20,21 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+debug=0
+sequential=0
 skip_model=0
-while getopts "s" arg; do
+
+while getopts "dsm" arg; do
     case $arg in
-    s)
-        skip_model=1
-        ;;
+        d)
+            debug=1
+            ;;
+        s)
+            sequential=1
+            ;;
+        m)
+            skip_model=1
+            ;;
     esac
 done
 shift $((OPTIND-1))
@@ -54,4 +63,14 @@ fi
 
 echo "Build workspace"
 cd $scriptdir/../../../
-colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release
+
+build_option=
+if [[ $debug -eq 1 ]]; then
+    build_option+=" --cmake-args -DCMAKE_BUILD_TYPE=Debug --symlink-install"
+else
+    build_option+=" --cmake-args -DCMAKE_BUILD_TYPE=Release"
+fi
+if [[ $sequential -eq 1 ]]; then
+    build_option+=" --executor sequential"
+fi
+colcon build $build_option
