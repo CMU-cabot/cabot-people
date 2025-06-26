@@ -38,6 +38,7 @@ services:
       - CYCLONEDDS_URI
       - CYCLONEDDS_NETWORK_INTERFACE_NAME
       - CYCLONEDDS_NETWORK_INTERFACE_AUTODETERMINE # set automatically by launch.sh
+      - OVERRIDE_LAUNCH_PROCESS_OUTPUT
     volumes:
       - /dev:/dev
       - /sys/devices:/sys/devices
