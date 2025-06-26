@@ -18,7 +18,6 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-from filterpy.kalman import KalmanFilter
 from filterpy.common import Q_discrete_white_noise
 import matplotlib.pyplot as plt
 import numpy as np
@@ -69,7 +68,6 @@ class TrackerSort3D:
         # counter of tracks
         self.tracker_count = 0
 
-
     def _predict_kf(self, id_track, now):
         # set time steps
         dt = (now - self.record_tracker[id_track]["last_predict"]).nanoseconds/1000000000
@@ -85,7 +83,6 @@ class TrackerSort3D:
 
         # set last predict time
         self.record_tracker[id_track]["last_predict"] = now
-
 
     def track(self, now, bboxes, center_pos_list, frame_id, counter_penalty=1, drop_inactive_feature=True):
         # Performs tracking by comparing with previous detected people
@@ -238,8 +235,8 @@ class TrackerSort3D:
             # save active Kalaman Filter
             new_kf_x = center_circle_list[id_track][0]
             new_kf_y = center_circle_list[id_track][1]
-            self.kf_active[self.tracker_count] = kf_utils.init_kf_fixed_size([new_kf_x, 0.0, new_kf_y, 0.0], self.kf_time_step,
-                                                                            self.kf_init_var, self.kf_process_var, self.kf_measure_var)
+            self.kf_active[self.tracker_count] = kf_utils.init_kf_fixed_size([new_kf_x, 0.0, new_kf_y, 0.0],
+                                                                             self.kf_time_step, self.kf_init_var, self.kf_process_var, self.kf_measure_var)
 
             # save archive data
             self.record_tracker_archive[self.tracker_count] = self.record_tracker[self.tracker_count]

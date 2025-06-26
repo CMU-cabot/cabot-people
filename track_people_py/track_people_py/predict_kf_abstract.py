@@ -37,7 +37,6 @@ from scipy.linalg import block_diag
 from filterpy.kalman import KalmanFilter
 from filterpy.common import Q_discrete_white_noise
 
-from matplotlib import pyplot as plt
 from diagnostic_updater import Updater, HeaderlessTopicDiagnostic, FrequencyStatusParam
 from tf_transformations import quaternion_from_euler
 
@@ -54,7 +53,6 @@ class PredictKfBuffer():
         self.track_id_stationary_start_time_dict = {}
 
 
-
 class PredictKfAbstract(rclpy.node.Node):
     def __init__(self, name):
         super().__init__(name)
@@ -62,13 +60,16 @@ class PredictKfAbstract(rclpy.node.Node):
         self.vis_pred_image = False
 
         # start initialization
-        self.input_time = self.declare_parameter('input_time', 5).value # number of frames to start prediction
+
+        # number of frames to start prediction
+        self.input_time = self.declare_parameter('input_time', 5).value
         self.kf_init_var = self.declare_parameter('kf_init_var', 1.0).value
         self.kf_process_var = self.declare_parameter('kf_process_var', 1.0).value
         self.kf_measure_var = self.declare_parameter('kf_measure_var', 1.0).value
-        self.duration_inactive_to_remove = self.declare_parameter('duration_inactive_to_remove', 2.0).value # duration (seconds) to remove an inactive track (this value should be enough long because track_obstacle_py returns recovered tracks)
-        self.duration_inactive_to_stop_publish = self.declare_parameter('duration_inactive_to_stop_publish', 0.2).value # duration (seconds) to stop publishing an inactive track in people topic
-
+        # duration (seconds) to remove an inactive track (this value should be enough long because track_obstacle_py returns recovered tracks)
+        self.duration_inactive_to_remove = self.declare_parameter('duration_inactive_to_remove', 2.0).value
+        # duration (seconds) to stop publishing an inactive track in people topic
+        self.duration_inactive_to_stop_publish = self.declare_parameter('duration_inactive_to_stop_publish', 0.2).value
         # buffers to predict
         self.predict_buf = PredictKfBuffer()
 
@@ -162,7 +163,6 @@ class PredictKfAbstract(rclpy.node.Node):
 
         self.vis_marker_array_pub.publish(marker_array)
 
-
     def _predict_update_kf(self, track_id, dt, pos):
         # set time steps
         self.predict_buf.track_id_kf_model_dict[track_id].F = np.array([[1, dt, 0,  0],
@@ -175,7 +175,6 @@ class PredictKfAbstract(rclpy.node.Node):
         # run predict, update
         self.predict_buf.track_id_kf_model_dict[track_id].predict()
         self.predict_buf.track_id_kf_model_dict[track_id].update(pos)
-
 
     def tracked_boxes_cb(self, msg):
         self.htd.tick()
