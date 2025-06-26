@@ -20,6 +20,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+set -m
 
 ## termination hook
 trap ctrl_c INT QUIT TERM
@@ -27,13 +28,11 @@ trap ctrl_c INT QUIT TERM
 function ctrl_c() {
     echo "trap cabot_people.sh "
 
-    kill -INT -1
-
-#    for pid in ${pids[@]}; do
-#       echo "send SIGINT to $pid"
-#        com="kill -INT $pid"
-#        eval $com
-#    done
+    for pid in ${pids[@]}; do
+        echo "send SIGINT to $pid"
+        com="kill -INT $pid"
+        eval $com
+    done
     for pid in ${pids[@]}; do
         count=0
          while kill -0 $pid 2> /dev/null; do
@@ -104,6 +103,7 @@ commandpost='&'
 : ${CABOT_DETECT_VERSION:=3}
 : ${CABOT_DETECT_PEOPLE_CONF_THRES:=0.6}
 : ${CABOT_DETECT_PEOPLE_CLEAR_TIME:=0.2}
+: ${CABOT_DETECT_PEOPLE_REMOVE_GROUND:=1}
 : ${CABOT_LOW_OBSTABLE_DETECT_VERSION:=0}
 : ${CABOT_HEADLESS:=0}
 if [[ $CABOT_HEADLESS -eq 1 ]]; then
@@ -127,6 +127,10 @@ depth_fps=$CABOT_CAMERA_DEPTH_FPS
 resolution=$CABOT_CAMERA_RESOLUTION
 
 cabot_detect_ver=$CABOT_DETECT_VERSION
+remove_ground=false
+if [[ $CABOT_DETECT_PEOPLE_REMOVE_GROUND -eq 1 ]]; then
+    remove_ground=true
+fi
 
 cabot_low_obstacle_detect_ver=$CABOT_LOW_OBSTABLE_DETECT_VERSION
 
@@ -334,7 +338,8 @@ echo "Obstacle      : $obstacle"
 
 
 if [ $publish_tf -eq 1 ]; then
-    eval "$command ros2 run tf2_ros static_transform_publisher 0 0 0 0 0 $roll map ${camera_link_frame} $commandpost"
+    eval "$command ros2 run tf2_ros static_transform_publisher 0 0 0 0 0 0 map base_footprint $commandpost"
+    eval "$command ros2 run tf2_ros static_transform_publisher 0 0 1 0 0 $roll base_footprint ${camera_link_frame} $commandpost"
     pids+=($!)
 fi
 
@@ -376,7 +381,7 @@ if [ $realsense_camera -eq 1 ]; then
     if [ $camera_type -eq 1 ]; then
         launch_file="cabot_people rs_composite.launch.py"
         echo "launch $launch_file"
-        eval "$command ros2 launch $launch_file \
+        eval "$command ros2 launch -n $launch_file \
                         align_depth.enable:=true \
                         depth_module.depth_profile:=$width,$height,$depth_fps \
                         rgb_camera.color_profile:=$width,$height,$rgb_fps \
@@ -396,7 +401,7 @@ if [ $realsense_camera -eq 1 ]; then
 
         launch_file="cabot_people d400e_rs.launch.py"
         echo "launch $launch_file"
-        eval "$command ros2 launch $launch_file \
+        eval "$command ros2 launch -n $launch_file \
                         align_depth:=true \
                         depth_width:=$width \
                         depth_height:=$height \
@@ -490,11 +495,12 @@ if [ $detection -eq 1 ]; then
     if [ $cabot_detect_ver -eq 1 ] || [ $cabot_detect_ver -eq 4 ] || [ $cabot_detect_ver -eq 7 ]; then
         # python
         echo "launch track_people_py $launch_file"
-        com="$command ros2 launch track_people_py $launch_file \
+        com="$command ros2 launch -n track_people_py $launch_file \
                       namespace:=$namespace \
                       map_frame:=$map_frame \
                       camera_link_frame:=$camera_link_frame \
                       depth_registered_topic:=$depth_registered_topic \
+                      remove_ground:=$remove_ground \
                       minimum_detection_size_threshold:=$min_bbox_size \
                       publish_detect_image:=$publish_detect_image \
                       jetpack5_workaround:=$jetpack5_workaround \
@@ -514,12 +520,13 @@ if [ $detection -eq 1 ]; then
         fi
         # cpp
         echo "launch track_people_cpp $launch_file"
-        com="$command ros2 launch track_people_cpp $launch_file \
+        com="$command ros2 launch -n track_people_cpp $launch_file \
                       namespace:=$namespace \
                       map_frame:=$map_frame \
                       camera_link_frame:=$camera_link_frame \
                       use_composite:=$use_composite \
                       depth_registered_topic:=$depth_registered_topic \
+                      remove_ground:=$remove_ground \
                       minimum_detection_size_threshold:=$min_bbox_size \
                       publish_detect_image:=$publish_detect_image \
                       jetpack5_workaround:=$jetpack5_workaround \
@@ -536,7 +543,7 @@ if [ $tracking -eq 1 ]; then
     ### launch people track
     launch_file="track_people_py track_sort_3d.launch.py"
     echo "launch $launch_file"
-    com="$command ros2 launch $launch_file \
+    com="$command ros2 launch -n $launch_file \
                   jetpack5_workaround:=$jetpack5_workaround \
                   $commandpost"
     echo $com
@@ -550,7 +557,7 @@ if [ $tracking -eq 1 ]; then
     fi
     launch_file="track_people_py predict_kf.launch.py"
     echo "launch $launch_file"
-    com="$command ros2 launch $launch_file $opt_predict \
+    com="$command ros2 launch -n $launch_file $opt_predict \
                   jetpack5_workaround:=$jetpack5_workaround \
                   $commandpost"
     echo $com
@@ -563,7 +570,7 @@ if [ $obstacle -eq 1 ]; then
     target_fps=10.0
     launch_file="track_people_cpp detect_obstacles.launch.py sensor_id:=velodyne scan_topic:=/scan"
     echo "launch $launch_file"
-    com="$command ros2 launch $launch_file \
+    com="$command ros2 launch -n $launch_file \
                   sensor_id:=velodyne \
                   scan_topic:=/scan \
                   $commandpost"
@@ -575,7 +582,7 @@ if [ $obstacle -eq 1 ]; then
 	target_fps=20.0
         launch_file="track_people_cpp detect_obstacles.launch.py sensor_id:=livox scan_topic:=/livox_scan"
         echo "launch $launch_file"
-        com="$command ros2 launch $launch_file \
+        com="$command ros2 launch -n $launch_file \
                     sensor_id:=livox \
                     scan_topic:=/livox_scan \
                     $commandpost"
@@ -586,7 +593,7 @@ if [ $obstacle -eq 1 ]; then
 
     launch_file="track_people_cpp track_obstacles.launch.py"
     echo "launch $launch_file"
-    com="$command ros2 launch $launch_file \
+    com="$command ros2 launch -n $launch_file \
                   jetpack5_workaround:=$jetpack5_workaround \
                   target_fps:=$target_fps \
                   $commandpost"

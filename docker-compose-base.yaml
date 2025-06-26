@@ -9,7 +9,6 @@ services:
       - HOST_UID
       - HOST_GID
       - HOST_TZ
-      - ROS_LOG_DIR
 # CaBot
       - CABOT_GAZEBO=${CABOT_GAZEBO:-1}
       - CABOT_SITE
@@ -24,11 +23,15 @@ services:
       - CABOT_DETECT_VERSION=${CABOT_DETECT_VERSION:-3}
       - CABOT_DETECT_PEOPLE_CONF_THRES=${CABOT_DETECT_PEOPLE_CONF_THRES:-0.6}
       - CABOT_DETECT_PEOPLE_CLEAR_TIME=${CABOT_DETECT_PEOPLE_CLEAR_TIME:-0.2}
+      - CABOT_DETECT_PEOPLE_REMOVE_GROUND=${CABOT_DETECT_PEOPLE_REMOVE_GROUND:-1}
       - CABOT_LOW_OBSTABLE_DETECT_VERSION=${CABOT_LOW_OBSTABLE_DETECT_VERSION:-0}
       - CABOT_HEADLESS
       - CABOT_DETECT_PEOPLE_FPS
       - CABOT_PEOPLE_TRACK_FPS
       - CABOT_PEOPLE_PREDICT_FPS
+# ROS2/DDS
+      - RCUTILS_LOGGING_USE_STDOUT=1
+      - ROS_LOG_DIR
       - RMW_IMPLEMENTATION
       - ROS_LOCALHOST_ONLY
       - ROS_DOMAIN_ID
@@ -77,6 +80,10 @@ services:
   people-nuc-dev-base:
     extends:
       service: people-nuc-base
+    environment: &dev-environment
+      - RCUTILS_LOGGING_USE_STDOUT=0
+      - OVERRIDE_LAUNCH_PROCESS_OUTPUT=screen
+      - RCUTILS_CONSOLE_OUTPUT_FORMAT=[{severity}]	{time}	[{name}({file_name}#L{line_number})]	{message}
     volumes:
       - ./cabot-common/cabot_common:/home/developer/people_nuc_ws/src/cabot_common
       - ./cabot-common/cabot_msgs:/home/developer/people_nuc_ws/src/cabot_msgs
@@ -116,6 +123,7 @@ services:
       additional_contexts:
         - src=./
       args:
+        - GPU_BASE_REGISTRY=${GPU_BASE_REGISTRY:-cmucal}
         - BASE_IMAGE=${BASE_IMAGE:-cabot-gpu-base}
       x-bake:
         tags:
@@ -137,6 +145,7 @@ services:
   people-all-dev-base:
     extends:
       service: people-all-base
+    environment: *dev-environment
     volumes:
       - ./cabot-common/cabot_common:/home/developer/people_ws/src/cabot_common
       - ./cabot-common/cabot_msgs:/home/developer/people_ws/src/cabot_msgs
@@ -181,6 +190,7 @@ services:
   people-detection-dev-base:
     extends:
       service: people-detection-base
+    environment: *dev-environment
     volumes:
       - ./cabot-common/cabot_common:/home/developer/people_ws/src/cabot_common
       - ./cabot-common/cabot_msgs:/home/developer/people_ws/src/cabot_msgs
@@ -207,6 +217,7 @@ services:
   people-track-dev-base:
     extends:
       service: people-track-base
+    environment: *dev-environment
     volumes:
       - ./cabot-common/cabot_common:/home/developer/people_ws/src/cabot_common
       - ./cabot-common/cabot_msgs:/home/developer/people_ws/src/cabot_msgs
@@ -240,6 +251,7 @@ services:
   people-framos-all-dev-base:
     extends:
       service: people-framos-all-base
+    environment: *dev-environment
     volumes:
       - ./cabot-common/cabot_common:/home/developer/people_framos_ws/src/cabot_common
       - ./cabot-common/cabot_msgs:/home/developer/people_framos_ws/src/cabot_msgs
@@ -277,6 +289,7 @@ services:
   people-framos-camera-dev-base:
     extends:
       service: people-framos-camera-base
+    environment: *dev-environment
     volumes:
       - ./cabot-common/cabot_common:/home/developer/people_framos_ws/src/cabot_common
       - ./cabot-common/cabot_msgs:/home/developer/people_framos_ws/src/cabot_msgs
@@ -311,6 +324,7 @@ services:
   people-framos-detection-dev-base:
     extends:
       service: people-framos-detection-base
+    environment: *dev-environment
     volumes:
       - ./cabot-common/cabot_common:/home/developer/people_framos_ws/src/cabot_common
       - ./cabot-common/cabot_msgs:/home/developer/people_framos_ws/src/cabot_msgs

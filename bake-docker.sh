@@ -33,6 +33,7 @@ function help {
     echo "-h                    show this help"
     echo "-b <base_name>        bake with base_name"
     echo "-n <nuc_base_name>    bake with nuc_base_name"
+    echo "-s                    skip build gpu base images"
     echo "-i                    image build for debug - shorthand for -l and -P with host platform"
     echo "-l                    build using local registry"
     echo "-P <platform>         specify platform"
@@ -44,12 +45,13 @@ function help {
 platform=
 base_name=cabot-gpu-base
 nuc_base_name=cabot-base
+skip_gpu_base=0
 image_name=cabot-people
 local=0
 tags=
 services="people people-framos people-nuc"
 
-while getopts "hb:n:ilP:t:" arg; do
+while getopts "hb:n:silP:t:" arg; do
     case $arg in
     h)
         help
@@ -60,6 +62,9 @@ while getopts "hb:n:ilP:t:" arg; do
         ;;
     n)
         nuc_base_name=${OPTARG}
+        ;;
+    s)
+        skip_gpu_base=1
         ;;
     i)
         if [[ $(uname -m) = "x86_64" ]]; then
@@ -192,7 +197,8 @@ elif [[ $platform = "linux/arm64" ]]; then
 fi
 
 # run bake for cabot-gpu-base images
-if [[ -n $camera_option ]]; then
+gpu_base_registry="cmucal"
+if [[ $skip_gpu_base -eq 0 ]] && [[ -n $camera_option ]]; then
     com="$camera_option docker buildx bake -f docker-bake.hcl $platform_option $tag_option $target"
     export BASE_IMAGE=$base_name
     export NUC_BASE_IMAGE=$nuc_base_name
@@ -206,6 +212,7 @@ if [[ -n $camera_option ]]; then
     # create multi platform cabot-people final base images
     if [[ $local -eq 1 ]]; then
         final_registry="localhost:9092"
+        gpu_base_registry="registry:5000"
     else
         final_registry="cmucal"
     fi
@@ -245,6 +252,7 @@ done
 
 # run bake for cabot-people images
 com="docker buildx bake -f docker-compose.yaml $platform_option $tag_option $services"
+export GPU_BASE_REGISTRY=$gpu_base_registry
 export BASE_IMAGE=$base_name
 export NUC_BASE_IMAGE=$nuc_base_name
 echo $com
