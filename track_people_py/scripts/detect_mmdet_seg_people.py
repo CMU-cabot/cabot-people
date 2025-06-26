@@ -59,7 +59,7 @@ class DetectMMDetSegPeople(AbsDetectPeople):
     def detect_people(self, rgb_img, frame_resized, darknet_image):
         resize_rgb_img = cv2.resize(rgb_img, (self.model_input_width, self.model_input_height))
         bboxes, labels, masks = self.detector(resize_rgb_img)
-        return (labels, bboxes[:,4], bboxes[:,0:4], masks)
+        return (labels, bboxes[:, 4], bboxes[:, 0:4], masks)
 
     def post_process(self, rgb_img, frame_resized, boxes_res):
         resize_width_ratio = self.model_input_width / float(rgb_img.shape[1])
@@ -68,7 +68,7 @@ class DetectMMDetSegPeople(AbsDetectPeople):
         people_res = []
         mask_results = []
         for idx, score, box, mask in zip(*boxes_res):
-            if (idx==0) and (score>self.detection_threshold):
+            if (idx == 0) and (score > self.detection_threshold):
                 # convert results to format [xtl, ytl, xbr, ybr, conf, class]
                 # 0 is class ID of 'person' class
                 xtl = box[0]
@@ -78,8 +78,8 @@ class DetectMMDetSegPeople(AbsDetectPeople):
 
                 # create mask image from mask image cropped by bbox
                 mask_result = np.zeros((self.model_input_height, self.model_input_width), np.uint8)
-                mask_xtl = xtl if int(xtl)+mask.shape[1]<=self.model_input_width else self.model_input_width-mask.shape[1]
-                mask_ytl = ytl if int(ytl)+mask.shape[0]<=self.model_input_height else self.model_input_height-mask.shape[0]
+                mask_xtl = xtl if int(xtl)+mask.shape[1] <= self.model_input_width else self.model_input_width-mask.shape[1]
+                mask_ytl = ytl if int(ytl)+mask.shape[0] <= self.model_input_height else self.model_input_height-mask.shape[0]
                 mask_result[int(mask_ytl):int(mask_ytl)+mask.shape[0], int(mask_xtl):int(mask_xtl)+mask.shape[1]] = mask
 
                 # resize detected box to original image size

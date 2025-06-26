@@ -24,7 +24,6 @@ import signal
 import sys
 from abc import ABCMeta
 
-import cv2
 from mmdeploy_runtime import Detector
 import numpy as np
 import rclpy
@@ -56,12 +55,12 @@ class DetectMMDetPeople(AbsDetectPeople):
 
     def detect_people(self, rgb_img, frame_resized, darknet_image):
         bboxes, labels, _ = self.detector(rgb_img)
-        return (labels, bboxes[:,4], bboxes[:,0:4])
+        return (labels, bboxes[:, 4], bboxes[:, 0:4])
 
     def post_process(self, rgb_img, frame_resized, boxes_res):
         people_res = []
         for idx, score, box in zip(*boxes_res):
-            if (idx==0) and (score>self.detection_threshold):
+            if (idx == 0) and (score > self.detection_threshold):
                 # convert results to format [xtl, ytl, xbr, ybr, conf, class]
                 # 0 is class ID of 'person' class
                 xtl = box[0]
