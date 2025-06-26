@@ -1,0 +1,36 @@
+name: Run Unittest
+
+on:
+  push:
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - reopened
+      - synchronize
+
+jobs:
+  run_unittest:
+    runs-on: ubuntu-22.04
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install vcs
+      run: pip3 install vcstool
+
+    - name: Prepare thirdparty repos
+      run: ./setup-dependency.sh
+
+    - name: Pull images
+      shell: bash
+      run:  |
+             docker pull cmucal/cabot-people:latest
+
+    - name: Run unittest
+      shell: bash
+      run:  |
+             export HOST_UID=$(id -u)
+             export HOST_GID=$(id -g)
+             # ./unittest.sh  # the following can be replaced with this once the image is updated
+             docker compose --profile build run people ./src/cabot_people/script/unittest.sh -b -a
