@@ -27,7 +27,6 @@
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp/node.hpp>
 #include <sensor_msgs/msg/camera_info.hpp>
-#include <std_srvs/srv/set_bool.hpp>
 #include <tf2_ros/buffer.h>
 #include <tf2_ros/transform_listener.h>
 
@@ -50,6 +49,7 @@ private:
   void reset_framos();
   void check_transform();
 
+  std::string camera_name_;
   std::string map_frame_name_;
   std::string camera_link_frame_name_;
   std::string rgb_camera_topic_name_;
@@ -61,7 +61,6 @@ private:
   float max_wait_after_tf_ready_;
 
   bool is_ready_;
-  bool is_reset_running_;
   double time_tf_ready_;
   double time_camera_ready_;
   std::queue<double> rgb_times_;
@@ -74,8 +73,6 @@ private:
 
   rclcpp::Subscription<sensor_msgs::msg::CameraInfo>::SharedPtr rgb_sub_;
   rclcpp::Subscription<sensor_msgs::msg::CameraInfo>::SharedPtr depth_sub_;
-
-  rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr enable_client_;
 
   rclcpp::TimerBase::SharedPtr timer_;
 };

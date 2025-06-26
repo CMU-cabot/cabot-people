@@ -26,6 +26,7 @@ namespace cabot_people
 
 FramosInitializeNode::FramosInitializeNode(const rclcpp::NodeOptions & options)
 : rclcpp::Node("framos_initialize_node", options),
+  camera_name_("camera"),
   map_frame_name_("map"),
   camera_link_frame_name_("camera_link"),
   rgb_camera_topic_name_("color/camera_info"),
@@ -36,10 +37,10 @@ FramosInitializeNode::FramosInitializeNode(const rclcpp::NodeOptions & options)
   min_wait_after_camera_ready_(5.0),
   max_wait_after_tf_ready_(100.0),
   is_ready_(false),
-  is_reset_running_(false),
   time_tf_ready_(0.0),
   time_camera_ready_(0.0)
 {
+  camera_name_ = this->declare_parameter("camera_name", camera_name_);
   map_frame_name_ = this->declare_parameter("map_frame", map_frame_name_);
   camera_link_frame_name_ = this->declare_parameter("camera_link_frame", camera_link_frame_name_);
   rgb_camera_topic_name_ = this->declare_parameter("rgb_camera_topic_name", rgb_camera_topic_name_);
@@ -55,9 +56,6 @@ FramosInitializeNode::FramosInitializeNode(const rclcpp::NodeOptions & options)
 
   rgb_sub_ = this->create_subscription<sensor_msgs::msg::CameraInfo>(rgb_camera_topic_name_, 10, std::bind(&FramosInitializeNode::rgb_cb, this, std::placeholders::_1));
   depth_sub_ = this->create_subscription<sensor_msgs::msg::CameraInfo>(depth_camera_topic_name_, 10, std::bind(&FramosInitializeNode::depth_cb, this, std::placeholders::_1));
-
-  enable_client_ = this->create_client<std_srvs::srv::SetBool>("enable");
-  enable_client_->wait_for_service();
 
   timer_ = create_wall_timer(
     std::chrono::duration<double>(1.0),
@@ -105,38 +103,21 @@ void FramosInitializeNode::depth_cb(const sensor_msgs::msg::CameraInfo::SharedPt
 
 void FramosInitializeNode::reset_framos()
 {
-  auto enable_done_callback = [this](rclcpp::Client<std_srvs::srv::SetBool>::SharedFuture response) {
-    if (response.valid() && response.get()->success) {
-      RCLCPP_INFO(this->get_logger(), "Successed to enable FRAMOS");
-    } else {
-      RCLCPP_WARN(this->get_logger(), "Failed to enable FRAMOS");
-    }
-    is_reset_running_ = false;
-  };
-
-  auto disable_done_callback = [this, enable_done_callback](rclcpp::Client<std_srvs::srv::SetBool>::SharedFuture response) {
-    if (response.valid() && response.get()->success) {
-      RCLCPP_INFO(this->get_logger(), "Successed to disable FRAMOS");
-
-      auto enable_request = std::make_shared<std_srvs::srv::SetBool::Request>();
-      enable_request->data = true;
-      enable_client_->async_send_request(enable_request, enable_done_callback);
-    } else {
-      RCLCPP_WARN(this->get_logger(), "Failed to disable FRAMOS");
-      is_reset_running_ = false;
-    }
-  };
-
-  is_reset_running_ = true;
+  // find camera node by matching executable name and node name
+  std::string pattern = "framos_realsense2_camera_node.*__node:=" + camera_name_;
+  std::string cmd = "pkill -INT -f '" + pattern + "'";
+  int ret = system(cmd.c_str());
+  int exit_code = WEXITSTATUS(ret);
+  if (exit_code == 0) {
+    RCLCPP_INFO(this->get_logger(), "Successed to stop framos_realsense2_camera_node process matched with %s", pattern.c_str());
+  } else {
+    RCLCPP_INFO(this->get_logger(), "Failed to stop framos_realsense2_camera_node process matched with %s", pattern.c_str());
+  }
 
   time_tf_ready_ = 0.0;
   time_camera_ready_ = 0.0;
   std::queue<double>().swap(rgb_times_);
   std::queue<double>().swap(depth_times_);
-
-  auto disable_request = std::make_shared<std_srvs::srv::SetBool::Request>();
-  disable_request->data = false;
-  enable_client_->async_send_request(disable_request, disable_done_callback);
 }
 
 void FramosInitializeNode::check_transform()

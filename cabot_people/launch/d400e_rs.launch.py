@@ -132,6 +132,7 @@ def generate_launch_description():
             namespace=LaunchConfiguration("camera_name"),
             output=output,
             parameters=[{
+                'camera_name': LaunchConfiguration("camera_name"),
                 'camera_link_frame': camera_link_frame
             }]
         ),
