@@ -290,7 +290,7 @@ class AbsDetectPeople(rclpy.node.Node):
                 # create transformation matrix from camera frame to robot footprint frame
                 if self.camera_to_robot_footprint_matrix is None:
                     try:
-                        t = self.tf2_buffer.lookup_transform(self.robot_footprint_frame, self.camera_link_frame_name, 
+                        t = self.tf2_buffer.lookup_transform(self.robot_footprint_frame, self.camera_link_frame_name,
                                                              Time.from_msg(depth_img_msg.header.stamp), Duration(seconds=self.lookup_transform_duration))
                         quat = [t.transform.rotation.x, t.transform.rotation.y, t.transform.rotation.z, t.transform.rotation.w]
                         self.camera_to_robot_footprint_matrix = tf_transformations.quaternion_matrix(quat)
@@ -366,8 +366,8 @@ class AbsDetectPeople(rclpy.node.Node):
                         ros_ground_msg.height = 1
                         ros_ground_msg.width = pcl_ground.size
                         ros_ground_msg.fields = [PointField(name="x", offset=0, datatype=PointField.FLOAT32, count=1),
-                                                PointField(name="y", offset=4, datatype=PointField.FLOAT32, count=1),
-                                                PointField(name="z", offset=8, datatype=PointField.FLOAT32, count=1)]
+                                                 PointField(name="y", offset=4, datatype=PointField.FLOAT32, count=1),
+                                                 PointField(name="z", offset=8, datatype=PointField.FLOAT32, count=1)]
                         ros_ground_msg.point_step = 12
                         ros_ground_msg.is_bigendian = False
                         ros_ground_msg.is_dense = False
@@ -415,7 +415,7 @@ class AbsDetectPeople(rclpy.node.Node):
 
                         # convert coordinate from camera to robot footprint
                         np_box_points_h = np.hstack([np_box_points, np.ones((np_box_points.shape[0], 1))])
-                        np_box_points_h_transform = (self.camera_to_robot_footprint_matrix @ np_box_points_h.T).T 
+                        np_box_points_h_transform = (self.camera_to_robot_footprint_matrix @ np_box_points_h.T).T
 
                         # ignore the detection result if the ratio of points that are close to ground is large
                         ground_point_num = 0
