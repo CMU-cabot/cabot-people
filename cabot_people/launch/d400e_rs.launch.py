@@ -18,21 +18,13 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-import os
 from launch import LaunchDescription
-from ament_index_python.packages import get_package_share_directory
-import launch_ros.actions
 from launch.logging import launch_config
 from launch.actions import DeclareLaunchArgument
 from launch.actions import SetEnvironmentVariable
 from launch.actions import RegisterEventHandler
 from launch.event_handlers import OnShutdown
-from launch.substitutions import LaunchConfiguration, PythonExpression
-from launch.conditions import IfCondition
-from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument
 from launch.substitutions import LaunchConfiguration
-from launch.substitutions import PathJoinSubstitution
 from launch_ros.actions import Node
 
 from cabot_common.launch import AppendLogDirPrefix
@@ -106,15 +98,17 @@ configurable_parameters = [{'name': 'camera_name',                  'default': '
                            {'name': 'reconnect_timeout',            'default': '6.', 'description': 'Timeout(seconds) between consequtive reconnection attempts'},
                            ]
 
+
 def declare_configurable_parameters(parameters):
     return [DeclareLaunchArgument(param['name'], default_value=param['default'], description=param['description']) for param in parameters]
+
 
 def set_configurable_parameters(parameters):
     return dict([(param['name'], LaunchConfiguration(param['name'])) for param in parameters])
 
+
 def generate_launch_description():
     output = {'stderr': {'log'}}
-    log_level = 'info'
     camera_link_frame = LaunchConfiguration("camera_link_frame")
 
     return LaunchDescription(declare_configurable_parameters(configurable_parameters) + [
@@ -135,11 +129,11 @@ def generate_launch_description():
             }]
         ),
         Node(
-            package='realsense2_camera', 
+            package='realsense2_camera',
             namespace=LaunchConfiguration("camera_name"),
             name=LaunchConfiguration("camera_name"),
             executable='framos_realsense2_camera_node',
-            parameters = [set_configurable_parameters(configurable_parameters)],
+            parameters=[set_configurable_parameters(configurable_parameters)],
             output=output,
             arguments=['--ros-args', '--log-level', LaunchConfiguration('log_level')],
             emulate_tty=True,

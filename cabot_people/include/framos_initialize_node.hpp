@@ -18,18 +18,20 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#ifndef CABOT_PEOPLE_FRAMOS_INITIALIZE_NODE_HPP_
-#define CABOT_PEOPLE_FRAMOS_INITIALIZE_NODE_HPP_
+#ifndef FRAMOS_INITIALIZE_NODE_HPP_
+#define FRAMOS_INITIALIZE_NODE_HPP_
+
+#include <tf2_ros/buffer.h>
+#include <tf2_ros/transform_listener.h>
 
 #include <mutex>
 #include <queue>
+#include <string>
 
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp/node.hpp>
 #include <sensor_msgs/msg/camera_info.hpp>
 #include <std_srvs/srv/set_bool.hpp>
-#include <tf2_ros/buffer.h>
-#include <tf2_ros/transform_listener.h>
 
 
 namespace cabot_people
@@ -82,4 +84,4 @@ private:
 
 }  // namespace cabot_people
 
-#endif  // CABOT_PEOPLE_FRAMOS_INITIALIZE_NODE_HPP_
+#endif  // FRAMOS_INITIALIZE_NODE_HPP_
