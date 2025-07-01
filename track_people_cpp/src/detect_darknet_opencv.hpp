@@ -23,6 +23,9 @@
 #ifndef DETECT_DARKNET_OPENCV_HPP_
 #define DETECT_DARKNET_OPENCV_HPP_
 
+#include <memory>
+#include <string>
+
 #include <opencv2/dnn.hpp>
 
 #include "abstract_detect_people.hpp"

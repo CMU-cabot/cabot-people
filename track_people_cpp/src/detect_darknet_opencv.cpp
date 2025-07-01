@@ -89,7 +89,8 @@ void DetectDarknetOpencv::process_detect(DetectData & dd)
     auto box = boxes[i];
 
     // assume classId 0 is person
-    if (classId != 0 || box.width < minimum_detection_size_threshold_ || box.height < minimum_detection_size_threshold_)
+    if (classId != 0 || box.width < minimum_detection_size_threshold_ ||
+      box.height < minimum_detection_size_threshold_)
     {
       continue;
     }

@@ -18,8 +18,11 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#ifndef DETECT_MMDet_HPP_
-#define DETECT_MMDet_HPP_
+#ifndef DETECT_MMDET_HPP_
+#define DETECT_MMDET_HPP_
+
+#include <memory>
+#include <string>
 
 #include <mmdeploy/detector.hpp>
 
@@ -46,4 +49,4 @@ private:
 
 }  // namespace track_people_cpp
 
-#endif  // DETECT_MMDet_HPP_
+#endif  // DETECT_MMDET_HPP_

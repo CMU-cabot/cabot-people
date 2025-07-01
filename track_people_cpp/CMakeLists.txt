@@ -39,6 +39,23 @@ find_package(Eigen3 REQUIRED)
 find_package(Open3D REQUIRED)
 find_package(MMDeploy REQUIRED)
 
+if(BUILD_TESTING)
+  find_package(ament_cmake_copyright REQUIRED)
+  find_package(ament_cmake_cpplint REQUIRED)
+  find_package(ament_cmake_flake8 REQUIRED)
+  find_package(ament_cmake_lint_cmake REQUIRED)
+  find_package(ament_cmake_uncrustify REQUIRED)
+  find_package(ament_cmake_xmllint REQUIRED)
+
+  set(MAX_LINE_LENGTH 200)
+  ament_copyright()
+  ament_cpplint(MAX_LINE_LENGTH ${MAX_LINE_LENGTH})
+  ament_flake8(MAX_LINE_LENGTH ${MAX_LINE_LENGTH})
+  ament_lint_cmake()
+  ament_uncrustify(MAX_LINE_LENGTH ${MAX_LINE_LENGTH})
+  ament_xmllint()
+endif()
+
 include_directories(
   include
   ${OpenCV_INCLUDE_DIRS}
@@ -47,7 +64,7 @@ include_directories(
   ${PCL_INCLUDE_DIRS}
 )
 
-set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 
 set(dependencies
   rclcpp
