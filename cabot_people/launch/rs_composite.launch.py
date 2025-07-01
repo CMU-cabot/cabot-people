@@ -1,22 +1,31 @@
-# License: Apache 2.0. See LICENSE file in root directory.
-# Copyright(c) 2022 Intel Corporation. All Rights Reserved.
+#  Copyright (c) 2023  Carnegie Mellon University, IBM Corporation, and others
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
 
-"""Launch realsense2_camera node."""
-import os
 from launch import LaunchDescription
-from ament_index_python.packages import get_package_share_directory
-import launch_ros.actions
 from launch.logging import launch_config
 from launch.actions import DeclareLaunchArgument
 from launch.actions import SetEnvironmentVariable
 from launch.actions import RegisterEventHandler
 from launch.event_handlers import OnShutdown
-from launch.substitutions import LaunchConfiguration, PythonExpression
-from launch.conditions import IfCondition
-from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument
 from launch.substitutions import LaunchConfiguration
-from launch.substitutions import PathJoinSubstitution
+from launch.conditions import IfCondition
 from launch_ros.actions import ComposableNodeContainer
 from launch_ros.descriptions import ComposableNode
 
@@ -51,7 +60,7 @@ configurable_parameters = [{'name': 'camera_name',                  'default': '
                            {'name': 'pose_fps',                     'default': '200', 'description': "''"},
                            {'name': 'pointcloud.enable',            'default': 'false', 'description': ''},
                            {'name': 'pointcloud.stream_filter',     'default': '2', 'description': 'texture stream for pointcloud'},
-                           {'name': 'pointcloud.stream_index_filter','default': '0', 'description': 'texture stream index for pointcloud'},
+                           {'name': 'pointcloud.stream_index_filter', 'default': '0', 'description': 'texture stream index for pointcloud'},
                            {'name': 'enable_sync',                  'default': 'false', 'description': "''"},
                            {'name': 'align_depth.enable',           'default': 'false', 'description': "''"},
                            {'name': 'colorizer.enable',             'default': 'false', 'description': "''"},
@@ -71,18 +80,19 @@ configurable_parameters = [{'name': 'camera_name',                  'default': '
                            {'name': 'depth_module.exposure.2',     'default': '1', 'description': 'Initial value for hdr_merge filter'},
                            {'name': 'depth_module.gain.2',         'default': '16', 'description': 'Initial value for hdr_merge filter'},
                            {'name': 'wait_for_device_timeout',      'default': '-1.', 'description': 'Timeout for waiting for device to connect (Seconds)'},
-                           {'name': 'reconnect_timeout',            'default': '6.', 'description': 'Timeout(seconds) between consequtive reconnection attempts'},
-]
+                           {'name': 'reconnect_timeout',            'default': '6.', 'description': 'Timeout(seconds) between consequtive reconnection attempts'}]
+
 
 def declare_configurable_parameters(parameters):
     return [DeclareLaunchArgument(param['name'], default_value=param['default'], description=param['description']) for param in parameters]
 
+
 def set_configurable_parameters(parameters):
     return dict([(param['name'], LaunchConfiguration(param['name'])) for param in parameters])
 
+
 def generate_launch_description():
     output = {'stderr': {'log'}}
-    log_level = 'info'
     use_intra_process_comms = LaunchConfiguration("use_intra_process_comms")
 
     jetpack5_workaround = LaunchConfiguration('jetpack5_workaround')

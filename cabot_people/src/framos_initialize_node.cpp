@@ -106,26 +106,26 @@ void FramosInitializeNode::depth_cb(const sensor_msgs::msg::CameraInfo::SharedPt
 void FramosInitializeNode::reset_framos()
 {
   auto enable_done_callback = [this](rclcpp::Client<std_srvs::srv::SetBool>::SharedFuture response) {
-    if (response.valid() && response.get()->success) {
-      RCLCPP_INFO(this->get_logger(), "Successed to enable FRAMOS");
-    } else {
-      RCLCPP_WARN(this->get_logger(), "Failed to enable FRAMOS");
-    }
-    is_reset_running_ = false;
-  };
+      if (response.valid() && response.get()->success) {
+        RCLCPP_INFO(this->get_logger(), "Successed to enable FRAMOS");
+      } else {
+        RCLCPP_WARN(this->get_logger(), "Failed to enable FRAMOS");
+      }
+      is_reset_running_ = false;
+    };
 
   auto disable_done_callback = [this, enable_done_callback](rclcpp::Client<std_srvs::srv::SetBool>::SharedFuture response) {
-    if (response.valid() && response.get()->success) {
-      RCLCPP_INFO(this->get_logger(), "Successed to disable FRAMOS");
+      if (response.valid() && response.get()->success) {
+        RCLCPP_INFO(this->get_logger(), "Successed to disable FRAMOS");
 
-      auto enable_request = std::make_shared<std_srvs::srv::SetBool::Request>();
-      enable_request->data = true;
-      enable_client_->async_send_request(enable_request, enable_done_callback);
-    } else {
-      RCLCPP_WARN(this->get_logger(), "Failed to disable FRAMOS");
-      is_reset_running_ = false;
-    }
-  };
+        auto enable_request = std::make_shared<std_srvs::srv::SetBool::Request>();
+        enable_request->data = true;
+        enable_client_->async_send_request(enable_request, enable_done_callback);
+      } else {
+        RCLCPP_WARN(this->get_logger(), "Failed to disable FRAMOS");
+        is_reset_running_ = false;
+      }
+    };
 
   is_reset_running_ = true;
 
