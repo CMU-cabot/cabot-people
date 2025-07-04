@@ -83,7 +83,7 @@ class TrackerSort3D:
         # set last predict time
         self.record_tracker[id_track]["last_predict"] = now
 
-    def track(self, now, bboxes, center_pos_list, frame_id, counter_penalty=1, drop_inactive_feature=True):
+    def track(self, now, bboxes, center_pos_list, counter_penalty=1, drop_inactive_feature=True):
         # Performs tracking by comparing with previous detected people
         #
         # INPUT
@@ -92,7 +92,6 @@ class TrackerSort3D:
         #                           detection score) may be included.
         # center_bird_eye_list : n x 2 matrix - each row is a bbox [x, y]
         #                           in bird-eye view of each detection.
-        # frame_id : 1 x 1 scalar - id of the frame
         # step_penalty : 1 x 1 scalar - amount to discount the active detection counter
         # drop_inactive_feature : boolean - True to drop features of permanent inactive
         #                            detection to save space
@@ -182,8 +181,6 @@ class TrackerSort3D:
             # Add these infos to the record.
             for i, id_track in enumerate(track_continue_prev):
                 circle_tmp = center_circle_list[track_continue_current[i]]
-                self.record_tracker[id_track]["frame"][frame_id] = {}
-                self.record_tracker[id_track]["frame"][frame_id]["bbox"] = bboxes[track_continue_current[i]]
                 self.record_tracker[id_track]["expire"] = now + self.duration_inactive_to_remove
                 self.box_active[id_track] = circle_tmp
 
@@ -218,10 +215,6 @@ class TrackerSort3D:
         # add new trackers
         for id_track in det_to_add:
             self.record_tracker[self.tracker_count] = {}
-            self.record_tracker[self.tracker_count]["frame"] = {}
-            self.record_tracker[self.tracker_count]["frame"][frame_id] = {}
-            self.record_tracker[self.tracker_count]["frame"][frame_id]["bbox"] = bboxes[id_track]
-            self.record_tracker[self.tracker_count]["id"] = self.tracker_count
             self.record_tracker[self.tracker_count]["color"] = self.list_colors[self.tracker_count % self.n_colors]
             self.record_tracker[self.tracker_count]["expire"] = now + self.duration_inactive_to_remove
             self.record_tracker[self.tracker_count]["since"] = now
