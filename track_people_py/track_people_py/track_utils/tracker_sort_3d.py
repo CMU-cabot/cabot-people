@@ -54,7 +54,6 @@ class TrackerSort3D:
         self.record_tracker = {}  # record keeper for active tracks
         self.box_active = {}  # dictionary holding the latest box of active detections
         self.kf_active = {}  # Kalman Filter for active tracks
-        self.record_tracker_archive = {}  # main data storage
 
         # set parameters
         self.iou_threshold = iou_threshold
@@ -212,7 +211,6 @@ class TrackerSort3D:
 
             if now > self.record_tracker[id_track]["expire"] or (now - self.record_tracker[id_track]["since"]) < self.minimum_valid_track_duration:
                 # remove tracks that have been inactive for too long
-                # recall that we still have self.record_tracker_archive
                 del self.record_tracker[id_track]
                 del self.box_active[id_track]
                 del self.kf_active[id_track]
@@ -238,9 +236,6 @@ class TrackerSort3D:
             self.kf_active[self.tracker_count] = kf_utils.init_kf_fixed_size([new_kf_x, 0.0, new_kf_y, 0.0],
                                                                              self.kf_time_step, self.kf_init_var, self.kf_process_var, self.kf_measure_var)
 
-            # save archive data
-            self.record_tracker_archive[self.tracker_count] = self.record_tracker[self.tracker_count]
-
             # set output
             prev_exist[id_track] = False
             person_id[id_track] = self.tracker_count
@@ -250,24 +245,3 @@ class TrackerSort3D:
             self.tracker_count += 1
 
         return prev_exist, [int(x) for x in person_id], person_color, tracked_duration
-
-    def get_track_id(self, id_track):
-        # return track of a given id
-        assert (id_track < self.tracker_count) and (id_track >= 0), "Track ID {} is invalid (Total tracks: {})".format(id_track, self.tracker_count)
-        return self.record_tracker_archive[id_track]
-
-    def get_active_tracks_at_frame(self, id_frame):
-        # get IDs, bboxes, and colors of tracks at frame id_frame
-
-        id_list = []
-        bbox_list = []
-        color_list = []
-
-        for id_track in range(self.tracker_count):
-
-            if id_frame in self.record_tracker_archive[id_track]["frame"]:
-                id_list.append(id_track)
-                bbox_list.append(self.record_tracker_archive[id_track]["frame"][id_frame]["bbox"])
-                color_list.append(self.record_tracker_archive[id_track]["color"])
-
-        return id_list, bbox_list, color_list
