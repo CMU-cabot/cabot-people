@@ -82,14 +82,16 @@ class TrackSort3dPeople(AbsTrackPeople):
         self.combined_detected_boxes_pub.publish(combined_msg)
 
         try:
-            _, id_list, color_list, tracked_duration = self.tracker.track(now, detect_results, center_bird_eye_global_list)
+            _, alive_track_id_list, color_list, tracked_duration = self.tracker.track(now, detect_results, center_bird_eye_global_list)
         except Exception as e:
             self.get_logger().error(F"tracking error, {e}")
             return
 
-        self.pub_result(combined_msg, id_list, color_list, tracked_duration)
+        track_pos_dict, track_vel_dict = self.postprocess_buf(combined_msg, alive_track_id_list, center_bird_eye_global_list, color_list)
 
-        self.vis_result(combined_msg, id_list, color_list, tracked_duration)
+        self.pub_result(combined_msg, alive_track_id_list, track_pos_dict, track_vel_dict, self.track_buf.track_vel_hist_dict)
+
+        self.vis_result(combined_msg, alive_track_id_list, track_pos_dict, track_vel_dict)
 
 
 def main():
