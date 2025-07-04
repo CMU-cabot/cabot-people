@@ -25,9 +25,9 @@ args=("$@")
 WS=$HOME/people_nuc_ws
 
 if [ "$1" == "build" ]; then
-    cd $WS
-    colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release
-    exit
+    shift 1
+    exec $WS/src/cabot_people/script/cabot_build.sh -m $@
+    exit $?
 else
     echo "Skip building workscape"
 fi
