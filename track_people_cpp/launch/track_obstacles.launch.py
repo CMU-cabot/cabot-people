@@ -61,22 +61,10 @@ def generate_launch_description():
             namespace='obstacle',
             output=output,
             parameters=[{
-                'target_fps': target_fps,
-                'diagnostic_name': 'ObstacleTrack'
-            }]
-        ),
-
-        Node(
-            package="track_people_py",
-            executable="predict_kf_obstacle.py",
-            name="predict_obstacle",
-            namespace='obstacle',
-            output=output,
-            parameters=[{
                 'duration_inactive_to_stop_publish': 0.2,
                 'stationary_detect_threshold_duration': 1.0,
                 'target_fps': target_fps,
-                'diagnostic_name': 'ObstaclePredict'
+                'diagnostic_name': 'ObstacleTrack'
             }],
             remappings=[('/obstacle/people', '/obstacles')],
         )

@@ -549,20 +549,6 @@ if [ $tracking -eq 1 ]; then
     echo $com
     eval $com
     pids+=($!)
-
-    ### launch people predict
-    opt_predict=''
-    if [ $gazebo -eq 1 ] && [ $publish_sim_people -eq 1 ]; then
-        opt_predict='publish_simulator_people:=true'
-    fi
-    launch_file="track_people_py predict_kf.launch.py"
-    echo "launch $launch_file"
-    com="$command ros2 launch -n $launch_file $opt_predict \
-                  jetpack5_workaround:=$jetpack5_workaround \
-                  $commandpost"
-    echo $com
-    eval $com
-    pids+=($!)
 fi
 
 ### obstacle detect/track
