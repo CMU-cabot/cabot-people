@@ -52,9 +52,6 @@ class AbsTrackPeople(rclpy.node.Node):
         self.tracked_boxes_pub = self.create_publisher(TrackedBoxes, 'people/tracked_boxes', 10)
         self.visualization_marker_array_pub = self.create_publisher(MarkerArray, 'people/tracking_visualization', 10)
 
-        self.frame_id = 0
-        self.prev_detect_time_sec = 0
-
         self.updater = Updater(self)
 
         target_fps = self.declare_parameter('target_fps', 0.0).value

@@ -66,12 +66,6 @@ class TrackSort3dPeople(AbsTrackPeople):
             self.get_logger().info("delete buffer for the camera which is not updated, camera ID = " + str(key))
             del self.buffer[key]
 
-        # 2022.01.12: remove time check for multiple detection
-        # check if image is received in correct time order
-        # cur_detect_time_sec = detected_boxes_msg.header.stamp.to_sec()
-        # if cur_detect_time_sec<self.prev_detect_time_sec:
-        #    return
-
         self.buffer[detected_boxes_msg.camera_id] = detected_boxes_msg
 
         combined_msg = None
@@ -88,7 +82,7 @@ class TrackSort3dPeople(AbsTrackPeople):
         self.combined_detected_boxes_pub.publish(combined_msg)
 
         try:
-            _, id_list, color_list, tracked_duration = self.tracker.track(now, detect_results, center_bird_eye_global_list, self.frame_id)
+            _, id_list, color_list, tracked_duration = self.tracker.track(now, detect_results, center_bird_eye_global_list)
         except Exception as e:
             self.get_logger().error(F"tracking error, {e}")
             return
@@ -96,9 +90,6 @@ class TrackSort3dPeople(AbsTrackPeople):
         self.pub_result(combined_msg, id_list, color_list, tracked_duration)
 
         self.vis_result(combined_msg, id_list, color_list, tracked_duration)
-
-        self.frame_id += 1
-        # self.prev_detect_time_sec = cur_detect_time_sec
 
 
 def main():
