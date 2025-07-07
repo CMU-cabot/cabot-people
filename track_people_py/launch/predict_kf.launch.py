@@ -27,7 +27,7 @@ from launch.actions import SetEnvironmentVariable
 from launch.actions import RegisterEventHandler
 from launch.conditions import IfCondition
 from launch.event_handlers import OnShutdown
-from launch.substitutions import LaunchConfiguration, EnvironmentVariable
+from launch.substitutions import LaunchConfiguration, EnvironmentVariable, PythonExpression
 from launch_ros.actions import Node
 from launch_ros.actions import SetParameter
 
@@ -46,6 +46,7 @@ def generate_launch_description():
     duration_inactive_to_stop_publish = LaunchConfiguration('duration_inactive_to_stop_publish')
     target_fps = LaunchConfiguration('target_fps')
     publish_simulator_people = LaunchConfiguration('publish_simulator_people')
+    remap_people_topic = LaunchConfiguration('remap_people_topic')
 
     # ToDo: workaround https://github.com/CMU-cabot/cabot/issues/86
     jetpack5_workaround = LaunchConfiguration('jetpack5_workaround')
@@ -63,6 +64,7 @@ def generate_launch_description():
         DeclareLaunchArgument('duration_inactive_to_stop_publish', default_value=EnvironmentVariable('CABOT_DETECT_PEOPLE_CLEAR_TIME', default_value='0.2')),
         DeclareLaunchArgument('target_fps', default_value=EnvironmentVariable('CABOT_PEOPLE_PREDICT_FPS', default_value='15.0')),
         DeclareLaunchArgument('publish_simulator_people', default_value='false'),
+        DeclareLaunchArgument('remap_people_topic', default_value=''),
 
         DeclareLaunchArgument('jetpack5_workaround', default_value='false'),
 
@@ -80,5 +82,20 @@ def generate_launch_description():
             executable="predict_kf_people.py",
             name="predict_kf_people_py",
             output=output,
+            condition=IfCondition(
+                PythonExpression(["'", remap_people_topic, "' == ''"])
+            )
+        ),
+        Node(
+            package="track_people_py",
+            executable="predict_kf_people.py",
+            name="predict_kf_people_py",
+            output=output,
+            remappings=[
+                ('/people', remap_people_topic)
+            ],
+            condition=IfCondition(
+                PythonExpression(["'", remap_people_topic, "' != ''"])
+            )
         ),
     ])

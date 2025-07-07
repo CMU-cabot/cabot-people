@@ -32,6 +32,12 @@ else
     echo "Skip building workscape"
 fi
 
+if [ "$1" == "record_test" ]; then
+    shift 1
+    exec $WS/src/cabot_people/script/cabot_record_test.sh $@
+    exit $?
+fi
+
 source install/setup.bash
 
 exec $WS/src/cabot_people/script/cabot_people.sh $@

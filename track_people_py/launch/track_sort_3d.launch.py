@@ -40,6 +40,7 @@ except ImportError:
 
 def generate_launch_description():
     output = {'stderr': {'log'}}
+    use_sim_time = LaunchConfiguration('use_sim_time')
     iou_threshold = LaunchConfiguration('iou_threshold')
     iou_circle_size = LaunchConfiguration('iou_circle_size')
     kf_init_var = LaunchConfiguration('kf_init_var')
@@ -59,6 +60,7 @@ def generate_launch_description():
         # append prefix name to the log directory for convenience
         LogInfo(msg=["no cabot_common"]) if workaround else RegisterEventHandler(OnShutdown(on_shutdown=[AppendLogDirPrefix("track_people_cpp-detect_darknet")])),
 
+        DeclareLaunchArgument('use_sim_time', default_value='false'),
         DeclareLaunchArgument('iou_threshold', default_value='0.01'),
         DeclareLaunchArgument('iou_circle_size', default_value='0.5'),
         DeclareLaunchArgument('kf_init_var', default_value='1.0'),
@@ -86,5 +88,8 @@ def generate_launch_description():
             executable="track_sort_3d_people.py",
             name="track_sort_3d_people_py",
             output=output,
+            parameters=[{
+                'use_sim_time': use_sim_time
+            }]
         ),
     ])

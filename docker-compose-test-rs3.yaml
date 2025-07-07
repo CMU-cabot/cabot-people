@@ -16,6 +16,16 @@ services:
     profiles:
       - dev
 
+  rs1-test-dev:
+    extends:
+      service: rs1-dev
+    environment:
+      - CABOT_GAZEBO=1
+      - CABOT_USE_REALSENSE=0
+    command:
+      - "/launch.sh"
+      - "-D"
+
   rs2-dev:
     extends:
       file: docker-compose-base.yaml
@@ -31,6 +41,16 @@ services:
       - "-D"
     profiles:
       - dev
+
+  rs2-test-dev:
+    extends:
+      service: rs2-dev
+    environment:
+      - CABOT_GAZEBO=1
+      - CABOT_USE_REALSENSE=0
+    command:
+      - "/launch.sh"
+      - "-D"
 
   rs3-dev:
     extends:
@@ -48,6 +68,16 @@ services:
     profiles:
       - dev
 
+  rs3-test-dev:
+    extends:
+      service: rs3-dev
+    environment:
+      - CABOT_GAZEBO=1
+      - CABOT_USE_REALSENSE=0
+    command:
+      - "/launch.sh"
+      - "-D"
+
   track-dev:
     extends:
       file: docker-compose-base.yaml
@@ -57,6 +87,34 @@ services:
     command:
       - "/launch.sh"
       - "-K"
+    profiles:
+      - dev
+
+  track-test-dev:
+    extends:
+      file: docker-compose-base.yaml
+      service: people-all-dev
+    environment:
+      - CABOT_GAZEBO=1
+      - CABOT_USE_REALSENSE=0
+    command:
+      - "/launch.sh"
+      - "-K"
+      - "-O"
+      - "-T"
+    profiles:
+      - dev
+
+  record-test-dev:
+    extends:
+      file: docker-compose-base.yaml
+      service: people-all-dev
+    environment:
+      - CABOT_GAZEBO=1
+      - CABOT_USE_REALSENSE=0
+    command:
+      - "/launch.sh"
+      - "record_test"
     profiles:
       - dev
 
@@ -77,6 +135,18 @@ services:
     profiles:
       - prod
 
+  rs1-test-prod:
+    extends:
+      service: rs1-prod
+    environment:
+      - CABOT_GAZEBO=1
+      - CABOT_USE_REALSENSE=0
+    command:
+      - "/launch.sh"
+      - "-D"
+    profiles:
+      - prod
+
   rs2-prod:
     extends:
       file: docker-compose-base.yaml
@@ -89,6 +159,18 @@ services:
       - "-a"
       - "-t"
       - "0"
+      - "-D"
+    profiles:
+      - prod
+
+  rs2-test-prod:
+    extends:
+      service: rs2-prod
+    environment:
+      - CABOT_GAZEBO=1
+      - CABOT_USE_REALSENSE=0
+    command:
+      - "/launch.sh"
       - "-D"
     profiles:
       - prod
@@ -109,6 +191,18 @@ services:
     profiles:
       - prod
 
+  rs3-test-prod:
+    extends:
+      service: rs3-prod
+    environment:
+      - CABOT_GAZEBO=1
+      - CABOT_USE_REALSENSE=0
+    command:
+      - "/launch.sh"
+      - "-D"
+    profiles:
+      - prod
+
   track-prod:
     extends:
       file: docker-compose-base.yaml
@@ -118,5 +212,33 @@ services:
     command:
       - "/launch.sh"
       - "-K"
+    profiles:
+      - prod
+
+  track-test-prod:
+    extends:
+      file: docker-compose-base.yaml
+      service: people-all-prod
+    environment:
+      - CABOT_GAZEBO=1
+      - CABOT_USE_REALSENSE=0
+    command:
+      - "/launch.sh"
+      - "-K"
+      - "-O"
+      - "-T"
+    profiles:
+      - prod
+
+  record-test-prod:
+    extends:
+      file: docker-compose-base.yaml
+      service: people-all-prod
+    environment:
+      - CABOT_GAZEBO=1
+      - CABOT_USE_REALSENSE=0
+    command:
+      - "/launch.sh"
+      - "record_test"
     profiles:
       - prod
