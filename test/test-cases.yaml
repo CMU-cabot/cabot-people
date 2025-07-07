@@ -1,0 +1,31 @@
+tests:
+  - site: cabot_site_large_room
+    name: test_category1_case1_move_towards_a_pedestrian
+  - site: cabot_site_large_room
+    name: test_category1_case1_move_towards_and_pass_left
+  - site: cabot_site_large_room
+    name: test_category1_case1_move_towards_and_pass_right
+  - site: cabot_site_large_room
+    name: test_category1_case2_move_towards_a_pedestrian_and_avoid
+  - site: cabot_site_large_room
+    name: test_category1_case2_pedestrian_standing_left
+  - site: cabot_site_large_room
+    name: test_category1_case2_pedestrian_standing_right
+  - site: cabot_site_large_room
+    name: test_category1_case4_robot_overtaking
+  - site: cabot_site_large_room
+    name: test_category1_case5_down_the_path
+  - site: cabot_site_large_room
+    name: test_category2_case1_move_across_a_pedestrian1
+  - site: cabot_site_large_room
+    name: test_category2_case1_move_across_a_pedestrian2
+  - site: cabot_site_large_room
+    name: test_category2_case1_move_across_a_pedestrian3
+  - site: cabot_site_large_room
+    name: test_category2_case1_move_across_a_pedestrian4
+  - site: cabot_site_large_room
+    name: test_category2_case1_move_across_a_pedestrian5
+  - site: cabot_site_large_room
+    name: test_category2_case1_move_across_a_pedestrian6
+  - site: cabot_site_large_room
+    name: test_category3_case1_move_across_a_pedestrian_proceed
