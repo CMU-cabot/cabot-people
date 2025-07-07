@@ -27,7 +27,7 @@ from launch.actions import SetEnvironmentVariable
 from launch.actions import RegisterEventHandler
 from launch.conditions import IfCondition
 from launch.event_handlers import OnShutdown
-from launch.substitutions import LaunchConfiguration
+from launch.substitutions import LaunchConfiguration, PythonExpression
 from launch_ros.actions import Node
 
 try:
@@ -41,7 +41,9 @@ def generate_launch_description():
     output = {'stderr': {'log'}}
     # ToDo: workaround https://github.com/CMU-cabot/cabot/issues/86
     jetpack5_workaround = LaunchConfiguration('jetpack5_workaround')
+    use_sim_time = LaunchConfiguration('use_sim_time')
     target_fps = LaunchConfiguration('target_fps')
+    remap_obstacles_topic = LaunchConfiguration('remap_obstacles_topic')
 
     return LaunchDescription([
         # save all log file in the directory where the launch.log file is saved
@@ -50,7 +52,9 @@ def generate_launch_description():
         LogInfo(msg=["no cabot_common"]) if workaround else RegisterEventHandler(OnShutdown(on_shutdown=[AppendLogDirPrefix("track_people_cpp-track_obstacles")])),
 
         DeclareLaunchArgument('jetpack5_workaround', default_value='false'),
+        DeclareLaunchArgument('use_sim_time', default_value='false'),
         DeclareLaunchArgument('target_fps', default_value='10.0'),
+        DeclareLaunchArgument('remap_obstacles_topic', default_value=''),
 
         SetEnvironmentVariable(name='LD_PRELOAD', value='/usr/local/lib/libOpen3D.so', condition=IfCondition(jetpack5_workaround)),
 
@@ -61,6 +65,7 @@ def generate_launch_description():
             namespace='obstacle',
             output=output,
             parameters=[{
+                'use_sim_time': use_sim_time,
                 'target_fps': target_fps,
                 'diagnostic_name': 'ObstacleTrack'
             }]
@@ -79,5 +84,25 @@ def generate_launch_description():
                 'diagnostic_name': 'ObstaclePredict'
             }],
             remappings=[('/obstacle/people', '/obstacles')],
+            condition=IfCondition(
+                PythonExpression(["'", remap_obstacles_topic, "' == ''"])
+            )
+        ),
+        Node(
+            package="track_people_py",
+            executable="predict_kf_obstacle.py",
+            name="predict_obstacle",
+            namespace='obstacle',
+            output=output,
+            parameters=[{
+                'duration_inactive_to_stop_publish': 0.2,
+                'stationary_detect_threshold_duration': 1.0,
+                'target_fps': target_fps,
+                'diagnostic_name': 'ObstaclePredict'
+            }],
+            remappings=[('/obstacle/people', remap_obstacles_topic)],
+            condition=IfCondition(
+                PythonExpression(["'", remap_obstacles_topic, "' != ''"])
+            )
         )
     ])
