@@ -35,7 +35,7 @@ tests:
 
 ## Evaluate tracking by batch test on the simulator
 
-Run batch test for tracking evaluation
+Run batch test for tracking evaluation (results will be saved in "people-summary.csv", "obstacles-summary.csv", and "eval_track_error" within each test log directory)
 ```
 python3 ./test/run_test_batch.py -i <test cases YAML> -N <cabot-navigation directory> -O <log output directory>
 
@@ -45,7 +45,7 @@ python3 ./test/run_test_batch.py -i ./test/test-cases.yaml -N ../cabot-navigatio
 
 ## Evaluate tracking by a test case on the simulator
 
-Run a test case for tracking evaluation (results will be saved in the "eval_track_error" within the ROS log directory)
+Run a test case for tracking evaluation
 ```
 ./test/run_test.sh -N <cabot-navigation directory> -S <cabot site name> -f <test name pattern> -O <log output directory>
 
