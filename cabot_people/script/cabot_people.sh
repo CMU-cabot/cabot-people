@@ -144,6 +144,7 @@ tracking=0
 detection=0
 obstacle=0
 noreset=0
+run_test=0
 
 processor=$(uname -m)
 
@@ -182,10 +183,11 @@ function usage {
     echo "-R 1280/848/640          specify camera resolution"
     echo "-O                       obstacle detection/tracking"
     echo "-a                       no resetrs each"
+    echo "-T                       run in test mode (remap /people and /obstacles topic for accuracy test)"
     exit
 }
 
-while getopts "hdm:n:w:srVCt:pWc:v:N:f:KDF:P:S:R:Oa" arg; do
+while getopts "hdm:n:w:srVCt:pWc:v:N:f:KDF:P:S:R:OaT" arg; do
     case $arg in
     h)
         usage
@@ -263,9 +265,17 @@ while getopts "hdm:n:w:srVCt:pWc:v:N:f:KDF:P:S:R:Oa" arg; do
     a)
         noreset=1
         ;;
+    T)
+        run_test=1
+        ;;
     esac
 done
 shift $((OPTIND-1))
+
+use_sim_time=false
+if [ $gazebo -eq 1 ]; then
+    use_sim_time=true;
+fi
 
 width=$resolution
 if [ $width -eq 1280 ]; then
@@ -545,6 +555,7 @@ if [ $tracking -eq 1 ]; then
     echo "launch $launch_file"
     com="$command ros2 launch -n $launch_file \
                   jetpack5_workaround:=$jetpack5_workaround \
+                  use_sim_time:=$use_sim_time \
                   $commandpost"
     echo $com
     eval $com
@@ -553,7 +564,10 @@ if [ $tracking -eq 1 ]; then
     ### launch people predict
     opt_predict=''
     if [ $gazebo -eq 1 ] && [ $publish_sim_people -eq 1 ]; then
-        opt_predict='publish_simulator_people:=true'
+        opt_predict+=' publish_simulator_people:=true'
+    fi
+    if [ $run_test -eq 1 ]; then
+        opt_predict+=' remap_people_topic:=/test/people'
     fi
     launch_file="track_people_py predict_kf.launch.py"
     echo "launch $launch_file"
@@ -591,11 +605,16 @@ if [ $obstacle -eq 1 ]; then
         pids+=($!)
     fi
 
+    opt_predict=''
+    if [ $run_test -eq 1 ]; then
+        opt_predict+=' remap_obstacles_topic:=/test/obstacles'
+    fi
     launch_file="track_people_cpp track_obstacles.launch.py"
     echo "launch $launch_file"
-    com="$command ros2 launch -n $launch_file \
+    com="$command ros2 launch -n $launch_file $opt_predict \
                   jetpack5_workaround:=$jetpack5_workaround \
                   target_fps:=$target_fps \
+                  use_sim_time:=$use_sim_time \
                   $commandpost"
     echo $com
     eval $com
