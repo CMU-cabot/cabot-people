@@ -18,20 +18,23 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#include <vector>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 #include <pcl/filters/extract_indices.h>
 #include <pcl/sample_consensus/sac_model_plane.h>
 #include <pcl/segmentation/sac_segmentation.h>
-#include <pcl_conversions/pcl_conversions.h> 
+#include <pcl_conversions/pcl_conversions.h>
 #include <tf2_eigen/tf2_eigen.h>
+
+#include <algorithm>
+#include <vector>
 
 #include "abstract_detect_people.hpp"
 
 namespace track_people_cpp
 {
-AbstractDetectPeople::AbstractDetectPeople(const std::string & node_name, rclcpp::NodeOptions options)
+AbstractDetectPeople::AbstractDetectPeople(
+  const std::string & node_name, rclcpp::NodeOptions options)
 : Node(node_name, options),
   enable_detect_people_(true),
   queue_size_(2),
@@ -65,15 +68,18 @@ AbstractDetectPeople::AbstractDetectPeople(const std::string & node_name, rclcpp
   remove_ground_ = this->declare_parameter("remove_ground", remove_ground_);
   detection_threshold_ = this->declare_parameter("detection_threshold", detection_threshold_);
   // minimum vertical size of box to consider a detection as a track
-  minimum_detection_size_threshold_ = this->declare_parameter("minimum_detection_size_threshold", minimum_detection_size_threshold_);
+  minimum_detection_size_threshold_ = this->declare_parameter(
+    "minimum_detection_size_threshold", minimum_detection_size_threshold_);
 
   map_frame_name_ = this->declare_parameter("map_frame", map_frame_name_);
-  robot_footprint_frame_name_ = this->declare_parameter("robot_footprint_frame", robot_footprint_frame_name_);
+  robot_footprint_frame_name_ = this->declare_parameter(
+    "robot_footprint_frame", robot_footprint_frame_name_);
   camera_id_ = this->declare_parameter("camera_id", camera_id_);
   camera_link_frame_name_ = this->declare_parameter("camera_link_frame", camera_link_frame_name_);
   camera_info_topic_name_ = this->declare_parameter("camera_info_topic", camera_info_topic_name_);
   image_rect_topic_name_ = this->declare_parameter("image_rect_topic", image_rect_topic_name_);
-  depth_registered_topic_name_ = this->declare_parameter("depth_registered_topic", depth_registered_topic_name_);
+  depth_registered_topic_name_ = this->declare_parameter(
+    "depth_registered_topic", depth_registered_topic_name_);
   depth_unit_meter_ = this->declare_parameter("depth_unit_meter", depth_unit_meter_);
   target_fps_ = this->declare_parameter("target_fps", target_fps_);
   publish_detect_image_ = this->declare_parameter("publish_detect_image", publish_detect_image_);
@@ -81,20 +87,30 @@ AbstractDetectPeople::AbstractDetectPeople(const std::string & node_name, rclcpp
   // enable/disable service
   toggle_srv_ = this->create_service<std_srvs::srv::SetBool>(
     "enable_detect_people",
-    std::bind(&AbstractDetectPeople::enable_detect_people_cb, this, std::placeholders::_1, std::placeholders::_2));
+    std::bind(
+      &AbstractDetectPeople::enable_detect_people_cb, this, std::placeholders::_1,
+      std::placeholders::_2));
 
   // TF
   tfBuffer = new tf2_ros::Buffer(this->get_clock());
   tfListener = new tf2_ros::TransformListener(*tfBuffer);
 
   // Subscriptions
-  camera_info_sub_ = this->create_subscription<sensor_msgs::msg::CameraInfo>(camera_info_topic_name_, 10, std::bind(&AbstractDetectPeople::camera_info_cb, this, std::placeholders::_1));
-  RCLCPP_INFO(this->get_logger(), "subscribe to %s and %s", image_rect_topic_name_.c_str(), depth_registered_topic_name_.c_str());
-  rgb_image_sub_ = new message_filters::Subscriber<sensor_msgs::msg::Image>(this, image_rect_topic_name_);
-  depth_image_sub_ = new message_filters::Subscriber<sensor_msgs::msg::Image>(this, depth_registered_topic_name_);
-  rgb_depth_img_synch_ = new message_filters::Synchronizer<SyncPolicy>(SyncPolicy(10), *rgb_image_sub_, *depth_image_sub_);
+  camera_info_sub_ = this->create_subscription<sensor_msgs::msg::CameraInfo>(
+    camera_info_topic_name_, 10,
+    std::bind(&AbstractDetectPeople::camera_info_cb, this, std::placeholders::_1));
+  RCLCPP_INFO(
+    this->get_logger(), "subscribe to %s and %s",
+    image_rect_topic_name_.c_str(), depth_registered_topic_name_.c_str());
+  rgb_image_sub_ = new message_filters::Subscriber<sensor_msgs::msg::Image>(
+    this, image_rect_topic_name_);
+  depth_image_sub_ = new message_filters::Subscriber<sensor_msgs::msg::Image>(
+    this, depth_registered_topic_name_);
+  rgb_depth_img_synch_ = new message_filters::Synchronizer<SyncPolicy>(
+    SyncPolicy(10), *rgb_image_sub_, *depth_image_sub_);
   rgb_depth_img_synch_->registerCallback(&AbstractDetectPeople::rgb_depth_img_cb, this);
-  detected_boxes_pub_ = this->create_publisher<track_people_msgs::msg::TrackedBoxes>("/people/detected_boxes", 1);
+  detected_boxes_pub_ = this->create_publisher<track_people_msgs::msg::TrackedBoxes>(
+    "/people/detected_boxes", 1);
   if (debug_) {
     ground_pub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("detect_ground", 1);
   }
@@ -106,23 +122,35 @@ AbstractDetectPeople::AbstractDetectPeople(const std::string & node_name, rclcpp
   fps_loop_cb_group_ = this->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
   detect_loop_cb_group_ = this->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
   depth_loop_cb_group_ = this->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
-  fps_loop_ = this->create_wall_timer(std::chrono::duration<float>(1.0 / target_fps_), std::bind(&AbstractDetectPeople::fps_loop_cb, this), fps_loop_cb_group_);
-  detect_loop_ = this->create_wall_timer(std::chrono::duration<float>(0.01), std::bind(&AbstractDetectPeople::detect_loop_cb, this), detect_loop_cb_group_);
-  depth_loop_ = this->create_wall_timer(std::chrono::duration<float>(0.01), std::bind(&AbstractDetectPeople::depth_loop_cb, this), depth_loop_cb_group_);
+  fps_loop_ =
+    this->create_wall_timer(
+    std::chrono::duration<float>(1.0 / target_fps_),
+    std::bind(&AbstractDetectPeople::fps_loop_cb, this), fps_loop_cb_group_);
+  detect_loop_ =
+    this->create_wall_timer(
+    std::chrono::duration<float>(0.01),
+    std::bind(&AbstractDetectPeople::detect_loop_cb, this), detect_loop_cb_group_);
+  depth_loop_ =
+    this->create_wall_timer(
+    std::chrono::duration<float>(0.01),
+    std::bind(&AbstractDetectPeople::depth_loop_cb, this), depth_loop_cb_group_);
 
   // diagnostic updater
   updater_ = new diagnostic_updater::Updater(this);
   updater_->setHardwareID(this->get_namespace());
   diagnostic_updater::FrequencyStatusParam param1(&target_fps_, &target_fps_, 1.0, 2);
-  camera_freq_ = new diagnostic_updater::HeaderlessTopicDiagnostic(std::string("CameraInput")+this->get_namespace(), *updater_, param1);
+  camera_freq_ = new diagnostic_updater::HeaderlessTopicDiagnostic(
+    std::string("CameraInput") + this->get_namespace(), *updater_, param1);
   diagnostic_updater::FrequencyStatusParam param2(&target_fps_, &target_fps_, 0.5, 2);
-  people_freq_ = new diagnostic_updater::HeaderlessTopicDiagnostic(std::string("PeopleDetect")+this->get_namespace(), *updater_, param2);
+  people_freq_ = new diagnostic_updater::HeaderlessTopicDiagnostic(
+    std::string("PeopleDetect") + this->get_namespace(), *updater_, param2);
 
   RCLCPP_INFO(this->get_logger(), "constructor completed");
 }
 
 void AbstractDetectPeople::enable_detect_people_cb(
-  const std_srvs::srv::SetBool::Request::SharedPtr req, std_srvs::srv::SetBool::Response::SharedPtr res)
+  const std_srvs::srv::SetBool::Request::SharedPtr req,
+  std_srvs::srv::SetBool::Response::SharedPtr res)
 {
   // TODO(daisukes): implementation
 }
@@ -206,11 +234,13 @@ void AbstractDetectPeople::rgb_depth_img_cb(
       }
 
       if (detect_count_ == MAX) {
-        RCLCPP_INFO(this->get_logger(), "detect %.2f fps %d", detect_count_ / detect_time_, detect_count_);
+        RCLCPP_INFO(
+          this->get_logger(), "detect %.2f fps %d", detect_count_ / detect_time_, detect_count_);
         detect_time_ = 0;
         detect_count_ = 0;
 
-        RCLCPP_INFO(this->get_logger(), "depth %.2f fps %d", depth_count_ / depth_time_, depth_count_);
+        RCLCPP_INFO(
+          this->get_logger(), "depth %.2f fps %d", depth_count_ / depth_time_, depth_count_);
         depth_time_ = 0;
         depth_count_ = 0;
       }
@@ -329,21 +359,26 @@ void AbstractDetectPeople::depth_loop_cb()
 
 void AbstractDetectPeople::publish_detect_image(DetectData & dd)
 {
-  cv_bridge::CvImagePtr cv_rgb_ptr = cv_bridge::toCvCopy(dd.rgb_msg_ptr, sensor_msgs::image_encodings::BGR8);
+  cv_bridge::CvImagePtr cv_rgb_ptr =
+    cv_bridge::toCvCopy(dd.rgb_msg_ptr, sensor_msgs::image_encodings::BGR8);
   for (int i = 0; i < dd.result.tracked_boxes.size(); i++) {
     track_people_msgs::msg::TrackedBox tb = dd.result.tracked_boxes[i];
-    rectangle(cv_rgb_ptr->image, cv::Point(tb.box.xmin, tb.box.ymin), cv::Point(tb.box.xmax, tb.box.ymax), cv::Scalar(0, 0, 255), 2);
-    if (dd.masks.size()>0) {
+    rectangle(
+      cv_rgb_ptr->image, cv::Point(tb.box.xmin, tb.box.ymin),
+      cv::Point(tb.box.xmax, tb.box.ymax), cv::Scalar(0, 0, 255), 2);
+    if (dd.masks.size() > 0) {
       std::vector<cv::Mat> rgb_channels;
       cv::split(cv_rgb_ptr->image, rgb_channels);
       cv::Mat mask_img;
-      if (dd.masks[i].cols==cv_rgb_ptr->image.cols && dd.masks[i].rows==cv_rgb_ptr->image.rows) {
+      if (dd.masks[i].cols == cv_rgb_ptr->image.cols &&
+        dd.masks[i].rows == cv_rgb_ptr->image.rows)
+      {
         // rtmdet-inst
         mask_img = rgb_channels[0];
       } else {
         // maskrcnn
-        int x0 = std::max(int(std::floor(tb.box.xmin)) - 1, 0);
-        int y0 = std::max(int(std::floor(tb.box.ymin)) - 1, 0);
+        int x0 = std::max(static_cast<int>(std::floor(tb.box.xmin)) - 1, 0);
+        int y0 = std::max(static_cast<int>(std::floor(tb.box.ymin)) - 1, 0);
         mask_img = cv::Mat(rgb_channels[0], cv::Rect(x0, y0, dd.masks[i].cols, dd.masks[i].rows));
       }
       cv::bitwise_or(dd.masks[i], mask_img, mask_img);
@@ -368,7 +403,8 @@ void AbstractDetectPeople::process_depth(DetectData & dd)
   }
 
   // ROS_INFO("depth_msg_ptr.use_count() %d", dd.depth_msg_ptr.use_count());
-  auto cv_depth_ptr = cv_bridge::toCvShare(dd.depth_msg_ptr, sensor_msgs::image_encodings::TYPE_16UC1);
+  auto cv_depth_ptr =
+    cv_bridge::toCvShare(dd.depth_msg_ptr, sensor_msgs::image_encodings::TYPE_16UC1);
   // ROS_INFO("cv_depth_ptr.use_count() %d", cv_depth_ptr.use_count());
   auto depth_img = cv_depth_ptr->image;
   // ROS_INFO("depth_img %d %d", depth_img.cols, depth_img.rows);
@@ -378,12 +414,15 @@ void AbstractDetectPeople::process_depth(DetectData & dd)
     // create transformation matrix from camera frame to robot footprint frame
     if (!camera_to_robot_footprint_matrix_) {
       try {
-        geometry_msgs::msg::TransformStamped camera_to_robot_footprint_msg = tfBuffer->lookupTransform(
-          robot_footprint_frame_name_, camera_link_frame_name_,
-          dd.depth_msg_ptr->header.stamp, std::chrono::duration<float>(1.0));
+        geometry_msgs::msg::TransformStamped camera_to_robot_footprint_msg =
+          tfBuffer->lookupTransform(
+          robot_footprint_frame_name_, camera_link_frame_name_, dd.depth_msg_ptr->header.stamp,
+          std::chrono::duration<float>(1.0));
 
-        Eigen::Isometry3d camera_to_robot_footprint_isometry3d = tf2::transformToEigen(camera_to_robot_footprint_msg);
-        camera_to_robot_footprint_matrix_ = std::make_shared<Eigen::Matrix4d>(camera_to_robot_footprint_isometry3d.matrix());
+        Eigen::Isometry3d camera_to_robot_footprint_isometry3d =
+          tf2::transformToEigen(camera_to_robot_footprint_msg);
+        camera_to_robot_footprint_matrix_ =
+          std::make_shared<Eigen::Matrix4d>(camera_to_robot_footprint_isometry3d.matrix());
       } catch (tf2::TransformException & ex) {
         RCLCPP_INFO(this->get_logger(), "TF is not ready");
         return;
@@ -393,7 +432,8 @@ void AbstractDetectPeople::process_depth(DetectData & dd)
     // calculate ground plane by RANSAC to ignore invalid detection
     if (estimate_ground_ransac_) {
       // ignore far depth points
-      cv::threshold(depth_img, depth_img, ransac_input_max_distance_ * 1000.0, 0, cv::THRESH_TOZERO_INV);
+      cv::threshold(
+        depth_img, depth_img, ransac_input_max_distance_ * 1000.0, 0, cv::THRESH_TOZERO_INV);
 
       // create depth point cloud in robot footprint frame
       auto o3d_pc = generatePointCloudFromDepth(depth_img);
@@ -403,7 +443,7 @@ void AbstractDetectPeople::process_depth(DetectData & dd)
 
       // select point cloud by height
       pcl::PointCloud<pcl::PointXYZ>::Ptr pcl_pc(new pcl::PointCloud<pcl::PointXYZ>);
-      for (const auto& pt : o3d_pc->points_) {
+      for (const auto & pt : o3d_pc->points_) {
         if (pt.z() >= ransac_input_min_height_ && pt.z() <= ransac_input_max_height_) {
           pcl_pc->points.emplace_back(pt.x(), pt.y(), pt.z());
         }
@@ -463,7 +503,7 @@ void AbstractDetectPeople::process_depth(DetectData & dd)
 
   for (auto it = tracked_boxes.begin(); it != tracked_boxes.end(); ) {
     std::shared_ptr<open3d::geometry::PointCloud> pc;
-    if (dd.masks.size()>0) {
+    if (dd.masks.size() > 0) {
       size_t idx = std::distance(tracked_boxes.begin(), it);
       pc = generatePointCloudFromDepthAndMask(depth_img, it->box, dd.masks[idx]);
     } else {
@@ -485,7 +525,8 @@ void AbstractDetectPeople::process_depth(DetectData & dd)
         for (int i = 0; i < pc_robot_footprint->points_.size(); i++) {
           const Eigen::Vector3d & pt = pc_robot_footprint->points_[i];
           if (pt(2) >= ransac_input_min_height_ && pt(2) <= ransac_input_max_height_) {
-            double ground_plane_distance = ground_plane.dot(Eigen::Vector4d(pt(0), pt(1), pt(2), 1.0));
+            double ground_plane_distance = ground_plane.dot(
+              Eigen::Vector4d(pt(0), pt(1), pt(2), 1.0));
             if (abs(ground_plane_distance) <= ground_distance_threshold_) {
               ground_point_num += 1;
             }
@@ -502,7 +543,9 @@ void AbstractDetectPeople::process_depth(DetectData & dd)
 
       double ground_point_ratio = ground_point_num / pc_robot_footprint->points_.size();
       if (ground_point_ratio > ignore_detect_ground_point_ratio_) {
-        RCLCPP_INFO(this->get_logger(), "ignore detection on ground, ground point ratio %f", ground_point_ratio);
+        RCLCPP_INFO(
+          this->get_logger(), "ignore detection on ground, ground point ratio %f",
+          ground_point_ratio);
         tracked_boxes.erase(it);
         continue;
       }
@@ -536,7 +579,8 @@ void AbstractDetectPeople::process_depth(DetectData & dd)
   }
 }
 
-std::shared_ptr<open3d::geometry::PointCloud> AbstractDetectPeople::generatePointCloudFromDepth(cv::Mat & depth_img)
+std::shared_ptr<open3d::geometry::PointCloud> AbstractDetectPeople::generatePointCloudFromDepth(
+  cv::Mat & depth_img)
 {
   auto o3d_pc_ptr = std::make_shared<open3d::geometry::PointCloud>();
   for (int row = 0; row < depth_img.rows; row++) {
@@ -575,13 +619,13 @@ std::shared_ptr<open3d::geometry::PointCloud> AbstractDetectPeople::generatePoin
   cv::Mat & depth_img, track_people_msgs::msg::BoundingBox & box, cv::Mat & mask)
 {
   cv::Mat mask_img;
-  if (mask.cols==depth_img.cols && mask.rows==depth_img.rows) {
+  if (mask.cols == depth_img.cols && mask.rows == depth_img.rows) {
     // rtmdet-inst
     mask_img = mask;
   } else {
     // maskrcnn
-    int x0 = std::max(int(std::floor(box.xmin)) - 1, 0);
-    int y0 = std::max(int(std::floor(box.ymin)) - 1, 0);
+    int x0 = std::max(static_cast<int>(std::floor(box.xmin)) - 1, 0);
+    int y0 = std::max(static_cast<int>(std::floor(box.ymin)) - 1, 0);
     mask_img = cv::Mat::zeros(depth_img.size(), CV_8UC1);
     mask.copyTo(mask_img(cv::Rect(x0, y0, mask.cols, mask.rows)));
   }

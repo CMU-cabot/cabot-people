@@ -58,8 +58,8 @@ void DetectMMDetSeg::process_detect(DetectData & dd)
 
   // resize input image to avoid slow postprocessing issue
   // https://github.com/open-mmlab/mmdeploy/issues/2512#issuecomment-1774623268
-  double resize_width_ratio = model_input_width_ / double(rImg.cols);
-  double resize_height_ratio = model_input_height_ / double(rImg.rows);
+  double resize_width_ratio = model_input_width_ / static_cast<double>(rImg.cols);
+  double resize_height_ratio = model_input_height_ / static_cast<double>(rImg.rows);
   cv::Mat rResizeImage;
   cv::resize(rImg, rResizeImage, cv::Size(model_input_width_, model_input_height_));
 
@@ -80,8 +80,9 @@ void DetectMMDetSeg::process_detect(DetectData & dd)
     auto box = dets[i].bbox;
 
     // assume classId 0 is person
-    if ((classId != 0) || (score < detection_threshold_) 
-      || (box.right-box.left < minimum_detection_size_threshold_) || (box.bottom-box.top < minimum_detection_size_threshold_))
+    if ((classId != 0) || (score < detection_threshold_) ||
+      (box.right - box.left < minimum_detection_size_threshold_) ||
+      (box.bottom - box.top < minimum_detection_size_threshold_))
     {
       continue;
     }
@@ -89,15 +90,20 @@ void DetectMMDetSeg::process_detect(DetectData & dd)
     // create mask image from mask image cropped by bbox
     cv::Mat cropped_mask(dets[i].mask->height, dets[i].mask->width, CV_8UC1, dets[i].mask->data);
     cv::Mat mask = cv::Mat::zeros(cv::Size(model_input_width_, model_input_height_), CV_8UC1);
-    int mask_left = (box.left+dets[i].mask->width<=model_input_width_) ? box.left : model_input_width_-dets[i].mask->width;
-    int mask_top = (box.top+dets[i].mask->height<=model_input_height_) ? box.top : model_input_height_-dets[i].mask->height;
-    cropped_mask.copyTo(mask(cv::Rect(box.left, box.top, dets[i].mask->width, dets[i].mask->height)));
+    int mask_left =
+      (box.left + dets[i].mask->width <=
+      model_input_width_) ? box.left : model_input_width_ - dets[i].mask->width;
+    int mask_top =
+      (box.top + dets[i].mask->height <=
+      model_input_height_) ? box.top : model_input_height_ - dets[i].mask->height;
+    cropped_mask.copyTo(
+      mask(cv::Rect(box.left, box.top, dets[i].mask->width, dets[i].mask->height)));
 
     // resize detected box to original image size
-    box.left = int(box.left / resize_width_ratio);
-    box.top = int(box.top / resize_height_ratio);
-    box.right = int(box.right / resize_width_ratio);
-    box.bottom = int(box.bottom / resize_height_ratio);
+    box.left = static_cast<int>(box.left / resize_width_ratio);
+    box.top = static_cast<int>(box.top / resize_height_ratio);
+    box.right = static_cast<int>(box.right / resize_width_ratio);
+    box.bottom = static_cast<int>(box.bottom / resize_height_ratio);
 
     // rotate back the detected box coordinate
     if (dd.rotate > 0) {

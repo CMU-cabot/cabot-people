@@ -18,8 +18,8 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#ifndef DETECT_ABSTRACT_PEOPLE_HPP_
-#define DETECT_ABSTRACT_PEOPLE_HPP_
+#ifndef ABSTRACT_DETECT_PEOPLE_HPP_
+#define ABSTRACT_DETECT_PEOPLE_HPP_
 
 #include <cv_bridge/cv_bridge.h>
 #include <message_filters/subscriber.h>
@@ -35,6 +35,7 @@
 #include <mutex>
 #include <queue>
 #include <string>
+#include <vector>
 
 #include <diagnostic_updater/diagnostic_updater.hpp>
 #include <diagnostic_updater/publisher.hpp>
@@ -75,7 +76,7 @@ public:
   explicit AbstractDetectPeople(const std::string & node_name, rclcpp::NodeOptions options);
 
 protected:
-  virtual void process_detect(DetectData & dd)=0;
+  virtual void process_detect(DetectData & dd) = 0;
 
   bool debug_;
   bool parallel_;
@@ -171,7 +172,8 @@ private:
 
   message_filters::Subscriber<sensor_msgs::msg::Image> * rgb_image_sub_;
   message_filters::Subscriber<sensor_msgs::msg::Image> * depth_image_sub_;
-  typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::msg::Image, sensor_msgs::msg::Image> SyncPolicy;
+  typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::msg::Image,
+      sensor_msgs::msg::Image> SyncPolicy;
   message_filters::Synchronizer<SyncPolicy> * rgb_depth_img_synch_;
 
   diagnostic_updater::Updater * updater_;
@@ -181,4 +183,4 @@ private:
 
 }  // namespace track_people_cpp
 
-#endif  // DETECT_ABSTRACT_PEOPLE_HPP_
+#endif  // ABSTRACT_DETECT_PEOPLE_HPP_
