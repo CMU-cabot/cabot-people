@@ -430,8 +430,6 @@ if [ $realsense_camera -eq 1 ]; then
     fi
 fi
 
-opt_predict=''
-
 if [ $detection -eq 1 ]; then
     ### launch people detect
     map_frame='map'
@@ -592,13 +590,13 @@ if [ $obstacle -eq 1 ]; then
         pids+=($!)
     fi
 
-    opt_predict=''
+    opt_track=''
     if [ $run_test -eq 1 ]; then
-        opt_predict+=' remap_obstacles_topic:=/test/obstacles'
+        opt_track+=' remap_obstacles_topic:=/test/obstacles'
     fi
     launch_file="track_people_cpp track_obstacles.launch.py"
     echo "launch $launch_file"
-    com="$command ros2 launch -n $launch_file $opt_predict \
+    com="$command ros2 launch -n $launch_file $opt_track \
                   jetpack5_workaround:=$jetpack5_workaround \
                   target_fps:=$target_fps \
                   use_sim_time:=$use_sim_time \

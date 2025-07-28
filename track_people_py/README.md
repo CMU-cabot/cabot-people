@@ -26,10 +26,11 @@ topic name can be changed by the parameter
 
 ## scripts/track_sort_3d_people.py
 
-find the corresponding person in detected people to assign track id for prediction
+find the corresponding person in detected people to assign track id
 
 ### publish
-- **/track_people_py/tracked_boxes**: tracked people location with track id
+- **/track_people_py/combined_detected_boxes**: detected people from all cameras
+- **/people**: tracked people
 
 ### subscribe
 - **/track_people_py/detected_boxes**: detected people
