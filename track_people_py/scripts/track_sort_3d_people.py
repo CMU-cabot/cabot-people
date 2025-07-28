@@ -24,10 +24,8 @@ import signal
 import copy
 import sys
 
-from matplotlib import pyplot as plt
 import rclpy
 from rclpy.duration import Duration
-# import time
 
 from track_people_py import AbsTrackPeople
 from track_people_py.track_utils import TrackerSort3D
@@ -99,9 +97,10 @@ def main():
 
     track_people = TrackSort3dPeople()
 
-    plt.ion()
-    plt.show()
-    rclpy.spin(track_people)
+    try:
+        rclpy.spin(track_people)
+    except:  # noqa: E722
+        track_people.get_logger().info("Shutting down")
 
 
 def receiveSignal(signal_num, frame):
