@@ -29,7 +29,6 @@ topic name can be changed by the parameter
 find the corresponding person in detected people to assign track id
 
 ### publish
-- **/track_people_py/combined_detected_boxes**: detected people from all cameras
 - **/people**: tracked people
 
 ### subscribe
