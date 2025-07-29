@@ -29,7 +29,6 @@ from rclpy.duration import Duration
 
 from track_people_py import AbsTrackPeople
 from track_people_py.track_utils import TrackerSort3D
-from track_people_msgs.msg import TrackedBoxes
 
 
 class TrackSort3dPeople(AbsTrackPeople):
@@ -41,8 +40,6 @@ class TrackSort3dPeople(AbsTrackPeople):
                                      kf_init_var=self.kf_init_var, kf_process_var=self.kf_process_var, kf_measure_var=self.kf_measure_var,
                                      minimum_valid_track_duration=Duration(seconds=self.minimum_valid_track_duration),
                                      duration_inactive_to_remove=Duration(seconds=self.duration_inactive_to_remove))
-
-        self.combined_detected_boxes_pub = self.create_publisher(TrackedBoxes, 'people/combined_detected_boxes', 10)
 
         self.buffer = {}
 
@@ -77,15 +74,13 @@ class TrackSort3dPeople(AbsTrackPeople):
 
         detect_results, center_bird_eye_global_list = self.preprocess_msg(combined_msg)
 
-        self.combined_detected_boxes_pub.publish(combined_msg)
-
         try:
             _, alive_track_id_list, color_list, tracked_duration = self.tracker.track(now, detect_results, center_bird_eye_global_list)
         except Exception as e:
             self.get_logger().error(F"tracking error, {e}")
             return
 
-        track_pos_dict, track_vel_dict = self.postprocess_buf(combined_msg, alive_track_id_list, center_bird_eye_global_list, color_list)
+        track_pos_dict, track_vel_dict = self.postprocess_buf(now, alive_track_id_list, center_bird_eye_global_list, color_list)
 
         self.pub_result(combined_msg, alive_track_id_list, track_pos_dict, track_vel_dict, self.track_buf.track_vel_hist_dict)
 

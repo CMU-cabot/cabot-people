@@ -95,7 +95,7 @@ class AbsTrackPeople(rclpy.node.Node):
             center_bird_eye_global_list.append([bbox.center3d.x, bbox.center3d.y, bbox.center3d.z])
         return np.array(detect_results), center_bird_eye_global_list
 
-    def postprocess_buf(self, msg, alive_track_id_list, center_bird_eye_global_list, color_list):
+    def postprocess_buf(self, now, alive_track_id_list, center_bird_eye_global_list, color_list):
         # update queue
         for (track_id, center3d, color) in zip(alive_track_id_list, center_bird_eye_global_list, color_list):
             # update tracked people buffer
@@ -111,7 +111,7 @@ class AbsTrackPeople(rclpy.node.Node):
             # update buffer for observation time
             if track_id not in self.track_buf.track_time_queue_dict:
                 self.track_buf.track_time_queue_dict[track_id] = deque(maxlen=self.input_time)
-            self.track_buf.track_time_queue_dict[track_id].append(rclpy.time.Time.from_msg(msg.header.stamp))
+            self.track_buf.track_time_queue_dict[track_id].append(now)
 
         track_pos_dict = {}
         track_vel_dict = {}
@@ -131,7 +131,6 @@ class AbsTrackPeople(rclpy.node.Node):
         # clean up missed track if necessary
         missing_track_id_list = set(self.track_buf.track_input_queue_dict.keys()) - set(alive_track_id_list)
         stop_publish_track_id_list = set()
-        now = self.get_clock().now()
         for track_id in missing_track_id_list:
             # update missing time
             if track_id not in self.track_buf.track_id_missing_time_dict:
