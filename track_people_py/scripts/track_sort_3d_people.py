@@ -105,17 +105,15 @@ class TrackSort3dPeople(AbsTrackPeople):
         # add track which is missing, but not deleted yet
         publish_missing_track_id_list = missing_track_id_list - stop_publish_track_id_list
         for track_id in publish_missing_track_id_list:
-            if track_id not in self.track_buf.track_input_queue_dict:
+            if (track_id not in self.track_buf.track_input_queue_dict) or (len(self.track_buf.track_input_queue_dict[track_id]) < self.input_time):
                 continue
-
-            last_vel = self.tracker.kf_active[track_id]["kf"].x.reshape(1, 4)[0, [1, 3]]
-
             # save position and velocity
             # use raw position
             track_pos_dict[track_id] = np.array(self.track_buf.track_input_queue_dict[track_id])[-1, :2]
             # ues filtered position
             # track_pos_dict[track_id] = self.tracker.kf_active[track_id]["kf"].x.reshape(1, 4)[0, [0, 2]]
-            track_vel_dict[track_id] = last_vel
+            track_vel_dict[track_id] = self.tracker.kf_active[track_id]["kf"].x.reshape(1, 4)[0, [1, 3]]
+
         return track_pos_dict, track_vel_dict
 
     def detected_boxes_cb(self, detected_boxes_msg):
