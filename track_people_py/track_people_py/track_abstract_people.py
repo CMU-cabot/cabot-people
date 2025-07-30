@@ -19,7 +19,6 @@
 # SOFTWARE.
 
 from abc import ABCMeta, abstractmethod
-from collections import deque
 import math
 
 from diagnostic_updater import Updater
@@ -44,7 +43,6 @@ class TrackBuffer():
         self.track_vel_hist_dict = {}
         self.track_color_dict = {}
 
-        self.track_id_kf_model_dict = {}
         self.track_id_missing_time_dict = {}
         self.track_id_stationary_start_time_dict = {}
 
@@ -94,80 +92,6 @@ class AbsTrackPeople(rclpy.node.Node):
             detect_results.append([bbox.box.xmin, bbox.box.ymin, bbox.box.xmax, bbox.box.ymax])
             center_bird_eye_global_list.append([bbox.center3d.x, bbox.center3d.y, bbox.center3d.z])
         return np.array(detect_results), center_bird_eye_global_list
-
-    def postprocess_buf(self, now, alive_track_id_list, center_bird_eye_global_list, color_list):
-        # update queue
-        for (track_id, center3d, color) in zip(alive_track_id_list, center_bird_eye_global_list, color_list):
-            # update tracked people buffer
-            if track_id not in self.track_buf.track_input_queue_dict:
-                self.track_buf.track_input_queue_dict[track_id] = deque(maxlen=self.input_time)
-            self.track_buf.track_input_queue_dict[track_id].append(center3d)
-            self.track_buf.track_color_dict[track_id] = color
-
-            # clear missing time
-            if track_id in self.track_buf.track_id_missing_time_dict:
-                del self.track_buf.track_id_missing_time_dict[track_id]
-
-            # update buffer for observation time
-            if track_id not in self.track_buf.track_time_queue_dict:
-                self.track_buf.track_time_queue_dict[track_id] = deque(maxlen=self.input_time)
-            self.track_buf.track_time_queue_dict[track_id].append(now)
-
-        track_pos_dict = {}
-        track_vel_dict = {}
-        for track_id in alive_track_id_list:
-            if len(self.track_buf.track_input_queue_dict[track_id]) < self.input_time:
-                continue
-            # save position and velocity
-            # use raw position
-            track_pos_dict[track_id] = np.array(self.track_buf.track_input_queue_dict[track_id])[-1, :2]
-            # ues filtered position
-            # track_pos_dict[track_id] = self.tracker.kf_active[track_id]["kf"].x.reshape(1, 4)[0, [0, 2]]
-            track_vel_dict[track_id] = self.tracker.kf_active[track_id]["kf"].x.reshape(1, 4)[0, [1, 3]]
-            if track_id not in self.track_buf.track_vel_hist_dict:
-                self.track_buf.track_vel_hist_dict[track_id] = deque(maxlen=self.input_time)
-            self.track_buf.track_vel_hist_dict[track_id].append((self.track_buf.track_time_queue_dict[track_id][-1], track_vel_dict[track_id]))
-
-        # clean up missed track if necessary
-        missing_track_id_list = set(self.track_buf.track_input_queue_dict.keys()) - set(alive_track_id_list)
-        stop_publish_track_id_list = set()
-        for track_id in missing_track_id_list:
-            # update missing time
-            if track_id not in self.track_buf.track_id_missing_time_dict:
-                self.track_buf.track_id_missing_time_dict[track_id] = now
-
-            # if missing long time, stop publishing in people topic
-            if (now - self.track_buf.track_id_missing_time_dict[track_id]).nanoseconds/1000000000 > self.duration_inactive_to_stop_publish:
-                stop_publish_track_id_list.add(track_id)
-
-            # if missing long time, delete track
-            if (now - self.track_buf.track_id_missing_time_dict[track_id]).nanoseconds/1000000000 > self.duration_inactive_to_remove:
-                del self.track_buf.track_input_queue_dict[track_id]
-                del self.track_buf.track_time_queue_dict[track_id]
-                if track_id in self.track_buf.track_vel_hist_dict:
-                    del self.track_buf.track_vel_hist_dict[track_id]
-                del self.track_buf.track_color_dict[track_id]
-                del self.track_buf.track_id_missing_time_dict[track_id]
-                if track_id in self.track_buf.track_id_stationary_start_time_dict:
-                    del self.track_buf.track_id_stationary_start_time_dict[track_id]
-                if track_id in self.track_buf.track_id_kf_model_dict:
-                    del self.track_buf.track_id_kf_model_dict[track_id]
-
-        # add track which is missing, but not deleted yet
-        publish_missing_track_id_list = missing_track_id_list - stop_publish_track_id_list
-        for track_id in publish_missing_track_id_list:
-            if track_id not in self.track_buf.track_id_kf_model_dict:
-                continue
-
-            last_vel = self.track_buf.track_id_kf_model_dict[track_id].x.reshape(1, 4)[0, [1, 3]]
-
-            # save position and velocity
-            # use raw position
-            track_pos_dict[track_id] = np.array(self.track_buf.track_input_queue_dict[track_id])[-1, :2]
-            # ues filtered position
-            # track_pos_dict[track_id] = self.track_buf.track_id_kf_model_dict[track_id].x.reshape(1,4)[0, [0,2]]
-            track_vel_dict[track_id] = last_vel
-        return track_pos_dict, track_vel_dict
 
     def pub_result(self, msg, alive_track_id_list, track_pos_dict, track_vel_dict, track_vel_hist_dict):
         # init People message
