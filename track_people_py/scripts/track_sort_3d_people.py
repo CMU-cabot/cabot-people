@@ -92,7 +92,7 @@ class TrackSort3dPeople(AbsTrackPeople):
                 stop_publish_track_id_list.add(track_id)
 
             # if missing long time, delete track
-            if (now - self.track_buf.track_id_missing_time_dict[track_id]).nanoseconds/1000000000 > self.duration_inactive_to_remove:
+            if track_id not in self.tracker.kf_active:
                 del self.track_buf.track_input_queue_dict[track_id]
                 del self.track_buf.track_time_queue_dict[track_id]
                 if track_id in self.track_buf.track_vel_hist_dict:
