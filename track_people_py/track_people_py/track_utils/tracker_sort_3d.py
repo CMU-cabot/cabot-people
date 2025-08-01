@@ -52,7 +52,6 @@ class TrackerSort3D:
 
         # set data keepers
         self.record_tracker = {}  # record keeper for active tracks
-        self.box_active = {}  # dictionary holding the latest box of active detections
         self.kf_active = {}  # Kalman Filter for active tracks
 
         # set parameters
@@ -70,15 +69,15 @@ class TrackerSort3D:
     def _predict_kf(self, id_track, now):
         # set time steps
         dt = (now - self.record_tracker[id_track]["last_predict"]).nanoseconds/1000000000
-        self.kf_active[id_track]["kf"].F = np.array([[1, dt, 0,  0],
-                                                     [0,  1, 0,  0],
-                                                     [0,  0, 1, dt],
-                                                     [0,  0, 0,  1]])
+        self.kf_active[id_track].F = np.array([[1, dt, 0,  0],
+                                               [0,  1, 0,  0],
+                                               [0,  0, 1, dt],
+                                               [0,  0, 0,  1]])
         q = Q_discrete_white_noise(dim=2, dt=dt, var=self.kf_process_var)
-        self.kf_active[id_track]["kf"].Q = block_diag(q, q)
+        self.kf_active[id_track].Q = block_diag(q, q)
 
         # run predict
-        self.kf_active[id_track]["kf"].predict()
+        self.kf_active[id_track].predict()
 
         # set last predict time
         self.record_tracker[id_track]["last_predict"] = now
@@ -112,7 +111,7 @@ class TrackerSort3D:
         person_id = np.zeros(len(bboxes)).astype(np.uint32)
         person_color = [None]*len(bboxes)
         tracked_duration = np.zeros(len(bboxes)).astype(np.float32)
-        if (len(bboxes) == 0) and (len(self.box_active) == 0):
+        if (len(bboxes) == 0) and (len(self.kf_active) == 0):
             # No new detection and no active tracks
             # Do nothing
             det_to_add = []
@@ -121,19 +120,19 @@ class TrackerSort3D:
             # predict box by Kalman Filter
             for id_track in self.kf_active.keys():
                 self._predict_kf(id_track, now)
-        elif (len(bboxes) == 0) and (len(self.box_active) > 0):
+        elif (len(bboxes) == 0) and (len(self.kf_active) > 0):
             # No new detection but has active tracks
 
             # no tracks to add
             det_to_add = []
 
             # set all active tracks to inactive
-            track_inactive = list(self.box_active.keys())
+            track_inactive = list(self.kf_active.keys())
 
             # predict box by Kalman Filter
             for id_track in self.kf_active.keys():
                 self._predict_kf(id_track, now)
-        elif (len(bboxes) > 0) and (len(self.box_active) == 0):
+        elif (len(bboxes) > 0) and (len(self.kf_active) == 0):
 
             # If no active detection, add all of them
             det_to_add = np.arange(len(bboxes))
@@ -144,7 +143,7 @@ class TrackerSort3D:
             # predict box by Kalman Filter
             for id_track in self.kf_active.keys():
                 self._predict_kf(id_track, now)
-        elif (len(bboxes) > 0) and (len(self.box_active) > 0):
+        elif (len(bboxes) > 0) and (len(self.kf_active) > 0):
             # If there are active detections, compared them to new detections
             # then decide to match or add as new tracks
 
@@ -153,13 +152,13 @@ class TrackerSort3D:
             for id_track in self.kf_active.keys():
                 self._predict_kf(id_track, now)
 
-                kf_x = self.kf_active[id_track]["kf"].x[0, 0]
-                kf_y = self.kf_active[id_track]["kf"].x[2, 0]
+                kf_x = self.kf_active[id_track].x[0, 0]
+                kf_y = self.kf_active[id_track].x[2, 0]
                 kf_circle = [kf_x, kf_y, self.iou_circle_size]
                 kf_pred_circles.append(kf_circle)
 
             # get all active tracks
-            key_box_active = list(self.box_active.keys())
+            key_kf_active = list(self.kf_active.keys())
 
             # compute IOU
             iou = reid_utils_fn.compute_circle_pairwise_iou(center_circle_list, kf_pred_circles)
@@ -174,7 +173,7 @@ class TrackerSort3D:
                 if iou[cur_idx][prev_idx] > self.iou_threshold:
                     track_continue_current.append(cur_idx)
                     track_continue_prev.append(prev_idx)
-            track_continue_prev = [key_box_active[i] for i in track_continue_prev]  # get id of still active tracks
+            track_continue_prev = [key_kf_active[i] for i in track_continue_prev]  # get id of still active tracks
 
             # Now we have a 1-1 correspondence of active tracks
             # between track id in track_continue_prev and detection in track_continue_current.
@@ -182,12 +181,10 @@ class TrackerSort3D:
             for i, id_track in enumerate(track_continue_prev):
                 circle_tmp = center_circle_list[track_continue_current[i]]
                 self.record_tracker[id_track]["expire"] = now + self.duration_inactive_to_remove
-                self.box_active[id_track] = circle_tmp
 
                 # update Kalman Filter
                 kf_meas = [circle_tmp[0], circle_tmp[1]]
-                self.kf_active[id_track]["kf"].update(np.asarray(kf_meas).reshape([len(kf_meas), 1]))
-                self.kf_active[id_track]["missed"] = 0
+                self.kf_active[id_track].update(np.asarray(kf_meas).reshape([len(kf_meas), 1]))
 
                 # set output
                 prev_exist[track_continue_current[i]] = True
@@ -199,7 +196,7 @@ class TrackerSort3D:
             det_to_add = np.setdiff1d(np.arange(len(bboxes)), track_continue_current)
 
             # get the list of tracks that have become inactive
-            track_inactive = [x for x in key_box_active if x not in track_continue_prev]
+            track_inactive = [x for x in key_kf_active if x not in track_continue_prev]
         else:
             assert False, "Something is wrong here... All conditions shouldn't be wrong!"
 
@@ -209,7 +206,6 @@ class TrackerSort3D:
             if now > self.record_tracker[id_track]["expire"] or (now - self.record_tracker[id_track]["since"]) < self.minimum_valid_track_duration:
                 # remove tracks that have been inactive for too long
                 del self.record_tracker[id_track]
-                del self.box_active[id_track]
                 del self.kf_active[id_track]
 
         # add new trackers
@@ -219,9 +215,6 @@ class TrackerSort3D:
             self.record_tracker[self.tracker_count]["expire"] = now + self.duration_inactive_to_remove
             self.record_tracker[self.tracker_count]["since"] = now
             self.record_tracker[self.tracker_count]["last_predict"] = now
-
-            # save active box
-            self.box_active[self.tracker_count] = bboxes[id_track]
 
             # save active Kalaman Filter
             new_kf_x = center_circle_list[id_track][0]

@@ -73,8 +73,8 @@ class TrackSort3dPeople(AbsTrackPeople):
             # use raw position
             track_pos_dict[track_id] = np.array(self.track_buf.track_input_queue_dict[track_id])[-1, :2]
             # ues filtered position
-            # track_pos_dict[track_id] = self.tracker.kf_active[track_id]["kf"].x.reshape(1, 4)[0, [0, 2]]
-            track_vel_dict[track_id] = self.tracker.kf_active[track_id]["kf"].x.reshape(1, 4)[0, [1, 3]]
+            # track_pos_dict[track_id] = self.tracker.kf_active[track_id].x.reshape(1, 4)[0, [0, 2]]
+            track_vel_dict[track_id] = self.tracker.kf_active[track_id].x.reshape(1, 4)[0, [1, 3]]
             if track_id not in self.track_buf.track_vel_hist_dict:
                 self.track_buf.track_vel_hist_dict[track_id] = deque(maxlen=self.input_time)
             self.track_buf.track_vel_hist_dict[track_id].append((self.track_buf.track_time_queue_dict[track_id][-1], track_vel_dict[track_id]))
@@ -111,8 +111,8 @@ class TrackSort3dPeople(AbsTrackPeople):
             # use raw position
             track_pos_dict[track_id] = np.array(self.track_buf.track_input_queue_dict[track_id])[-1, :2]
             # ues filtered position
-            # track_pos_dict[track_id] = self.tracker.kf_active[track_id]["kf"].x.reshape(1, 4)[0, [0, 2]]
-            track_vel_dict[track_id] = self.tracker.kf_active[track_id]["kf"].x.reshape(1, 4)[0, [1, 3]]
+            # track_pos_dict[track_id] = self.tracker.kf_active[track_id].x.reshape(1, 4)[0, [0, 2]]
+            track_vel_dict[track_id] = self.tracker.kf_active[track_id].x.reshape(1, 4)[0, [1, 3]]
 
         return track_pos_dict, track_vel_dict
 
