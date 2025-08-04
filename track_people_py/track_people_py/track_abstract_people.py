@@ -40,7 +40,6 @@ from track_people_msgs.msg import TrackedBoxes
 class TrackBuffer():
     def __init__(self):
         self.track_input_queue_dict = {}
-        self.track_time_queue_dict = {}
         self.track_vel_hist_dict = {}
 
         self.track_id_missing_time_dict = {}
@@ -97,7 +96,7 @@ class AbsTrackPeople(rclpy.node.Node):
             center_bird_eye_global_list.append([bbox.center3d.x, bbox.center3d.y, bbox.center3d.z])
         return np.array(detect_results), center_bird_eye_global_list
 
-    def pub_result(self, msg, alive_track_id_list, track_pos_dict, track_vel_dict, track_vel_hist_dict):
+    def pub_result(self, msg, alive_track_id_list, stationary_track_id_list, track_pos_dict, track_vel_dict):
         # init People message
         people_msg = People()
         people_msg.header = msg.header
@@ -121,25 +120,9 @@ class AbsTrackPeople(rclpy.node.Node):
             else:
                 person.reliability = 0.9
 
-            # calculate median velocity of track in recent time window to remove noise
-            track_vel_hist = []
-            for (track_hist_time, track_hist_vel) in track_vel_hist_dict[track_id]:
-                track_vel_hist.append(np.linalg.norm([track_hist_vel[0], track_hist_vel[1]]))
-            track_vel_hist_median = np.median(track_vel_hist)
-
             # check if track is in stationary state
-            if track_vel_hist_median < self.stationary_detect_threshold_velocity_:
-                if track_id not in self.track_buf.track_id_stationary_start_time_dict:
-                    # record time to start stationary state
-                    self.track_buf.track_id_stationary_start_time_dict[track_id] = rclpy.time.Time.from_msg(msg.header.stamp)
-                else:
-                    # add stationary tag if enough time passes after starting stationary state
-                    stationary_start_time = self.track_buf.track_id_stationary_start_time_dict[track_id]
-                    if (rclpy.time.Time.from_msg(msg.header.stamp) - stationary_start_time).nanoseconds/1e9 > self.stationary_detect_threshold_duration_:
-                        person.tags.append("stationary")
-            elif track_id in self.track_buf.track_id_stationary_start_time_dict:
-                # clear time to start stationary state
-                del self.track_buf.track_id_stationary_start_time_dict[track_id]
+            if track_id in stationary_track_id_list:
+                person.tags.append("stationary")
 
             people_msg.people.append(person)
 

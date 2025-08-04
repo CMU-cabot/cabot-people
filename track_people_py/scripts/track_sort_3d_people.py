@@ -44,9 +44,9 @@ class TrackSort3dPeople(AbsTrackPeople):
                                      minimum_valid_track_duration=Duration(seconds=self.minimum_valid_track_duration),
                                      duration_inactive_to_remove=Duration(seconds=self.duration_inactive_to_remove))
 
-        self.buffer = {}
+        self.detect_buf = {}
 
-    def postprocess_buf(self, now, alive_track_id_list, center_bird_eye_global_list):
+    def update_track_buf(self, now, alive_track_id_list, center_bird_eye_global_list):
         # update queue
         for (track_id, center3d) in zip(alive_track_id_list, center_bird_eye_global_list):
             # update tracked people buffer
@@ -57,11 +57,6 @@ class TrackSort3dPeople(AbsTrackPeople):
             # clear missing time
             if track_id in self.track_buf.track_id_missing_time_dict:
                 del self.track_buf.track_id_missing_time_dict[track_id]
-
-            # update buffer for observation time
-            if track_id not in self.track_buf.track_time_queue_dict:
-                self.track_buf.track_time_queue_dict[track_id] = deque(maxlen=self.input_time)
-            self.track_buf.track_time_queue_dict[track_id].append(now)
 
         track_pos_dict = {}
         track_vel_dict = {}
@@ -76,7 +71,7 @@ class TrackSort3dPeople(AbsTrackPeople):
             track_vel_dict[track_id] = self.tracker.kf_active[track_id].x.reshape(1, 4)[0, [1, 3]]
             if track_id not in self.track_buf.track_vel_hist_dict:
                 self.track_buf.track_vel_hist_dict[track_id] = deque(maxlen=self.input_time)
-            self.track_buf.track_vel_hist_dict[track_id].append((self.track_buf.track_time_queue_dict[track_id][-1], track_vel_dict[track_id]))
+            self.track_buf.track_vel_hist_dict[track_id].append(track_vel_dict[track_id])
 
         # clean up missed track if necessary
         missing_track_id_list = set(self.track_buf.track_input_queue_dict.keys()) - set(alive_track_id_list)
@@ -93,7 +88,6 @@ class TrackSort3dPeople(AbsTrackPeople):
             # if missing long time, delete track
             if track_id not in self.tracker.kf_active:
                 del self.track_buf.track_input_queue_dict[track_id]
-                del self.track_buf.track_time_queue_dict[track_id]
                 if track_id in self.track_buf.track_vel_hist_dict:
                     del self.track_buf.track_vel_hist_dict[track_id]
                 del self.track_buf.track_id_missing_time_dict[track_id]
@@ -112,7 +106,28 @@ class TrackSort3dPeople(AbsTrackPeople):
             # track_pos_dict[track_id] = self.tracker.kf_active[track_id].x.reshape(1, 4)[0, [0, 2]]
             track_vel_dict[track_id] = self.tracker.kf_active[track_id].x.reshape(1, 4)[0, [1, 3]]
 
-        return track_pos_dict, track_vel_dict
+        # update track stationary start time, and stationary track list
+        stationary_track_id_list = []
+        for track_id in track_pos_dict.keys():
+            # calculate median velocity norm of track in recent time window to remove noise
+            track_vel_norm_hist = [np.linalg.norm(v) for v in self.track_buf.track_vel_hist_dict[track_id]]
+            track_vel_norm_median = np.median(track_vel_norm_hist)
+
+            # check if track is in stationary state
+            if track_vel_norm_median < self.stationary_detect_threshold_velocity_:
+                if track_id not in self.track_buf.track_id_stationary_start_time_dict:
+                    # record time to start stationary state
+                    self.track_buf.track_id_stationary_start_time_dict[track_id] = now
+                else:
+                    # add stationary list if enough time passes after starting stationary state
+                    stationary_start_time = self.track_buf.track_id_stationary_start_time_dict[track_id]
+                    if (now - stationary_start_time).nanoseconds/1e9 > self.stationary_detect_threshold_duration_:
+                        stationary_track_id_list.append(track_id)
+            elif track_id in self.track_buf.track_id_stationary_start_time_dict:
+                # clear time to start stationary state
+                del self.track_buf.track_id_stationary_start_time_dict[track_id]
+
+        return track_pos_dict, track_vel_dict, stationary_track_id_list
 
     def detected_boxes_cb(self, detected_boxes_msg):
         self.htd.tick()
@@ -125,18 +140,18 @@ class TrackSort3dPeople(AbsTrackPeople):
 
         # To ignore cameras which stop by accidents, remove detecion results for cameras that are not updated longer than threshold to remove track
         delete_camera_ids = []
-        for key in self.buffer:
-            if (now - rclpy.time.Time.from_msg(self.buffer[key].header.stamp)) > self.tracker.duration_inactive_to_remove:
+        for key in self.detect_buf:
+            if (now - rclpy.time.Time.from_msg(self.detect_buf[key].header.stamp)) > self.tracker.duration_inactive_to_remove:
                 delete_camera_ids.append(key)
         for key in delete_camera_ids:
             self.get_logger().info("delete buffer for the camera which is not updated, camera ID = " + str(key))
-            del self.buffer[key]
+            del self.detect_buf[key]
 
-        self.buffer[detected_boxes_msg.camera_id] = detected_boxes_msg
+        self.detect_buf[detected_boxes_msg.camera_id] = detected_boxes_msg
 
         combined_msg = None
-        for key in self.buffer:
-            msg = copy.deepcopy(self.buffer[key])
+        for key in self.detect_buf:
+            msg = copy.deepcopy(self.detect_buf[key])
             if not combined_msg:
                 combined_msg = msg
             else:
@@ -152,9 +167,9 @@ class TrackSort3dPeople(AbsTrackPeople):
             self.get_logger().error(traceback.format_exc())
             return
 
-        track_pos_dict, track_vel_dict = self.postprocess_buf(now, alive_track_id_list, center_bird_eye_global_list)
+        track_pos_dict, track_vel_dict, stationary_track_id_list = self.update_track_buf(now, alive_track_id_list, center_bird_eye_global_list)
 
-        self.pub_result(combined_msg, alive_track_id_list, track_pos_dict, track_vel_dict, self.track_buf.track_vel_hist_dict)
+        self.pub_result(combined_msg, alive_track_id_list, stationary_track_id_list, track_pos_dict, track_vel_dict)
 
         self.vis_result(combined_msg, alive_track_id_list, track_pos_dict, track_vel_dict)
 
