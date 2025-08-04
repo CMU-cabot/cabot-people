@@ -18,6 +18,8 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+from collections import deque
+
 from filterpy.common import Q_discrete_white_noise
 import numpy as np
 from scipy.linalg import block_diag
@@ -29,7 +31,8 @@ from . import kf_utils
 
 class TrackerSort3D:
     def __init__(self, iou_threshold=0.01, iou_circle_size=0.5, kf_init_var=1.0, kf_process_var=1.0, kf_measure_var=1.0,
-                 minimum_valid_track_duration=0.3, duration_inactive_to_remove=2.0):
+                 minimum_valid_track_observe=5, duration_inactive_to_remove=2.0, duration_inactive_to_stop_publish=0.2,
+                 stationary_detect_threshold_duration=1.0, stationary_detect_threshold_velocity=0.1):
         # Initialization
         #
         # iou_threshold : minimum IOU threshold to keep track
@@ -37,8 +40,11 @@ class TrackerSort3D:
         # kf_init_var : variance for initial state covariance matrix
         # kf_process_var : variance for process noise covariance matrix
         # kf_measure_var : variance for measurement noise covariance matrix
-        # minimum_valid_track_duration : minimum duration to consider track is valid, set the value 0.0 for multiple cameras
+        # minimum_valid_track_observe : minimum number of observations to start output tracks
         # duration_inactive_to_remove : duration for an inactive detection to be removed
+        # duration_inactive_to_stop_publish : duration to stop output tracks
+        # stationary_detect_threshold_duration : threshold duration to detect as stationary
+        # stationary_detect_threshold_velocity : threshold velocity to detect as staionary
 
         # parameters for Kalman Filter
         self.kf_time_step = 1.0  # set time step as 1 second, and multiply average fps later if velocity is necessary
@@ -51,12 +57,19 @@ class TrackerSort3D:
         # set data keepers
         self.record_tracker = {}  # record keeper for active tracks
         self.kf_active = {}  # Kalman Filter for active tracks
+        self.track_input_queue_dict = {}
+        self.track_vel_hist_dict = {}
+        self.track_id_missing_time_dict = {}
+        self.track_id_stationary_start_time_dict = {}
 
         # set parameters
         self.iou_threshold = iou_threshold
         self.iou_circle_size = iou_circle_size
-        self.minimum_valid_track_duration = minimum_valid_track_duration
+        self.minimum_valid_track_observe = minimum_valid_track_observe
         self.duration_inactive_to_remove = duration_inactive_to_remove
+        self.duration_inactive_to_stop_publish = duration_inactive_to_stop_publish
+        self.stationary_detect_threshold_duration = stationary_detect_threshold_duration
+        self.stationary_detect_threshold_velocity = stationary_detect_threshold_velocity
 
         # counter of tracks
         self.tracker_count = 0
@@ -77,18 +90,16 @@ class TrackerSort3D:
         # set last predict time
         self.record_tracker[id_track]["last_predict"] = now
 
-    def track(self, now, bboxes, center_pos_list, counter_penalty=1, drop_inactive_feature=True):
+    def _track(self, now, bboxes, center_pos_list):
         # Performs tracking by comparing with previous detected people
         #
         # INPUT
+        # now : timestamp
         # bboxes : n x 4+ matrix - each row is a bbox [x_tl, y_tl, x_br, y_br]
         #                           of each detection. Additional element (e.g.
         #                           detection score) may be included.
-        # center_bird_eye_list : n x 2 matrix - each row is a bbox [x, y]
+        # center_pos_list : n x 2 matrix - each row is a bbox [x, y]
         #                           in bird-eye view of each detection.
-        # step_penalty : 1 x 1 scalar - amount to discount the active detection counter
-        # drop_inactive_feature : boolean - True to drop features of permanent inactive
-        #                            detection to save space
         #
         # OUTPUT
         # prev_exist : boolean n-vector indicating whether each of the
@@ -194,8 +205,7 @@ class TrackerSort3D:
 
         # deal with inactive tracks
         for id_track in track_inactive:
-
-            if now > self.record_tracker[id_track]["expire"] or (now - self.record_tracker[id_track]["since"]) < self.minimum_valid_track_duration:
+            if now > self.record_tracker[id_track]["expire"]:
                 # remove tracks that have been inactive for too long
                 del self.record_tracker[id_track]
                 del self.kf_active[id_track]
@@ -221,3 +231,104 @@ class TrackerSort3D:
             self.tracker_count += 1
 
         return prev_exist, [int(x) for x in person_id], tracked_duration
+
+    def track(self, now, bboxes, center_pos_list):
+        # Performs tracking and output valid results
+        #
+        # INPUT
+        # now : timestamp
+        # bboxes : n x 4+ matrix - each row is a bbox [x_tl, y_tl, x_br, y_br]
+        #                           of each detection. Additional element (e.g.
+        #                           detection score) may be included.
+        # center_pos_list : n x 2 matrix - each row is a bbox [x, y]
+        #                           in bird-eye view of each detection.
+        #
+        # OUTPUT
+        # track_pos_dict : dictionary of track id and positions in bird eye view coordinate
+        # track_vel_dict : dictionary of track id and velocities in bird eye view coordinate
+        # alive_track_id_list : list of track id which are visible now
+        # stationary_track_id_list : list of track id which are stationary
+
+        _, alive_track_id_list, _ = self._track(now, bboxes, center_pos_list)
+
+        # update queue
+        for (track_id, center3d) in zip(alive_track_id_list, center_pos_list):
+            # update tracked people buffer
+            if track_id not in self.track_input_queue_dict:
+                self.track_input_queue_dict[track_id] = deque(maxlen=self.minimum_valid_track_observe)
+            self.track_input_queue_dict[track_id].append(center3d)
+
+            # clear missing time
+            if track_id in self.track_id_missing_time_dict:
+                del self.track_id_missing_time_dict[track_id]
+
+        track_pos_dict = {}
+        track_vel_dict = {}
+        for track_id in alive_track_id_list:
+            if len(self.track_input_queue_dict[track_id]) < self.minimum_valid_track_observe:
+                continue
+            # save position and velocity
+            # use raw position
+            track_pos_dict[track_id] = np.array(self.track_input_queue_dict[track_id])[-1, :2]
+            # ues filtered position
+            # track_pos_dict[track_id] = self.kf_active[track_id].x.reshape(1, 4)[0, [0, 2]]
+            track_vel_dict[track_id] = self.kf_active[track_id].x.reshape(1, 4)[0, [1, 3]]
+            if track_id not in self.track_vel_hist_dict:
+                self.track_vel_hist_dict[track_id] = deque(maxlen=self.minimum_valid_track_observe)
+            self.track_vel_hist_dict[track_id].append(track_vel_dict[track_id])
+
+        # clean up missed track if necessary
+        missing_track_id_list = set(self.track_input_queue_dict.keys()) - set(alive_track_id_list)
+        stop_publish_track_id_list = set()
+        for track_id in missing_track_id_list:
+            # update missing time
+            if track_id not in self.track_id_missing_time_dict:
+                self.track_id_missing_time_dict[track_id] = now
+
+            # if missing long time, stop publishing in people topic
+            if (now - self.track_id_missing_time_dict[track_id]).nanoseconds/1000000000 > self.duration_inactive_to_stop_publish:
+                stop_publish_track_id_list.add(track_id)
+
+            # if missing long time, delete track
+            if track_id not in self.kf_active:
+                del self.track_input_queue_dict[track_id]
+                if track_id in self.track_vel_hist_dict:
+                    del self.track_vel_hist_dict[track_id]
+                del self.track_id_missing_time_dict[track_id]
+                if track_id in self.track_id_stationary_start_time_dict:
+                    del self.track_id_stationary_start_time_dict[track_id]
+
+        # add track which is missing, but not deleted yet
+        publish_missing_track_id_list = missing_track_id_list - stop_publish_track_id_list
+        for track_id in publish_missing_track_id_list:
+            if (track_id not in self.track_input_queue_dict) or (len(self.track_input_queue_dict[track_id]) < self.minimum_valid_track_observe):
+                continue
+            # save position and velocity
+            # use raw position
+            track_pos_dict[track_id] = np.array(self.track_input_queue_dict[track_id])[-1, :2]
+            # ues filtered position
+            # track_pos_dict[track_id] = self.kf_active[track_id].x.reshape(1, 4)[0, [0, 2]]
+            track_vel_dict[track_id] = self.kf_active[track_id].x.reshape(1, 4)[0, [1, 3]]
+
+        # update track stationary start time, and stationary track list
+        stationary_track_id_list = []
+        for track_id in track_pos_dict.keys():
+            # calculate median velocity norm of track in recent time window to remove noise
+            track_vel_norm_hist = [np.linalg.norm(v) for v in self.track_vel_hist_dict[track_id]]
+            track_vel_norm_median = np.median(track_vel_norm_hist)
+
+            # check if track is in stationary state
+            if track_vel_norm_median < self.stationary_detect_threshold_velocity:
+                if track_id not in self.track_id_stationary_start_time_dict:
+                    # record time to start stationary state
+                    self.track_id_stationary_start_time_dict[track_id] = now
+                else:
+                    # add stationary list if enough time passes after starting stationary state
+                    stationary_start_time = self.track_id_stationary_start_time_dict[track_id]
+                    if (now - stationary_start_time).nanoseconds/1e9 > self.stationary_detect_threshold_duration:
+                        stationary_track_id_list.append(track_id)
+            elif track_id in self.track_id_stationary_start_time_dict:
+                # clear time to start stationary state
+                del self.track_id_stationary_start_time_dict[track_id]
+
+        return track_pos_dict, track_vel_dict, alive_track_id_list, stationary_track_id_list

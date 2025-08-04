@@ -46,7 +46,7 @@ def generate_launch_description():
     kf_init_var = LaunchConfiguration('kf_init_var')
     kf_process_var = LaunchConfiguration('kf_process_var')
     kf_measure_var = LaunchConfiguration('kf_measure_var')
-    minimum_valid_track_duration = LaunchConfiguration('minimum_valid_track_duration')
+    minimum_valid_track_observe = LaunchConfiguration('minimum_valid_track_observe')
     duration_inactive_to_remove = LaunchConfiguration('duration_inactive_to_remove')
     target_fps = LaunchConfiguration('target_fps')
     remap_people_topic = LaunchConfiguration('remap_people_topic')
@@ -67,7 +67,7 @@ def generate_launch_description():
         DeclareLaunchArgument('kf_init_var', default_value='1.0'),
         DeclareLaunchArgument('kf_process_var', default_value='1.0'),
         DeclareLaunchArgument('kf_measure_var', default_value='1.0'),
-        DeclareLaunchArgument('minimum_valid_track_duration', default_value='0.0'),
+        DeclareLaunchArgument('minimum_valid_track_observe', default_value='5'),
         DeclareLaunchArgument('duration_inactive_to_remove', default_value='2.0'),
         DeclareLaunchArgument('target_fps', default_value=EnvironmentVariable('CABOT_PEOPLE_TRACK_FPS', default_value='15.0')),
         DeclareLaunchArgument('remap_people_topic', default_value=''),
@@ -80,7 +80,7 @@ def generate_launch_description():
         SetParameter(name='kf_init_var', value=kf_init_var),
         SetParameter(name='kf_process_var', value=kf_process_var),
         SetParameter(name='kf_measure_var', value=kf_measure_var),
-        SetParameter(name='minimum_valid_track_duration', value=minimum_valid_track_duration),
+        SetParameter(name='minimum_valid_track_observe', value=minimum_valid_track_observe),
         SetParameter(name='duration_inactive_to_remove', value=duration_inactive_to_remove),
         SetParameter(name='target_fps', value=target_fps),
 

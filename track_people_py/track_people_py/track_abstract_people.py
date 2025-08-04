@@ -37,15 +37,6 @@ from visualization_msgs.msg import Marker, MarkerArray
 from track_people_msgs.msg import TrackedBoxes
 
 
-class TrackBuffer():
-    def __init__(self):
-        self.track_input_queue_dict = {}
-        self.track_vel_hist_dict = {}
-
-        self.track_id_missing_time_dict = {}
-        self.track_id_stationary_start_time_dict = {}
-
-
 class AbsTrackPeople(rclpy.node.Node):
     __metaclass__ = ABCMeta
 
@@ -62,14 +53,11 @@ class AbsTrackPeople(rclpy.node.Node):
         self.kf_process_var = self.declare_parameter('kf_process_var', 1.0).value
         self.kf_measure_var = self.declare_parameter('kf_measure_var', 1.0).value
         # number of frames to start publish people topic
-        self.input_time = self.declare_parameter('input_time', 5).value
-        self.minimum_valid_track_duration = self.declare_parameter('minimum_valid_track_duration', 0.0).value
+        self.minimum_valid_track_observe = self.declare_parameter('minimum_valid_track_observe', 5).value
         # duration (seconds) to remove an inactive track
         self.duration_inactive_to_remove = self.declare_parameter('duration_inactive_to_remove', 2.0).value
         # duration (seconds) to stop publishing an inactive track in people topic
         self.duration_inactive_to_stop_publish = self.declare_parameter('duration_inactive_to_stop_publish', 0.2).value
-        # tracked people buffer
-        self.track_buf = TrackBuffer()
 
         self.detected_boxes_sub = self.create_subscription(TrackedBoxes, 'people/detected_boxes', self.detected_boxes_cb, 10)
         self.people_pub = self.create_publisher(People, 'people', 10)
