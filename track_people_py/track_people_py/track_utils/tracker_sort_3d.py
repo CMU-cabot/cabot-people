@@ -47,20 +47,23 @@ class TrackerSort3D:
         # stationary_detect_threshold_velocity : threshold velocity to detect as staionary
 
         # parameters for Kalman Filter
-        self.kf_time_step = 1.0  # set time step as 1 second, and multiply average fps later if velocity is necessary
+        self.kf_init_time_step = 1.0  # initial time step, this value does not affect results
         self.kf_init_var = kf_init_var
         self.kf_process_var = kf_process_var  # process noise : smaller value will be smoother
         self.kf_measure_var = kf_measure_var  # measurement noise
-        self.sigma_l = 0.0  # if detection confidence score is larger than this value, start tracking
-        self.sigma_h = 0.5  # if maximum detection confidence store of track is smaller than this value, finish tracking
 
-        # set data keepers
-        self.record_tracker = {}  # record keeper for active tracks
-        self.kf_active = {}  # Kalman Filter for active tracks
-        self.track_input_queue_dict = {}
+        # buffers to update Kalaman Filter
+        self.kf_dict = {}
+        self.kf_last_input_dict = {}
+        self.kf_input_count_dict = {}
+        self.kf_last_predict_time_dict = {}
+        self.kf_expire_time_dict = {}
+        self.kf_since_time_dict = {}
+
+        # buffers to check track status
+        self.track_missing_time_dict = {}
         self.track_vel_hist_dict = {}
-        self.track_id_missing_time_dict = {}
-        self.track_id_stationary_start_time_dict = {}
+        self.track_stationary_start_time_dict = {}
 
         # set parameters
         self.iou_threshold = iou_threshold
@@ -76,19 +79,19 @@ class TrackerSort3D:
 
     def _predict_kf(self, id_track, now):
         # set time steps
-        dt = (now - self.record_tracker[id_track]["last_predict"]).nanoseconds/1000000000
-        self.kf_active[id_track].F = np.array([[1, dt, 0,  0],
-                                               [0,  1, 0,  0],
-                                               [0,  0, 1, dt],
-                                               [0,  0, 0,  1]])
+        dt = (now - self.kf_last_predict_time_dict[id_track]).nanoseconds/1000000000
+        self.kf_dict[id_track].F = np.array([[1, dt, 0,  0],
+                                             [0,  1, 0,  0],
+                                             [0,  0, 1, dt],
+                                             [0,  0, 0,  1]])
         q = Q_discrete_white_noise(dim=2, dt=dt, var=self.kf_process_var)
-        self.kf_active[id_track].Q = block_diag(q, q)
+        self.kf_dict[id_track].Q = block_diag(q, q)
 
         # run predict
-        self.kf_active[id_track].predict()
+        self.kf_dict[id_track].predict()
 
         # set last predict time
-        self.record_tracker[id_track]["last_predict"] = now
+        self.kf_last_predict_time_dict[id_track] = now
 
     def _track(self, now, bboxes, center_pos_list):
         # Performs tracking by comparing with previous detected people
@@ -115,28 +118,28 @@ class TrackerSort3D:
         prev_exist = np.zeros(len(bboxes)).astype(np.bool8)
         person_id = np.zeros(len(bboxes)).astype(np.uint32)
         tracked_duration = np.zeros(len(bboxes)).astype(np.float32)
-        if (len(bboxes) == 0) and (len(self.kf_active) == 0):
+        if (len(bboxes) == 0) and (len(self.kf_dict) == 0):
             # No new detection and no active tracks
             # Do nothing
             det_to_add = []
             track_inactive = []
 
             # predict box by Kalman Filter
-            for id_track in self.kf_active.keys():
+            for id_track in self.kf_dict.keys():
                 self._predict_kf(id_track, now)
-        elif (len(bboxes) == 0) and (len(self.kf_active) > 0):
+        elif (len(bboxes) == 0) and (len(self.kf_dict) > 0):
             # No new detection but has active tracks
 
             # no tracks to add
             det_to_add = []
 
             # set all active tracks to inactive
-            track_inactive = list(self.kf_active.keys())
+            track_inactive = list(self.kf_dict.keys())
 
             # predict box by Kalman Filter
-            for id_track in self.kf_active.keys():
+            for id_track in self.kf_dict.keys():
                 self._predict_kf(id_track, now)
-        elif (len(bboxes) > 0) and (len(self.kf_active) == 0):
+        elif (len(bboxes) > 0) and (len(self.kf_dict) == 0):
 
             # If no active detection, add all of them
             det_to_add = np.arange(len(bboxes))
@@ -145,24 +148,24 @@ class TrackerSort3D:
             track_inactive = []
 
             # predict box by Kalman Filter
-            for id_track in self.kf_active.keys():
+            for id_track in self.kf_dict.keys():
                 self._predict_kf(id_track, now)
-        elif (len(bboxes) > 0) and (len(self.kf_active) > 0):
+        elif (len(bboxes) > 0) and (len(self.kf_dict) > 0):
             # If there are active detections, compared them to new detections
             # then decide to match or add as new tracks
 
             # predict circle by Kalman Filter
             kf_pred_circles = []
-            for id_track in self.kf_active.keys():
+            for id_track in self.kf_dict.keys():
                 self._predict_kf(id_track, now)
 
-                kf_x = self.kf_active[id_track].x[0, 0]
-                kf_y = self.kf_active[id_track].x[2, 0]
+                kf_x = self.kf_dict[id_track].x[0, 0]
+                kf_y = self.kf_dict[id_track].x[2, 0]
                 kf_circle = [kf_x, kf_y, self.iou_circle_size]
                 kf_pred_circles.append(kf_circle)
 
             # get all active tracks
-            key_kf_active = list(self.kf_active.keys())
+            key_kf = list(self.kf_dict.keys())
 
             # compute IOU
             iou = reid_utils_fn.compute_circle_pairwise_iou(center_circle_list, kf_pred_circles)
@@ -177,56 +180,59 @@ class TrackerSort3D:
                 if iou[cur_idx][prev_idx] > self.iou_threshold:
                     track_continue_current.append(cur_idx)
                     track_continue_prev.append(prev_idx)
-            track_continue_prev = [key_kf_active[i] for i in track_continue_prev]  # get id of still active tracks
+            track_continue_prev = [key_kf[i] for i in track_continue_prev]  # get id of still active tracks
 
             # Now we have a 1-1 correspondence of active tracks
             # between track id in track_continue_prev and detection in track_continue_current.
             # Add these infos to the record.
             for i, id_track in enumerate(track_continue_prev):
                 circle_tmp = center_circle_list[track_continue_current[i]]
-                self.record_tracker[id_track]["expire"] = now + self.duration_inactive_to_remove
+                self.kf_expire_time_dict[id_track] = now + self.duration_inactive_to_remove
 
                 # update Kalman Filter
                 kf_meas = [circle_tmp[0], circle_tmp[1]]
-                self.kf_active[id_track].update(np.asarray(kf_meas).reshape([len(kf_meas), 1]))
+                self.kf_dict[id_track].update(np.asarray(kf_meas).reshape([len(kf_meas), 1]))
 
                 # set output
                 prev_exist[track_continue_current[i]] = True
                 person_id[track_continue_current[i]] = id_track
-                tracked_duration[track_continue_current[i]] = (now - self.record_tracker[id_track]["since"]).nanoseconds/1000000000
+                tracked_duration[track_continue_current[i]] = (now - self.kf_since_time_dict[id_track]).nanoseconds/1000000000
 
             # the rest of the tracks are new tracks to be add later
             det_to_add = np.setdiff1d(np.arange(len(bboxes)), track_continue_current)
 
             # get the list of tracks that have become inactive
-            track_inactive = [x for x in key_kf_active if x not in track_continue_prev]
+            track_inactive = [x for x in key_kf if x not in track_continue_prev]
         else:
             assert False, "Something is wrong here... All conditions shouldn't be wrong!"
 
         # deal with inactive tracks
         for id_track in track_inactive:
-            if now > self.record_tracker[id_track]["expire"]:
+            if now > self.kf_expire_time_dict[id_track]:
                 # remove tracks that have been inactive for too long
-                del self.record_tracker[id_track]
-                del self.kf_active[id_track]
+                del self.kf_dict[id_track]
+                del self.kf_last_input_dict[id_track]
+                del self.kf_input_count_dict[id_track]
+                del self.kf_last_predict_time_dict[id_track]
+                del self.kf_expire_time_dict[id_track]
+                del self.kf_since_time_dict[id_track]
 
         # add new trackers
         for id_track in det_to_add:
-            self.record_tracker[self.tracker_count] = {}
-            self.record_tracker[self.tracker_count]["expire"] = now + self.duration_inactive_to_remove
-            self.record_tracker[self.tracker_count]["since"] = now
-            self.record_tracker[self.tracker_count]["last_predict"] = now
+            self.kf_expire_time_dict[self.tracker_count] = now + self.duration_inactive_to_remove
+            self.kf_since_time_dict[self.tracker_count] = now
+            self.kf_last_predict_time_dict[self.tracker_count] = now
 
             # save active Kalaman Filter
             new_kf_x = center_circle_list[id_track][0]
             new_kf_y = center_circle_list[id_track][1]
-            self.kf_active[self.tracker_count] = kf_utils.init_kf_fixed_size([new_kf_x, 0.0, new_kf_y, 0.0],
-                                                                             self.kf_time_step, self.kf_init_var, self.kf_process_var, self.kf_measure_var)
+            self.kf_dict[self.tracker_count] = kf_utils.init_kf_fixed_size([new_kf_x, 0.0, new_kf_y, 0.0],
+                                                                           self.kf_init_time_step, self.kf_init_var, self.kf_process_var, self.kf_measure_var)
 
             # set output
             prev_exist[id_track] = False
             person_id[id_track] = self.tracker_count
-            tracked_duration[id_track] = (now - self.record_tracker[self.tracker_count]["since"]).nanoseconds/1000000000
+            tracked_duration[id_track] = (now - self.kf_since_time_dict[self.tracker_count]).nanoseconds/1000000000
 
             self.tracker_count += 1
 
@@ -251,64 +257,67 @@ class TrackerSort3D:
 
         _, alive_track_id_list, _ = self._track(now, bboxes, center_pos_list)
 
-        # update queue
+        # update track input
         for (track_id, center3d) in zip(alive_track_id_list, center_pos_list):
-            # update tracked people buffer
-            if track_id not in self.track_input_queue_dict:
-                self.track_input_queue_dict[track_id] = deque(maxlen=self.minimum_valid_track_observe)
-            self.track_input_queue_dict[track_id].append(center3d)
+            self.kf_last_input_dict[track_id] = center3d
+            if track_id not in self.kf_input_count_dict:
+                self.kf_input_count_dict[track_id] = 1
+            else:
+                self.kf_input_count_dict[track_id] += 1
 
             # clear missing time
-            if track_id in self.track_id_missing_time_dict:
-                del self.track_id_missing_time_dict[track_id]
+            if track_id in self.track_missing_time_dict:
+                del self.track_missing_time_dict[track_id]
 
         track_pos_dict = {}
         track_vel_dict = {}
+        # add position and velocity of visible tracks
         for track_id in alive_track_id_list:
-            if len(self.track_input_queue_dict[track_id]) < self.minimum_valid_track_observe:
+            if (track_id not in self.kf_input_count_dict) or (self.kf_input_count_dict[track_id] < self.minimum_valid_track_observe):
                 continue
             # save position and velocity
             # use raw position
-            track_pos_dict[track_id] = np.array(self.track_input_queue_dict[track_id])[-1, :2]
+            track_pos_dict[track_id] = self.kf_last_input_dict[track_id][:2]
             # ues filtered position
-            # track_pos_dict[track_id] = self.kf_active[track_id].x.reshape(1, 4)[0, [0, 2]]
-            track_vel_dict[track_id] = self.kf_active[track_id].x.reshape(1, 4)[0, [1, 3]]
+            # track_pos_dict[track_id] = self.kf_dict[track_id].x.reshape(1, 4)[0, [0, 2]]
+            track_vel_dict[track_id] = self.kf_dict[track_id].x.reshape(1, 4)[0, [1, 3]]
+
+            # update buffers to check track status
             if track_id not in self.track_vel_hist_dict:
                 self.track_vel_hist_dict[track_id] = deque(maxlen=self.minimum_valid_track_observe)
             self.track_vel_hist_dict[track_id].append(track_vel_dict[track_id])
 
         # clean up missed track if necessary
-        missing_track_id_list = set(self.track_input_queue_dict.keys()) - set(alive_track_id_list)
+        missing_track_id_list = set(self.kf_last_input_dict.keys()) - set(alive_track_id_list)
         stop_publish_track_id_list = set()
         for track_id in missing_track_id_list:
             # update missing time
-            if track_id not in self.track_id_missing_time_dict:
-                self.track_id_missing_time_dict[track_id] = now
+            if track_id not in self.track_missing_time_dict:
+                self.track_missing_time_dict[track_id] = now
 
             # if missing long time, stop publishing in people topic
-            if (now - self.track_id_missing_time_dict[track_id]).nanoseconds/1000000000 > self.duration_inactive_to_stop_publish:
+            if (now - self.track_missing_time_dict[track_id]).nanoseconds/1000000000 > self.duration_inactive_to_stop_publish:
                 stop_publish_track_id_list.add(track_id)
 
-            # if missing long time, delete track
-            if track_id not in self.kf_active:
-                del self.track_input_queue_dict[track_id]
+            # if Kalman Filter is deleteted, delete buffers to check track status
+            if track_id not in self.kf_dict:
                 if track_id in self.track_vel_hist_dict:
                     del self.track_vel_hist_dict[track_id]
-                del self.track_id_missing_time_dict[track_id]
-                if track_id in self.track_id_stationary_start_time_dict:
-                    del self.track_id_stationary_start_time_dict[track_id]
+                del self.track_missing_time_dict[track_id]
+                if track_id in self.track_stationary_start_time_dict:
+                    del self.track_stationary_start_time_dict[track_id]
 
-        # add track which is missing, but not deleted yet
+        # add position and velocity of undeleted missing tracks
         publish_missing_track_id_list = missing_track_id_list - stop_publish_track_id_list
         for track_id in publish_missing_track_id_list:
-            if (track_id not in self.track_input_queue_dict) or (len(self.track_input_queue_dict[track_id]) < self.minimum_valid_track_observe):
+            if (track_id not in self.kf_input_count_dict) or (self.kf_input_count_dict[track_id] < self.minimum_valid_track_observe):
                 continue
             # save position and velocity
             # use raw position
-            track_pos_dict[track_id] = np.array(self.track_input_queue_dict[track_id])[-1, :2]
+            track_pos_dict[track_id] = self.kf_last_input_dict[track_id][:2]
             # ues filtered position
-            # track_pos_dict[track_id] = self.kf_active[track_id].x.reshape(1, 4)[0, [0, 2]]
-            track_vel_dict[track_id] = self.kf_active[track_id].x.reshape(1, 4)[0, [1, 3]]
+            # track_pos_dict[track_id] = self.kf_dict[track_id].x.reshape(1, 4)[0, [0, 2]]
+            track_vel_dict[track_id] = self.kf_dict[track_id].x.reshape(1, 4)[0, [1, 3]]
 
         # update track stationary start time, and stationary track list
         stationary_track_id_list = []
@@ -319,16 +328,16 @@ class TrackerSort3D:
 
             # check if track is in stationary state
             if track_vel_norm_median < self.stationary_detect_threshold_velocity:
-                if track_id not in self.track_id_stationary_start_time_dict:
+                if track_id not in self.track_stationary_start_time_dict:
                     # record time to start stationary state
-                    self.track_id_stationary_start_time_dict[track_id] = now
+                    self.track_stationary_start_time_dict[track_id] = now
                 else:
                     # add stationary list if enough time passes after starting stationary state
-                    stationary_start_time = self.track_id_stationary_start_time_dict[track_id]
+                    stationary_start_time = self.track_stationary_start_time_dict[track_id]
                     if (now - stationary_start_time).nanoseconds/1e9 > self.stationary_detect_threshold_duration:
                         stationary_track_id_list.append(track_id)
-            elif track_id in self.track_id_stationary_start_time_dict:
+            elif track_id in self.track_stationary_start_time_dict:
                 # clear time to start stationary state
-                del self.track_id_stationary_start_time_dict[track_id]
+                del self.track_stationary_start_time_dict[track_id]
 
         return track_pos_dict, track_vel_dict, alive_track_id_list, stationary_track_id_list
