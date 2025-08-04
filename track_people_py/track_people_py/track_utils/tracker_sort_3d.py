@@ -19,7 +19,6 @@
 # SOFTWARE.
 
 from filterpy.common import Q_discrete_white_noise
-import matplotlib.pyplot as plt
 import numpy as np
 from scipy.linalg import block_diag
 from scipy.optimize import linear_sum_assignment
@@ -30,7 +29,7 @@ from . import kf_utils
 
 class TrackerSort3D:
     def __init__(self, iou_threshold=0.01, iou_circle_size=0.5, kf_init_var=1.0, kf_process_var=1.0, kf_measure_var=1.0,
-                 minimum_valid_track_duration=0.3, duration_inactive_to_remove=2.0, n_colors=100):
+                 minimum_valid_track_duration=0.3, duration_inactive_to_remove=2.0):
         # Initialization
         #
         # iou_threshold : minimum IOU threshold to keep track
@@ -40,7 +39,6 @@ class TrackerSort3D:
         # kf_measure_var : variance for measurement noise covariance matrix
         # minimum_valid_track_duration : minimum duration to consider track is valid, set the value 0.0 for multiple cameras
         # duration_inactive_to_remove : duration for an inactive detection to be removed
-        # n_colors : number of colors to assign to each track
 
         # parameters for Kalman Filter
         self.kf_time_step = 1.0  # set time step as 1 second, and multiply average fps later if velocity is necessary
@@ -59,9 +57,6 @@ class TrackerSort3D:
         self.iou_circle_size = iou_circle_size
         self.minimum_valid_track_duration = minimum_valid_track_duration
         self.duration_inactive_to_remove = duration_inactive_to_remove
-        self.n_colors = n_colors
-        self.list_colors = plt.cm.hsv(np.linspace(0, 1, n_colors)).tolist()  # list of colors to assign to each track for visualization
-        np.random.shuffle(self.list_colors)  # shuffle colors
 
         # counter of tracks
         self.tracker_count = 0
@@ -99,7 +94,6 @@ class TrackerSort3D:
         # prev_exist : boolean n-vector indicating whether each of the
         #               person exists before
         # person_id : int n-vector indicating id of each person
-        # person_color : visualization color of each each person
         # tracked_duration : total tracked duration
 
         center_circle_list = []
@@ -109,7 +103,6 @@ class TrackerSort3D:
         # prepare output
         prev_exist = np.zeros(len(bboxes)).astype(np.bool8)
         person_id = np.zeros(len(bboxes)).astype(np.uint32)
-        person_color = [None]*len(bboxes)
         tracked_duration = np.zeros(len(bboxes)).astype(np.float32)
         if (len(bboxes) == 0) and (len(self.kf_active) == 0):
             # No new detection and no active tracks
@@ -189,7 +182,6 @@ class TrackerSort3D:
                 # set output
                 prev_exist[track_continue_current[i]] = True
                 person_id[track_continue_current[i]] = id_track
-                person_color[track_continue_current[i]] = self.record_tracker[id_track]["color"]
                 tracked_duration[track_continue_current[i]] = (now - self.record_tracker[id_track]["since"]).nanoseconds/1000000000
 
             # the rest of the tracks are new tracks to be add later
@@ -211,7 +203,6 @@ class TrackerSort3D:
         # add new trackers
         for id_track in det_to_add:
             self.record_tracker[self.tracker_count] = {}
-            self.record_tracker[self.tracker_count]["color"] = self.list_colors[self.tracker_count % self.n_colors]
             self.record_tracker[self.tracker_count]["expire"] = now + self.duration_inactive_to_remove
             self.record_tracker[self.tracker_count]["since"] = now
             self.record_tracker[self.tracker_count]["last_predict"] = now
@@ -225,9 +216,8 @@ class TrackerSort3D:
             # set output
             prev_exist[id_track] = False
             person_id[id_track] = self.tracker_count
-            person_color[id_track] = self.record_tracker[self.tracker_count]["color"]
             tracked_duration[id_track] = (now - self.record_tracker[self.tracker_count]["since"]).nanoseconds/1000000000
 
             self.tracker_count += 1
 
-        return prev_exist, [int(x) for x in person_id], person_color, tracked_duration
+        return prev_exist, [int(x) for x in person_id], tracked_duration

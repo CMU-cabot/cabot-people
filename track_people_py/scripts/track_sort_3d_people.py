@@ -46,14 +46,13 @@ class TrackSort3dPeople(AbsTrackPeople):
 
         self.buffer = {}
 
-    def postprocess_buf(self, now, alive_track_id_list, center_bird_eye_global_list, color_list):
+    def postprocess_buf(self, now, alive_track_id_list, center_bird_eye_global_list):
         # update queue
-        for (track_id, center3d, color) in zip(alive_track_id_list, center_bird_eye_global_list, color_list):
+        for (track_id, center3d) in zip(alive_track_id_list, center_bird_eye_global_list):
             # update tracked people buffer
             if track_id not in self.track_buf.track_input_queue_dict:
                 self.track_buf.track_input_queue_dict[track_id] = deque(maxlen=self.input_time)
             self.track_buf.track_input_queue_dict[track_id].append(center3d)
-            self.track_buf.track_color_dict[track_id] = color
 
             # clear missing time
             if track_id in self.track_buf.track_id_missing_time_dict:
@@ -97,7 +96,6 @@ class TrackSort3dPeople(AbsTrackPeople):
                 del self.track_buf.track_time_queue_dict[track_id]
                 if track_id in self.track_buf.track_vel_hist_dict:
                     del self.track_buf.track_vel_hist_dict[track_id]
-                del self.track_buf.track_color_dict[track_id]
                 del self.track_buf.track_id_missing_time_dict[track_id]
                 if track_id in self.track_buf.track_id_stationary_start_time_dict:
                     del self.track_buf.track_id_stationary_start_time_dict[track_id]
@@ -148,13 +146,13 @@ class TrackSort3dPeople(AbsTrackPeople):
         detect_results, center_bird_eye_global_list = self.preprocess_msg(combined_msg)
 
         try:
-            _, alive_track_id_list, color_list, tracked_duration = self.tracker.track(now, detect_results, center_bird_eye_global_list)
+            _, alive_track_id_list, tracked_duration = self.tracker.track(now, detect_results, center_bird_eye_global_list)
         except Exception as e:
             self.get_logger().error(F"tracking error, {e}")
             self.get_logger().error(traceback.format_exc())
             return
 
-        track_pos_dict, track_vel_dict = self.postprocess_buf(now, alive_track_id_list, center_bird_eye_global_list, color_list)
+        track_pos_dict, track_vel_dict = self.postprocess_buf(now, alive_track_id_list, center_bird_eye_global_list)
 
         self.pub_result(combined_msg, alive_track_id_list, track_pos_dict, track_vel_dict, self.track_buf.track_vel_hist_dict)
 

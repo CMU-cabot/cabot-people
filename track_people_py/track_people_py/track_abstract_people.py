@@ -24,6 +24,7 @@ import math
 from diagnostic_updater import Updater
 from diagnostic_updater import HeaderlessTopicDiagnostic
 from diagnostic_updater import FrequencyStatusParam
+import matplotlib.pyplot as plt
 import numpy as np
 import rclpy
 import rclpy.node
@@ -41,7 +42,6 @@ class TrackBuffer():
         self.track_input_queue_dict = {}
         self.track_time_queue_dict = {}
         self.track_vel_hist_dict = {}
-        self.track_color_dict = {}
 
         self.track_id_missing_time_dict = {}
         self.track_id_stationary_start_time_dict = {}
@@ -50,8 +50,12 @@ class TrackBuffer():
 class AbsTrackPeople(rclpy.node.Node):
     __metaclass__ = ABCMeta
 
-    def __init__(self):
+    def __init__(self, n_colors=100):
         super().__init__('track_people_py')
+
+        self.n_colors = n_colors
+        self.list_colors = plt.cm.hsv(np.linspace(0, 1, n_colors)).tolist()  # list of colors to assign to each track for visualization
+        np.random.shuffle(self.list_colors)  # shuffle colors
 
         self.iou_threshold = self.declare_parameter('iou_threshold', 0.01).value
         self.iou_circle_size = self.declare_parameter('iou_circle_size', 0.5).value
@@ -146,6 +150,8 @@ class AbsTrackPeople(rclpy.node.Node):
         marker_array = MarkerArray()
         # plot sphere for current position, arrow for current direction
         for track_id in track_pos_dict.keys():
+            track_color = self.list_colors[track_id % self.n_colors]
+
             marker = Marker()
             marker.header = msg.header
             marker.ns = "track-origin-position"
@@ -163,9 +169,9 @@ class AbsTrackPeople(rclpy.node.Node):
             marker.pose.orientation.y = 0.0
             marker.pose.orientation.z = 0.0
             marker.pose.orientation.w = 1.0
-            marker.color.r = self.track_buf.track_color_dict[track_id][0]
-            marker.color.g = self.track_buf.track_color_dict[track_id][1]
-            marker.color.b = self.track_buf.track_color_dict[track_id][2]
+            marker.color.r = track_color[0]
+            marker.color.g = track_color[1]
+            marker.color.b = track_color[2]
             if track_id in alive_track_id_list:
                 marker.color.a = 1.0
             else:
@@ -193,9 +199,9 @@ class AbsTrackPeople(rclpy.node.Node):
             marker.pose.orientation.y = velocity_orientation_quat[1]
             marker.pose.orientation.z = velocity_orientation_quat[2]
             marker.pose.orientation.w = velocity_orientation_quat[3]
-            marker.color.r = self.track_buf.track_color_dict[track_id][0]
-            marker.color.g = self.track_buf.track_color_dict[track_id][1]
-            marker.color.b = self.track_buf.track_color_dict[track_id][2]
+            marker.color.r = track_color[0]
+            marker.color.g = track_color[1]
+            marker.color.b = track_color[2]
             if track_id in alive_track_id_list:
                 marker.color.a = 1.0
             else:
