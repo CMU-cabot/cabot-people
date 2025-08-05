@@ -105,19 +105,14 @@ class TrackerSort3D:
         #                           in bird-eye view of each detection.
         #
         # OUTPUT
-        # prev_exist : boolean n-vector indicating whether each of the
-        #               person exists before
         # person_id : int n-vector indicating id of each person
-        # tracked_duration : total tracked duration
 
         center_circle_list = []
         for center_pos in center_pos_list:
             center_circle_list.append([center_pos[0], center_pos[1], self.iou_circle_size])
 
         # prepare output
-        prev_exist = np.zeros(len(bboxes)).astype(np.bool8)
         person_id = np.zeros(len(bboxes)).astype(np.uint32)
-        tracked_duration = np.zeros(len(bboxes)).astype(np.float32)
         if (len(bboxes) == 0) and (len(self.kf_dict) == 0):
             # No new detection and no active tracks
             # Do nothing
@@ -194,9 +189,7 @@ class TrackerSort3D:
                 self.kf_dict[id_track].update(np.asarray(kf_meas).reshape([len(kf_meas), 1]))
 
                 # set output
-                prev_exist[track_continue_current[i]] = True
                 person_id[track_continue_current[i]] = id_track
-                tracked_duration[track_continue_current[i]] = (now - self.kf_since_time_dict[id_track]).nanoseconds/1000000000
 
             # the rest of the tracks are new tracks to be add later
             det_to_add = np.setdiff1d(np.arange(len(bboxes)), track_continue_current)
@@ -230,13 +223,11 @@ class TrackerSort3D:
                                                                            self.kf_init_time_step, self.kf_init_var, self.kf_process_var, self.kf_measure_var)
 
             # set output
-            prev_exist[id_track] = False
             person_id[id_track] = self.tracker_count
-            tracked_duration[id_track] = (now - self.kf_since_time_dict[self.tracker_count]).nanoseconds/1000000000
 
             self.tracker_count += 1
 
-        return prev_exist, [int(x) for x in person_id], tracked_duration
+        return [int(x) for x in person_id]
 
     def track(self, now, bboxes, center_pos_list):
         # Performs tracking and output valid results
@@ -255,7 +246,7 @@ class TrackerSort3D:
         # alive_track_id_list : list of track id which are visible now
         # stationary_track_id_list : list of track id which are stationary
 
-        _, alive_track_id_list, _ = self._track(now, bboxes, center_pos_list)
+        alive_track_id_list = self._track(now, bboxes, center_pos_list)
 
         # update track input
         for (track_id, center3d) in zip(alive_track_id_list, center_pos_list):
