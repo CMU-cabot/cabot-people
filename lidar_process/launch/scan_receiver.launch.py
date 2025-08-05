@@ -50,7 +50,7 @@ def generate_launch_description():
         DeclareLaunchArgument('ring_limit', default_value='7'),
         DeclareLaunchArgument('scan_max_range', default_value='20'),
         DeclareLaunchArgument('history_window', default_value='8'),
-        DeclareLaunchArgument('future_window', default_value='8'),
+        DeclareLaunchArgument('future_window', default_value='12'),
         DeclareLaunchArgument('history_dt', default_value='0.4'),
         DeclareLaunchArgument('low_level_pos_threshold', default_value='0.5'),
         DeclareLaunchArgument('low_level_core_samples', default_value='5'),
@@ -94,6 +94,15 @@ def generate_launch_description():
             namespace=namespace,
             output="both",
             emulate_tty=True,
+            #arguments=["--ros-args", "--log-level", "debug"]
+        ),
+
+        Node(
+            package="lidar_process",
+            executable="rl_server",
+            name="rl_server",
+            namespace=namespace,
+            output="both",
             #arguments=["--ros-args", "--log-level", "debug"]
         ),
 

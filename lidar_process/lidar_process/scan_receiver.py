@@ -11,12 +11,14 @@ import rclpy
 from rclpy.node import Node
 from ament_index_python.packages import get_package_share_directory
 
-from std_msgs.msg import Header
+from std_msgs.msg import Header, Int32
+from geometry_msgs.msg import Point
 from sensor_msgs.msg import PointCloud2, PointField
 from sensor_msgs_py import point_cloud2
 from visualization_msgs.msg import Marker, MarkerArray
 from cabot_msgs.msg import PoseLog # type: ignore
 from lidar_process_msgs.msg import Group, GroupArray, GroupTimeArray #type: ignore
+from lidar_process_msgs.msg import PositionArray, PositionHistoryArray #type: ignore
 
 from . import pcl_to_numpy
 from . import utils
@@ -30,8 +32,6 @@ from rclpy.qos import QoSProfile, QoSDurabilityPolicy, qos_profile_sensor_data
 
 from cabot_msgs.srv import LookupTransform # type: ignore
 
-import open3d as o3d
-
 class ScanReceiver(Node):
 
     def __init__(self):
@@ -41,6 +41,7 @@ class ScanReceiver(Node):
         transform_lookup_callback_group = MutuallyExclusiveCallbackGroup()
         visualization_callback_group = MutuallyExclusiveCallbackGroup()
         group_prediction_callback_group = MutuallyExclusiveCallbackGroup()
+        entity_callback_group = MutuallyExclusiveCallbackGroup()
         # For very low frequency publish, not used for now
         #transient_local_qos = QoSProfile(depth=1, durability=QoSDurabilityPolicy.TRANSIENT_LOCAL)
         sensor_data_qos = qos_profile_sensor_data
@@ -54,7 +55,7 @@ class ScanReceiver(Node):
             qos_profile=sensor_data_qos,
             callback_group = state_update_callback_group
         )
-        self.scan_sub = self.create_subscription(
+        self.pose_sub = self.create_subscription(
             PoseLog, 
             '/cabot/pose_log',
             self.pose_cb,
@@ -66,6 +67,13 @@ class ScanReceiver(Node):
             "/group_predictions",
             10,
             callback_group = state_update_callback_group
+        )
+
+        self.entity_hist_pub = self.create_publisher(
+            PositionHistoryArray,
+            "/entity_histories",
+            10,
+            callback_group=entity_callback_group
         )
         
         self.pcl_debug_pub = self.create_publisher(
@@ -115,7 +123,7 @@ class ScanReceiver(Node):
         self._ring_limit = self.declare_parameter('ring_limit', -1).value
         self._scan_max_range = self.declare_parameter('scan_max_range', 15).value
         self._history_window = self.declare_parameter('history_window', 8).value
-        self._future_window = self.declare_parameter('future_window', 8).value
+        self._future_window = self.declare_parameter('future_window', 12).value
         if not (self._history_window == 8):
             self.get_logger().error("Sorry, only support history length 8 now")
             sys.exit(0)
@@ -147,7 +155,7 @@ class ScanReceiver(Node):
 
         model_path = os.path.join(get_package_share_directory('lidar_process'),  # this package name
                                   "sgan-models", 
-                                  "univ_" + str(self._future_window) + "_model.pt")
+                                  "eth_" + str(self._future_window) + "_model.pt")
         self.group_pred_model = inference.SGANInference(model_path)
 
         self.pointcloud_history = utils.SimpleQueue(self._max_queue_size)
@@ -255,7 +263,7 @@ class ScanReceiver(Node):
             self.pointcloud_complete = []
         self.pointcloud_prev = self.pointcloud_complete 
 
-        if self.pointcloud_history.is_full() :
+        if self.pointcloud_history.is_full():
             self.is_history_complete = True
             # pop the oldest point cloud from the queue
             tmp = self.pointcloud_history.dequeue()
@@ -268,6 +276,8 @@ class ScanReceiver(Node):
     
     def _filter_pointcloud(self, pointcloud):
         # This function prefilters pointclouds that do not meet the requirements
+        condition = np.isnan(pointcloud[:, 0])
+        pointcloud = pointcloud[condition == False]
         if not (self._ring_limit == -1):
             condition = (pointcloud[:, 4] == self._ring_limit)
             pointcloud = pointcloud[condition == True]
@@ -549,14 +559,29 @@ class ScanReceiver(Node):
         # only edge points are needed to perform future predictions
         sub_start_time = time.time()
         group_keypoint_sequences = {}
+        positions_hist_msg = PositionHistoryArray()
+        positions_hist_msg.positions_history = []
         for i in range(self._history_window - 1, -1, -1):  # the newer the later (currently the older the later)
+            positions_msg = PositionArray()
+            positions_msg.ids = []
+            positions_msg.positions = []
             if i == 0:
                 pos_array = curr_pos_array
+                entities_id = curr_entities_id
                 labels = curr_labels
             else:
                 pos_array, _, entities_id = self._concatenate_entities(entities_history, i)
                 labels = [entity_to_group[id] for id in entities_id]
             labels = np.array(labels)
+            for j in range(len(pos_array)):
+                point_msg = Point()
+                point_msg.x = pos_array[j,0]
+                point_msg.y = pos_array[j,1]
+                int_msg = Int32()
+                int_msg.data = int(entities_id[j])
+                positions_msg.ids.append(int_msg)
+                positions_msg.positions.append(point_msg)
+            positions_hist_msg.positions_history.append(positions_msg)
 
             unique_groups = np.unique(labels)
             for g in unique_groups:
@@ -569,6 +594,7 @@ class ScanReceiver(Node):
                     group_keypoint_sequences[g] = [[group_pos[left_idx], group_pos[center_idx], group_pos[right_idx]]]
                 else:
                     group_keypoint_sequences[g].append([group_pos[left_idx], group_pos[center_idx], group_pos[right_idx]])
+        self.entity_hist_pub.publish(positions_hist_msg)
         
         # prepare the inputs to the trjectory prediction model and make predictions
         num_groups = len(group_keypoint_sequences)
@@ -784,7 +810,7 @@ class ScanReceiver(Node):
         # interpolate
         time_1 = pcl_1[0, 8]
         time_2 = pcl_2[0, 8]
-        pcl_interp = pcl_2 + (pcl_1 - pcl_2) / (time_1 - time_2) * (curr_time - time_2)
+        pcl_interp = pcl_2 + (pcl_1 - pcl_2) / (time_1 - time_2 + 0.0001) * (curr_time - time_2)
         # preserve ring number, id, time
         pcl_interp[:, 4] = pcl_2[:, 4]
         pcl_interp[:, 5] = pcl_2[0, 5]

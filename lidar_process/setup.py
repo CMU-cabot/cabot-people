@@ -17,7 +17,9 @@ setup(
         (os.path.join('share', package_name, 'sgan-models'), 
             glob(os.path.join(package_name, 'sgan', 'models', 'sgan-models', '*.pt'))),
         (os.path.join('share', package_name, 'sgan-p-models'), 
-            glob(os.path.join(package_name, 'sgan', 'models', 'sgan-p-models', '*.pt')))
+            glob(os.path.join(package_name, 'sgan', 'models', 'sgan-p-models', '*.pt'))),
+        (os.path.join('share', package_name, 'trained-models'), 
+            glob(os.path.join(package_name, 'crowdattn/trained_models/differential_model/checkpoints/*.pt')))
     ],
     install_requires=['setuptools'],
     zip_safe=True,
@@ -28,7 +30,8 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'scan_receiver = lidar_process.scan_receiver:main'
+            'scan_receiver = lidar_process.scan_receiver:main',
+            'rl_server = lidar_process.rl_server:main'
         ],
     },
 )

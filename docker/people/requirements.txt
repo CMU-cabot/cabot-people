@@ -1,4 +1,4 @@
-Cython==0.29.33
+Cython
 filterpy==1.4.5
 matplotlib==3.6.3
 numpy==1.24.1
@@ -22,3 +22,6 @@ easydict
 # SocialGAN
 attrdict
 #Pillow
+gym
+tensorflow
+opencv-python==4.5.5.64

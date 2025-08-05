@@ -80,6 +80,11 @@ RUN apt update && \
 COPY requirements.txt /
 RUN pip3 install --no-cache-dir \
         -r /requirements.txt
+RUN git clone https://github.com/openai/baselines.git
+WORKDIR $HOME/baselines
+RUN pip install -e .
+WORKDIR $HOME
+RUN pip3 install --no-cache-dir numpy==1.23.1
 
 # install gazebo
 #RUN sh -c 'echo "deb http://packages.osrfoundation.org/gazebo/ubuntu-stable $UBUNTU_DISTRO main" > /etc/apt/sources.list.d/gazebo-stable.list' && \

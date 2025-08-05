@@ -573,40 +573,41 @@ if [ $disable_people -eq 0 ]; then
         eval $com
         pids+=($!)
     fi
-fi
 
-### obstacle detect/track
-if [ $obstacle -eq 1 ]; then
-    launch_file="track_people_cpp detect_obstacles.launch.py sensor_id:=velodyne scan_topic:=/scan"
-    echo "launch $launch_file"
-    com="$command ros2 launch $launch_file \
-                  sensor_id:=velodyne \
-                  scan_topic:=/scan \
-                  $commandpost"
-    echo $com
-    eval $com
-    pids+=($!)
-
-    if [ $cabot_low_obstacle_detect_ver -gt 0 ]; then
-        launch_file="track_people_cpp detect_obstacles.launch.py sensor_id:=livox scan_topic:=/livox_scan"
+    ### obstacle detect/track
+    if [ $obstacle -eq 1 ]; then
+        launch_file="track_people_cpp detect_obstacles.launch.py sensor_id:=velodyne scan_topic:=/scan"
         echo "launch $launch_file"
         com="$command ros2 launch $launch_file \
-                    sensor_id:=livox \
-                    scan_topic:=/livox_scan \
+                    sensor_id:=velodyne \
+                    scan_topic:=/scan \
+                    $commandpost"
+        echo $com
+        eval $com
+        pids+=($!)
+
+        if [ $cabot_low_obstacle_detect_ver -gt 0 ]; then
+            launch_file="track_people_cpp detect_obstacles.launch.py sensor_id:=livox scan_topic:=/livox_scan"
+            echo "launch $launch_file"
+            com="$command ros2 launch $launch_file \
+                        sensor_id:=livox \
+                        scan_topic:=/livox_scan \
+                        $commandpost"
+            echo $com
+            eval $com
+            pids+=($!)
+        fi
+
+        launch_file="track_people_cpp track_obstacles.launch.py"
+        echo "launch $launch_file"
+        com="$command ros2 launch $launch_file \
+                    jetpack5_workaround:=$jetpack5_workaround \
                     $commandpost"
         echo $com
         eval $com
         pids+=($!)
     fi
 
-    launch_file="track_people_cpp track_obstacles.launch.py"
-    echo "launch $launch_file"
-    com="$command ros2 launch $launch_file \
-                  jetpack5_workaround:=$jetpack5_workaround \
-                  $commandpost"
-    echo $com
-    eval $com
-    pids+=($!)
 fi
 
 ## wait until it is terminated by the user
