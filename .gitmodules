@@ -1,0 +1,3 @@
+[submodule "lidar_process/lidar_process/crowdattn"]
+	path = lidar_process/lidar_process/crowdattn
+	url = https://github.com/allanwangliqian/CrowdNav_Prediction_AttnGraph.git
