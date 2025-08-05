@@ -85,7 +85,7 @@ class TrackSort3dPeople(AbsTrackPeople):
 
         self.pub_result(combined_msg, alive_track_id_list, stationary_track_id_list, track_pos_dict, track_vel_dict)
 
-        self.vis_result(combined_msg, alive_track_id_list, track_pos_dict, track_vel_dict)
+        self.vis_result(combined_msg, alive_track_id_list, stationary_track_id_list, track_pos_dict, track_vel_dict)
 
 
 def main():

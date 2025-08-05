@@ -116,7 +116,7 @@ class AbsTrackPeople(rclpy.node.Node):
 
         self.people_pub.publish(people_msg)
 
-    def vis_result(self, msg, alive_track_id_list, track_pos_dict, track_vel_dict):
+    def vis_result(self, msg, alive_track_id_list, stationary_track_id_list, track_pos_dict, track_vel_dict):
         # publish visualization marker array for rviz
         marker_array = MarkerArray()
         # plot sphere for current position, arrow for current direction
@@ -127,7 +127,10 @@ class AbsTrackPeople(rclpy.node.Node):
             marker.header = msg.header
             marker.ns = "track-origin-position"
             marker.id = track_id*2
-            marker.type = Marker.SPHERE
+            if track_id in stationary_track_id_list:
+                marker.type = Marker.CUBE
+            else:
+                marker.type = Marker.SPHERE
             marker.action = Marker.ADD
             marker.lifetime = Duration(nanoseconds=1e8).to_msg()
             marker.scale.x = 0.5
