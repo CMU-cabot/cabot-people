@@ -196,7 +196,6 @@ class CrowdAttnRL(object):
         v = np.linalg.norm(action)
         w = np.arctan2(action[1], action[0])
         action = np.array([v, w - robot_th])
-        print(action)
 
         v_pref = self.robot_speed
         if action[0]> v_pref:

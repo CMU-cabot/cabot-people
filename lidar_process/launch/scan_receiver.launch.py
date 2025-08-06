@@ -48,7 +48,7 @@ def generate_launch_description():
 
         DeclareLaunchArgument('namespace', default_value='lidar'),
         DeclareLaunchArgument('ring_limit', default_value='7'),
-        DeclareLaunchArgument('scan_max_range', default_value='20'),
+        DeclareLaunchArgument('scan_max_range', default_value='10'),
         DeclareLaunchArgument('history_window', default_value='8'),
         DeclareLaunchArgument('future_window', default_value='12'),
         DeclareLaunchArgument('history_dt', default_value='0.4'),

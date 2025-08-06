@@ -1,7 +1,10 @@
 import sys
+import time
 import numpy as np
 from sklearn.cluster import DBSCAN
 from scipy.spatial import ConvexHull
+
+DETAIL_MODE = False
     
 def get_groups(data, threshold, core_samples):
     # performs DBSCAN and clusters according to threshold and 
@@ -80,7 +83,7 @@ def identify_edge_points(positions, robo_pose):
     # Then it identifies the edge points for the group.
 
     left_idx, right_idx = find_left_right_edge(positions, robo_pose)
-    dists = np.sqrt(np.square(positions[:, 0] - robo_pose[0]) + np.square(positions[:, 1] - robo_pose[1]))
+    dists = np.linalg.norm(positions[:, :2] - robo_pose[:2], axis=1)
     center_idx = np.argmin(dists)
 
     return left_idx, center_idx, right_idx
@@ -124,39 +127,55 @@ def vertices_from_edge_pts(robo_pos, edge_pos, edge_vel, increments=16, const=No
         raise Exception("num_pts not a multiplier of 3!")
 
     # left first, close second, right third
-    for i in range(num_pts):
-        pos = edge_pos[i]
-        vel = edge_vel[i]
-        if const is None:
-            candidate_vts = draw_social_shapes([pos], [vel], increments)
-        else:
-            candidate_vts = draw_social_shapes([pos], [vel], increments, const)
-        if (i % 3) == 1:
-            pt_choice = None
-            dists = np.sqrt(np.square(candidate_vts[:, 0] - robo_pos[0]) + 
-                            np.square(candidate_vts[:, 1] - robo_pos[1]))
-            min_idx = np.argmin(dists)
-            pt_choice = candidate_vts[min_idx]
-            """
-            min_dist = np.inf
-            for (x, y) in candidate_vts:
-                pt = np.array([x,y])
-                dist = np.linalg.norm(robo_pos - pt)
-                if dist < min_dist:
-                    min_dist = dist
-                    pt_choice = pt
-            """
-        else:
-            pt_choice = None
-            left_idx, right_idx = find_left_right_edge(candidate_vts, robo_pos)
-            if (i % 3) == 0:
-                pt_choice = candidate_vts[left_idx]
-            elif (i % 3) == 2:
-                pt_choice = candidate_vts[right_idx]
+    if DETAIL_MODE:
+        # In detail mode, each proxemic shape is an asymmetric 2D gaussian egg shape
+        for i in range(num_pts):
+            pos = edge_pos[i]
+            vel = edge_vel[i]
+            if const is None:
+                candidate_vts = draw_social_shapes([pos], [vel], increments)
             else:
-                raise Exception("i mod 3 cannot be 1 here!")
-            pt_choice = np.array([pt_choice[0], pt_choice[1]])
-        vertices.append(pt_choice)
+                candidate_vts = draw_social_shapes([pos], [vel], increments, const)
+            if (i % 3) == 1:
+                pt_choice = None
+                dists = np.linalg.norm(candidate_vts[:, :2] - robo_pos[:2], axis=1)
+                min_idx = np.argmin(dists)
+                pt_choice = candidate_vts[min_idx]
+            else:
+                pt_choice = None
+                left_idx, right_idx = find_left_right_edge(candidate_vts, robo_pos)
+                if (i % 3) == 0:
+                    pt_choice = candidate_vts[left_idx]
+                elif (i % 3) == 2:
+                    pt_choice = candidate_vts[right_idx]
+                else:
+                    raise Exception("i mod 3 cannot be 1 here!")
+                pt_choice = np.array([pt_choice[0], pt_choice[1]])
+            vertices.append(pt_choice)
+    else:
+        # In simple mode, each proxemic shape is a circle
+        circle_radius = 0.5
+        for i in range(num_pts):
+            pos = edge_pos[i]
+            dist = np.linalg.norm(pos - robo_pos)
+            if (i % 3) == 1:
+                # center point
+                pt_choice = pos - (pos - robo_pos) * circle_radius / dist
+            else:
+                off_angle = np.arcsin(circle_radius / dist)
+                tang_dist = dist * np.cos(off_angle)
+                rel_angle = np.arctan2(pos[1] - robo_pos[1], pos[0] - robo_pos[0])
+                if (i % 3) == 0:
+                    # left point
+                    pt_choice = robo_pos + np.array([tang_dist * np.cos(rel_angle - off_angle),
+                                                     tang_dist * np.sin(rel_angle - off_angle)])
+                elif (i % 3) == 2:
+                    # right point
+                    pt_choice = robo_pos + np.array([tang_dist * np.cos(rel_angle + off_angle),
+                                                     tang_dist * np.sin(rel_angle + off_angle)])
+                else:
+                    raise Exception("i mod 3 cannot be 1 here!")
+            vertices.append(pt_choice)
 
     # add offsets
     expanded_vertices = []
@@ -270,8 +289,8 @@ def draw_social_shapes(position, velocity, increments=16, const=0.354163):
 
     # Get the convex hull of all the personal spaces
     contour_points = np.array(contour_points)
-    hull = ConvexHull(contour_points)
-    convex_hull_vertices = contour_points[hull.vertices]
+    #hull = ConvexHull(contour_points)
+    #convex_hull_vertices = contour_points[hull.vertices]
     """
     convex_hull_vertices = []
     hull = ConvexHull(np.array(contour_points))
@@ -280,6 +299,6 @@ def draw_social_shapes(position, velocity, increments=16, const=0.354163):
         convex_hull_vertices.append(hull_vertice)
     """
 
-    return convex_hull_vertices
+    return contour_points
 
 

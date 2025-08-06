@@ -227,7 +227,7 @@ class ScanReceiver(Node):
         # (x, y, z, intensity, ring number [e.g. 0-15])
         # Pointcloud complete format
         # groups are low level groups used for estimating velocities
-        # (group id, group center x, group center y, timestamp)
+        # (x, y, z, intensity, ring, group id, group center x, group center y, timestamp)
         # Break down into 2 parts to read 2 different field type values in pointcloud2
         parsed_pointcloud_1 = pcl_to_numpy.read_points_numpy(
             msg, 
@@ -336,9 +336,10 @@ class ScanReceiver(Node):
 
         #print("----------Pose & time info----------")
         #print("dt: {}".format(dt))
-        
+
+        num_prev = len(prev_ptcloud)
         num_curr = len(curr_ptcloud)
-        # (x, y, z,intensity, ring, group id, group center x, group center y, timestamp)
+        # (x, y, z, intensity, ring, group id, group center x, group center y, timestamp)
         complete_ptcloud = np.zeros((num_curr, 9))
         complete_ptcloud[:, :5] = curr_ptcloud
         complete_ptcloud[:, 8] = self.curr_time
@@ -375,23 +376,21 @@ class ScanReceiver(Node):
         # Set entities to be new entities if this happens
         max_tracking_time = self._max_tracking_time
 
-        num_prev = len(prev_ptcloud)
         #If no prior pointclouds are available then leave the velocity columns 8 and 9 to be 0
         if (num_prev > 0) and (dt < max_tracking_time):
             # estimate velocities for low level groups and use that as velocities of pointclouds
-            unique_group_prev = prev_ptcloud[:, 0]
-            num_prev_group = len(unique_group_prev)
-            unique_group_x_prev = prev_ptcloud[:, 1]
-            unique_group_y_prev = prev_ptcloud[:, 2]
+            group_prev = prev_ptcloud[:, 5]
+            group_x_prev = prev_ptcloud[:, 6]
+            group_y_prev = prev_ptcloud[:, 7]
 
-            # # compress prev groups to get unique information
-            # unique_group_prev = np.unique(group_prev)
-            # num_prev_group = len(unique_group_prev)
-            # unique_group_x_prev = np.zeros(num_prev_group)
-            # unique_group_y_prev = np.zeros(num_prev_group)
-            # for i, l in enumerate(unique_group_prev):
-            #     unique_group_x_prev[i] = group_x_prev[group_prev == l][0]
-            #     unique_group_y_prev[i] = group_y_prev[group_prev == l][0]
+            # compress prev groups to get unique information
+            unique_group_prev = np.unique(group_prev)
+            num_prev_group = len(unique_group_prev)
+            unique_group_x_prev = np.zeros(num_prev_group)
+            unique_group_y_prev = np.zeros(num_prev_group)
+            for i, l in enumerate(unique_group_prev):
+                unique_group_x_prev[i] = group_x_prev[group_prev == l][0]
+                unique_group_y_prev[i] = group_y_prev[group_prev == l][0]
 
             # get matching pairs from curr unique groups and prev unique groups
             # for each pair: obtain the same entity id and assign to point clouds
@@ -431,31 +430,17 @@ class ScanReceiver(Node):
         # delete noise and large obstacles
         complete_ptcloud = complete_ptcloud[complete_ptcloud[:, 5] != -1]
 
-        # reformuate to x and y of groups only
-        gp_overall = np.unique(complete_ptcloud[:, 5])
-        num_gp_overall = len(gp_overall)
-        if num_gp_overall == 0:
-            self.get_logger().warn("No groups found in pointcloud.")
-            return np.array([])
-        gp_complete_ptcloud = np.zeros((num_gp_overall, 4))
-        for i, gp in enumerate(gp_overall):
-            condition = (complete_ptcloud[:, 5] == gp)
-            gp_complete_ptcloud[i, 0] = gp
-            subset_ptcloud = complete_ptcloud[condition, :]
-            gp_complete_ptcloud[i, 1] = subset_ptcloud[0, 6]
-            gp_complete_ptcloud[i, 2] = subset_ptcloud[0, 7]
-            gp_complete_ptcloud[i, 3] = subset_ptcloud[0, 8]  # timestamp
-
         if self.debug_visualiation:
-            entity_labels = gp_overall
+            entity_labels = np.unique(complete_ptcloud[:, 5])
             #print("Number of entities: {}".format(len(entity_labels)))
             #print(entity_labels)
+            entity_idxes = complete_ptcloud[:, 5]
             marker_array = MarkerArray()
             marker_list = []
             for i, l in enumerate(entity_labels):
                 entity_label = int(l)
-                entity_x = gp_complete_ptcloud[i, 1]
-                entity_y = gp_complete_ptcloud[i, 2]
+                entity_x = complete_ptcloud[entity_idxes == l, 6][0]
+                entity_y = complete_ptcloud[entity_idxes == l, 7][0]
                 marker, text_marker = visualization.create_entity_marker(
                     entity_x, 
                     entity_y, 
@@ -467,7 +452,7 @@ class ScanReceiver(Node):
             marker_array.markers = marker_list
             self.entity_vis_pub.publish(marker_array)
 
-        return gp_complete_ptcloud
+        return complete_ptcloud
     
     def _get_groups_and_centers(self, ptcloud):
         # performs low level clustering to obtains small clusters around objects/pedestrians
@@ -547,7 +532,7 @@ class ScanReceiver(Node):
 
         # pcl_history is from old to new
         # pcl format:
-        # (group id, group center x, group center y, timestamp)
+        # (x, y, z, intensity, ring, group id, group center x, group center y, timestamp)
         pcl_history = copy.deepcopy(self.pointcloud_history._items)
         if (len(pcl_history[-1]["pointcloud"]) == 0):
             self.get_logger().warn("No pointclouds at current time.")
@@ -563,14 +548,17 @@ class ScanReceiver(Node):
             self._high_level_vel_threshold,  
             self._high_level_ori_threshold,
             static_threshold=self._static_threshold)
-        unique_entities = curr_entities_id
+        unique_entities = np.unique(curr_entities_id)
         entity_to_group = {}
         for i, l in enumerate(unique_entities):
-            gp = curr_labels[i]
+            idxes = np.where(curr_entities_id == l)
+            idx = idxes[0][0]
+            gp = curr_labels[idx]
             entity_to_group[l] = gp
         
         # clustering is only performed at current time, prior groups are just tracing entities
         # only edge points are needed to perform future predictions
+        sub_start_time = time.time()
         group_keypoint_sequences = {}
         positions_hist_msg = PositionHistoryArray()
         positions_hist_msg.positions_history = []
@@ -614,7 +602,6 @@ class ScanReceiver(Node):
         group_representations = GroupTimeArray()
         group_representations.group_sequences = []
 
-        sub_start_time = time.time()
         if num_groups > 0:
             group_pred_inputs = np.zeros((num_groups * 3, self._history_window, 2))
             for i, g in enumerate(group_keypoint_sequences.keys()):
@@ -694,12 +681,22 @@ class ScanReceiver(Node):
         # interpolation used from neighboring entity pointclouds
         # if history incomplete, perform back propogation
         # velocities also calculated here
-        unique_entities = current_pcl["pointcloud"][:, 0]
+        entities = current_pcl["pointcloud"][:, 5]
+        #entities_x = current_pcl[:, 6]
+        #entities_y = current_pcl[:, 7]
+
+        unique_entities = np.unique(entities)
+        #num_entities = len(unique_entities)
+        #unique_entities_x = np.zeros(num_entities)
+        #unique_entities_y = np.zeros(num_entities)
+        #for i, l in enumerate(unique_entities):
+        #    unique_entities_x[i] = entities_x[entities == l][0]
+        #    unique_entities_y[i] = entities_y[entities == l][0]
 
         # we collect info on history + 1 pointcouds to get velocities on history pointclouds
         entities_history = []
         for i, l in enumerate(unique_entities):
-            current_entity = current_pcl["pointcloud"][i, :]
+            current_entity = current_pcl["pointcloud"][entities == l, :]
             entity_history = [current_entity]
             time_pointer = history_len - 2
             propogation_step = 0
@@ -711,61 +708,59 @@ class ScanReceiver(Node):
                     pcl = pcl_history[time_pointer]
                 # if (out of queue) or (entity not there) then not found and propogation needed
                 if (((time_pointer == 0) and (pcl["time"] > time_target))
-                    or (len(pcl["pointcloud"]) == 0) or (not l in pcl["pointcloud"][:, 0])): 
+                    or (len(pcl["pointcloud"]) == 0) or (not l in pcl["pointcloud"][:, 5])): 
                     propogation_step = self._history_window - j
                     break
                 else: 
                     #interpolation
                     pcl_prev = pcl["pointcloud"]
-                    entity_prev = pcl_prev[pcl_prev[:, 0] == l, :]
-                    forward_step = 1
-                    while not (l in pcl_history[time_pointer + forward_step]["pointcloud"][:, 0]):
-                        # at least current time pointcloud has it so no need to check
-                        forward_step += 1
-                    pcl_next = pcl_history[time_pointer + forward_step]["pointcloud"]
-                    entity_next = pcl_next[pcl_next[:, 0] == l, :]
+                    pcl_next = pcl_history[time_pointer + 1]["pointcloud"]
+                    entity_prev = pcl_prev[pcl_prev[:, 5] == l, :]
+                    entity_next = pcl_next[pcl_next[:, 5] == l, :]
                     entity_interp = self._interpolate_pointclouds(entity_prev, entity_next, time_target)
                     entity_history.append(entity_interp)
             
             # calculate velocities and propogation
-            # in final form, each entity will have (x, y, vx, vy, o, id)
+            # in final form, each entity will have (x, y, vx, vy, o)
             entity_history_with_vel = []
             if not(len(entity_history) == (self._history_window - propogation_step + 1)):
-                self.get_logger().error("Code error: entity history length and propogation step mismatch!")
+                self.get_logger().error("Code error: entity history length an propogation step mismatch!")
                 sys.exit(0)
             for j in range(self._history_window - propogation_step):
                 entity = entity_history[j]
-                entity_with_vel = np.zeros(6)
+                num_pts = len(entity)
+                entity_with_vel = np.zeros((num_pts, 6))
                 entity_prev = entity_history[j + 1]
-                entity_with_vel[0] = entity[1]
-                entity_with_vel[1] = entity[2]
-                vx = (entity[1] - entity_prev[1]) / self._history_dt
-                vy = (entity[2] - entity_prev[2]) / self._history_dt
-                entity_with_vel[2] = vx
-                entity_with_vel[3] = vy
-                entity_with_vel[4] = np.arctan2(vy, vx)
-                entity_with_vel[5] = l
+                entity_with_vel[:, 0] = entity[:, 0]
+                entity_with_vel[:, 1] = entity[:, 1]
+                vx = (entity[0, 6] - entity_prev[0, 6]) / self._history_dt
+                vy = (entity[0, 7] - entity_prev[0, 7]) / self._history_dt
+                entity_with_vel[:, 2] = vx
+                entity_with_vel[:, 3] = vy
+                entity_with_vel[:, 4] = np.arctan2(vy, vx)
+                entity_with_vel[:, 5] = l
                 entity_history_with_vel.append(entity_with_vel)
             if propogation_step == self._history_window:
                 offset_vx = 0
                 offset_vy = 0
             else:
                 oldest_entity = entity_history_with_vel[-1]
-                offset_vx = oldest_entity[2]
-                offset_vy = oldest_entity[3]
+                offset_vx = oldest_entity[0, 2]
+                offset_vy = oldest_entity[0, 3]
             entity = entity_history[-1]
+            num_pts = len(entity)
             for j in range(propogation_step):
-                entity_with_vel = np.zeros(6)
+                entity_with_vel = np.zeros((num_pts, 6))
                 if j == 0:
-                    entity_with_vel[0] = entity[1]
-                    entity_with_vel[1] = entity[2]
+                    entity_with_vel[:, 0] = entity[:, 0]
+                    entity_with_vel[:, 1] = entity[:, 1]
                 else:
-                    entity_with_vel[0] = prev_entity[0] - offset_vx * self._history_dt
-                    entity_with_vel[1] = prev_entity[1] - offset_vy * self._history_dt
-                entity_with_vel[2] = offset_vx
-                entity_with_vel[3] = offset_vx
-                entity_with_vel[4] = np.arctan2(offset_vy, offset_vx)
-                entity_with_vel[5] = l
+                    entity_with_vel[:, 0] = prev_entity[:, 0] - offset_vx * self._history_dt
+                    entity_with_vel[:, 1] = prev_entity[:, 1] - offset_vy * self._history_dt
+                entity_with_vel[:, 2] = offset_vx
+                entity_with_vel[:, 3] = offset_vx
+                entity_with_vel[:, 4] = np.arctan2(offset_vy, offset_vx)
+                entity_with_vel[:, 5] = l
                 entity_history_with_vel.append(entity_with_vel)
                 prev_entity = entity_with_vel
 
@@ -774,29 +769,53 @@ class ScanReceiver(Node):
         return entities_history
     
     def _interpolate_pointclouds(self, pcl_1, pcl_2, curr_time, front_base=True):
-        # Interpolates 2 point centers
-        pcl_1 = pcl_1[0]
-        pcl_2 = pcl_2[0]
+        # Interpolates 2 point clouds
+        # A very heuristics-based method but should work well
+        # Because error tolerance is high for mismatching pairs etc.
+        # 1. use entity centers to perform offset
+        # 2. use nearest neighbors to get matching pairs
+        # 3. interpolate
+        # The interpolation is based on the 2nd pointcloud
+        # If switching needed, then set front_base = True
 
         if front_base == True:
             tmp = pcl_1
             pcl_1 = pcl_2
             pcl_2 = tmp
 
-        # id, x, y, time
-        pcl_interp = np.zeros(4)
-        # interpolate position
-        time_1 = pcl_1[3]
-        time_2 = pcl_2[3]
-        if time_1 == time_2:
-            self.get_logger().error("Cannot interpolate pointclouds with same timestamp")
-            sys.exit(0)
+        num_pts1 = len(pcl_1)
+        num_pts2 = len(pcl_2)
+        if (num_pts1 == 0) and (num_pts2 == 0):
+            self.get_logger().warn("Both pointclouds are blank for interpolation!")
+            return []
+        if num_pts1 == 0:
+            return pcl_2
+        if num_pts2 == 0:
+            return pcl_1
+        
+        # displacement by center offsets
+        center_1x = pcl_1[0, 6]
+        center_1y = pcl_1[0, 7]
+        center_2x = pcl_2[0, 6]
+        center_2y = pcl_2[0, 7]
+        pcl_1[:, 0] = pcl_1[:, 0] + (center_2x - center_1x)
+        pcl_1[:, 1] = pcl_1[:, 1] + (center_2y - center_1y)
 
-        ratio = (curr_time - time_1) / (time_2 - time_1)
-        pcl_interp[0] = pcl_1[0]
-        pcl_interp[1] = pcl_1[1] + ratio * (pcl_2[1] - pcl_1[1])  # x
-        pcl_interp[2] = pcl_1[2] + ratio * (pcl_2[2] - pcl_1[2])  # y
-        pcl_interp[3] = curr_time  # timestamp
+        # get pairs by dearest neighbor
+        mesh_1x, mesh_2x = np.meshgrid(pcl_1[:, 0], pcl_2[:, 0])
+        mesh_1y, mesh_2y = np.meshgrid(pcl_1[:, 1], pcl_2[:, 1])
+        mesh_dist = np.sqrt(np.square(mesh_1x - mesh_2x) + np.square(mesh_1y - mesh_2y))
+        min_dist_idxes = np.argmin(mesh_dist, axis=1)
+        pcl_1 = pcl_1[min_dist_idxes, :]
+
+        # interpolate
+        time_1 = pcl_1[0, 8]
+        time_2 = pcl_2[0, 8]
+        pcl_interp = pcl_2 + (pcl_1 - pcl_2) / (time_1 - time_2 + 0.0001) * (curr_time - time_2)
+        # preserve ring number, id, time
+        pcl_interp[:, 4] = pcl_2[:, 4]
+        pcl_interp[:, 5] = pcl_2[0, 5]
+        pcl_interp[:, 8] = curr_time
 
         return pcl_interp
     
@@ -809,14 +828,32 @@ class ScanReceiver(Node):
             self.get_logger().error("Time chosen is longer than the hsitory time window of entities")
             sys.exit(0)
 
-        pos_entities = np.array([entity[time][:2] for entity in entities_history])
-        vel_entities = np.array([entity[time][2:4] for entity in entities_history])
-        ent_entities = np.array([entity[time][5] for entity in entities_history])
+        """
+        pos_array = []
+        vel_array = []
+        ent_array = []
+        for i in range(num_entities):
+            entity = entities_history[i][time]
+            entity_pos = entity[:, :2]
+            entity_vel = entity[:, 2:4]
+            entity_id = entity[:, 5]
+            pos_array = pos_array + entity_pos.tolist()
+            vel_array = vel_array + entity_vel.tolist()
+            ent_array = ent_array + entity_id.tolist()
+
+        return np.array(pos_array), np.array(vel_array), np.array(ent_array)
+        """
+
+        pos_entities = tuple(entity[time][:, :2] for entity in entities_history)
+        vel_entities = tuple(entity[time][:, 2:4] for entity in entities_history)
+        ent_entities = tuple(entity[time][:, 5] for entity in entities_history)
 
         if num_entities == 0:
             return np.array([]), np.array([]), np.array([])
         else:
-            return pos_entities, vel_entities, ent_entities 
+            return np.concatenate(pos_entities, axis=0), \
+                np.concatenate(vel_entities, axis=0), \
+                np.concatenate(ent_entities, axis=0)
 
 
 def main():
