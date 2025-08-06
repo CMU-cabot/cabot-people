@@ -30,12 +30,10 @@ ament_python_install_package(${PROJECT_NAME})
 install(DIRECTORY launch/ DESTINATION share/${PROJECT_NAME}/launch)
 install(DIRECTORY models/ DESTINATION share/${PROJECT_NAME}/models)
 install(PROGRAMS
-scripts/detect_darknet_opencv_people.py
-scripts/detect_mmdet_people.py
-scripts/detect_mmdet_seg_people.py
-scripts/track_sort_3d_people.py
-  scripts/predict_kf_obstacle.py
-  scripts/predict_kf_people.py
+  scripts/detect_darknet_opencv_people.py
+  scripts/detect_mmdet_people.py
+  scripts/detect_mmdet_seg_people.py
+  scripts/track_sort_3d_people.py
   DESTINATION lib/${PROJECT_NAME}
 )
 

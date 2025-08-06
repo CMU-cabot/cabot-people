@@ -20,18 +20,16 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-import signal
 import copy
+import signal
 import sys
+import traceback
 
-from matplotlib import pyplot as plt
 import rclpy
 from rclpy.duration import Duration
-# import time
 
 from track_people_py import AbsTrackPeople
 from track_people_py.track_utils import TrackerSort3D
-from track_people_msgs.msg import TrackedBoxes
 
 
 class TrackSort3dPeople(AbsTrackPeople):
@@ -41,12 +39,11 @@ class TrackSort3dPeople(AbsTrackPeople):
         # set tracker
         self.tracker = TrackerSort3D(iou_threshold=self.iou_threshold, iou_circle_size=self.iou_circle_size,
                                      kf_init_var=self.kf_init_var, kf_process_var=self.kf_process_var, kf_measure_var=self.kf_measure_var,
-                                     minimum_valid_track_duration=Duration(seconds=self.minimum_valid_track_duration),
-                                     duration_inactive_to_remove=Duration(seconds=self.duration_inactive_to_remove))
+                                     minimum_valid_track_observe=self.minimum_valid_track_observe, duration_inactive_to_remove=Duration(seconds=self.duration_inactive_to_remove),
+                                     stationary_detect_threshold_duration=self.stationary_detect_threshold_duration_,
+                                     stationary_detect_threshold_velocity=self.stationary_detect_threshold_velocity_)
 
-        self.combined_detected_boxes_pub = self.create_publisher(TrackedBoxes, 'people/combined_detected_boxes', 10)
-
-        self.buffer = {}
+        self.detect_buf = {}
 
     def detected_boxes_cb(self, detected_boxes_msg):
         self.htd.tick()
@@ -59,24 +56,18 @@ class TrackSort3dPeople(AbsTrackPeople):
 
         # To ignore cameras which stop by accidents, remove detecion results for cameras that are not updated longer than threshold to remove track
         delete_camera_ids = []
-        for key in self.buffer:
-            if (now - rclpy.time.Time.from_msg(self.buffer[key].header.stamp)) > self.tracker.duration_inactive_to_remove:
+        for key in self.detect_buf:
+            if (now - rclpy.time.Time.from_msg(self.detect_buf[key].header.stamp)) > self.tracker.duration_inactive_to_remove:
                 delete_camera_ids.append(key)
         for key in delete_camera_ids:
             self.get_logger().info("delete buffer for the camera which is not updated, camera ID = " + str(key))
-            del self.buffer[key]
+            del self.detect_buf[key]
 
-        # 2022.01.12: remove time check for multiple detection
-        # check if image is received in correct time order
-        # cur_detect_time_sec = detected_boxes_msg.header.stamp.to_sec()
-        # if cur_detect_time_sec<self.prev_detect_time_sec:
-        #    return
-
-        self.buffer[detected_boxes_msg.camera_id] = detected_boxes_msg
+        self.detect_buf[detected_boxes_msg.camera_id] = detected_boxes_msg
 
         combined_msg = None
-        for key in self.buffer:
-            msg = copy.deepcopy(self.buffer[key])
+        for key in self.detect_buf:
+            msg = copy.deepcopy(self.detect_buf[key])
             if not combined_msg:
                 combined_msg = msg
             else:
@@ -85,20 +76,16 @@ class TrackSort3dPeople(AbsTrackPeople):
 
         detect_results, center_bird_eye_global_list = self.preprocess_msg(combined_msg)
 
-        self.combined_detected_boxes_pub.publish(combined_msg)
-
         try:
-            _, id_list, color_list, tracked_duration = self.tracker.track(now, detect_results, center_bird_eye_global_list, self.frame_id)
+            track_pos_dict, track_vel_dict, alive_track_id_list, stationary_track_id_list = self.tracker.track(now, detect_results, center_bird_eye_global_list)
         except Exception as e:
             self.get_logger().error(F"tracking error, {e}")
+            self.get_logger().error(traceback.format_exc())
             return
 
-        self.pub_result(combined_msg, id_list, color_list, tracked_duration)
+        self.pub_result(combined_msg, track_pos_dict, track_vel_dict, alive_track_id_list, stationary_track_id_list)
 
-        self.vis_result(combined_msg, id_list, color_list, tracked_duration)
-
-        self.frame_id += 1
-        # self.prev_detect_time_sec = cur_detect_time_sec
+        self.vis_result(combined_msg, track_pos_dict, track_vel_dict, alive_track_id_list, stationary_track_id_list)
 
 
 def main():
@@ -106,9 +93,10 @@ def main():
 
     track_people = TrackSort3dPeople()
 
-    plt.ion()
-    plt.show()
-    rclpy.spin(track_people)
+    try:
+        rclpy.spin(track_people)
+    except:  # noqa: E722
+        track_people.get_logger().info("Shutting down")
 
 
 def receiveSignal(signal_num, frame):

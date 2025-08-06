@@ -27,7 +27,7 @@ from launch.actions import SetEnvironmentVariable
 from launch.actions import RegisterEventHandler
 from launch.conditions import IfCondition
 from launch.event_handlers import OnShutdown
-from launch.substitutions import LaunchConfiguration, EnvironmentVariable
+from launch.substitutions import LaunchConfiguration, EnvironmentVariable, PythonExpression
 from launch_ros.actions import Node
 from launch_ros.actions import SetParameter
 
@@ -46,9 +46,10 @@ def generate_launch_description():
     kf_init_var = LaunchConfiguration('kf_init_var')
     kf_process_var = LaunchConfiguration('kf_process_var')
     kf_measure_var = LaunchConfiguration('kf_measure_var')
-    minimum_valid_track_duration = LaunchConfiguration('minimum_valid_track_duration')
+    minimum_valid_track_observe = LaunchConfiguration('minimum_valid_track_observe')
     duration_inactive_to_remove = LaunchConfiguration('duration_inactive_to_remove')
     target_fps = LaunchConfiguration('target_fps')
+    remap_people_topic = LaunchConfiguration('remap_people_topic')
 
     # ToDo: workaround https://github.com/CMU-cabot/cabot/issues/86
     jetpack5_workaround = LaunchConfiguration('jetpack5_workaround')
@@ -66,9 +67,10 @@ def generate_launch_description():
         DeclareLaunchArgument('kf_init_var', default_value='1.0'),
         DeclareLaunchArgument('kf_process_var', default_value='1.0'),
         DeclareLaunchArgument('kf_measure_var', default_value='1.0'),
-        DeclareLaunchArgument('minimum_valid_track_duration', default_value='0.0'),
+        DeclareLaunchArgument('minimum_valid_track_observe', default_value='5'),
         DeclareLaunchArgument('duration_inactive_to_remove', default_value='2.0'),
         DeclareLaunchArgument('target_fps', default_value=EnvironmentVariable('CABOT_PEOPLE_TRACK_FPS', default_value='15.0')),
+        DeclareLaunchArgument('remap_people_topic', default_value=''),
 
         DeclareLaunchArgument('jetpack5_workaround', default_value='false'),
 
@@ -78,7 +80,7 @@ def generate_launch_description():
         SetParameter(name='kf_init_var', value=kf_init_var),
         SetParameter(name='kf_process_var', value=kf_process_var),
         SetParameter(name='kf_measure_var', value=kf_measure_var),
-        SetParameter(name='minimum_valid_track_duration', value=minimum_valid_track_duration),
+        SetParameter(name='minimum_valid_track_observe', value=minimum_valid_track_observe),
         SetParameter(name='duration_inactive_to_remove', value=duration_inactive_to_remove),
         SetParameter(name='target_fps', value=target_fps),
 
@@ -90,6 +92,24 @@ def generate_launch_description():
             output=output,
             parameters=[{
                 'use_sim_time': use_sim_time
-            }]
+            }],
+            condition=IfCondition(
+                PythonExpression(["'", remap_people_topic, "' == ''"])
+            )
+        ),
+        Node(
+            package="track_people_py",
+            executable="track_sort_3d_people.py",
+            name="track_sort_3d_people_py",
+            output=output,
+            parameters=[{
+                'use_sim_time': use_sim_time
+            }],
+            remappings=[
+                ('/people', remap_people_topic)
+            ],
+            condition=IfCondition(
+                PythonExpression(["'", remap_people_topic, "' != ''"])
+            )
         ),
     ])

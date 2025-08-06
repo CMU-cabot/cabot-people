@@ -19,48 +19,58 @@
 # SOFTWARE.
 
 from abc import ABCMeta, abstractmethod
+import math
 
+from diagnostic_updater import Updater
+from diagnostic_updater import HeaderlessTopicDiagnostic
+from diagnostic_updater import FrequencyStatusParam
+import matplotlib.pyplot as plt
 import numpy as np
 import rclpy
 import rclpy.node
 from rclpy.duration import Duration
-from std_msgs.msg import ColorRGBA
+from geometry_msgs.msg import Point
+from people_msgs.msg import People, Person
+from tf_transformations import quaternion_from_euler
 from visualization_msgs.msg import Marker, MarkerArray
-from diagnostic_updater import Updater
-from diagnostic_updater import HeaderlessTopicDiagnostic
-from diagnostic_updater import FrequencyStatusParam
 
-from track_people_msgs.msg import TrackedBox
 from track_people_msgs.msg import TrackedBoxes
 
 
 class AbsTrackPeople(rclpy.node.Node):
     __metaclass__ = ABCMeta
 
-    def __init__(self):
+    def __init__(self, n_colors=100):
         super().__init__('track_people_py')
+
+        self.n_colors = n_colors
+        self.list_colors = plt.cm.hsv(np.linspace(0, 1, n_colors)).tolist()  # list of colors to assign to each track for visualization
+        np.random.shuffle(self.list_colors)  # shuffle colors
 
         self.iou_threshold = self.declare_parameter('iou_threshold', 0.01).value
         self.iou_circle_size = self.declare_parameter('iou_circle_size', 0.5).value
         self.kf_init_var = self.declare_parameter('kf_init_var', 1.0).value
         self.kf_process_var = self.declare_parameter('kf_process_var', 1.0).value
         self.kf_measure_var = self.declare_parameter('kf_measure_var', 1.0).value
-        self.minimum_valid_track_duration = self.declare_parameter('minimum_valid_track_duration', 0.0).value
+        # number of frames to start publish people topic
+        self.minimum_valid_track_observe = self.declare_parameter('minimum_valid_track_observe', 5).value
+        # duration (seconds) to remove an inactive track
         self.duration_inactive_to_remove = self.declare_parameter('duration_inactive_to_remove', 2.0).value
+        # duration (seconds) to stop publishing an inactive track in people topic
+        self.duration_inactive_to_stop_publish = self.declare_parameter('duration_inactive_to_stop_publish', 0.2).value
 
         self.detected_boxes_sub = self.create_subscription(TrackedBoxes, 'people/detected_boxes', self.detected_boxes_cb, 10)
-        self.tracked_boxes_pub = self.create_publisher(TrackedBoxes, 'people/tracked_boxes', 10)
-        self.visualization_marker_array_pub = self.create_publisher(MarkerArray, 'people/tracking_visualization', 10)
-
-        self.frame_id = 0
-        self.prev_detect_time_sec = 0
+        self.people_pub = self.create_publisher(People, 'people', 10)
+        self.vis_marker_array_pub = self.create_publisher(MarkerArray, 'people/tracking_visualization', 10)
 
         self.updater = Updater(self)
-
-        target_fps = self.declare_parameter('target_fps', 0.0).value
+        target_fps = self.declare_parameter('target_fps', 10.0).value
         diagnostic_name = self.declare_parameter('diagnostic_name', "PeopleTrack").value
         self.htd = HeaderlessTopicDiagnostic(diagnostic_name, self.updater,
-                                             FrequencyStatusParam({'min': target_fps/3.0, 'max': target_fps}, 0.2, 2))
+                                             FrequencyStatusParam({'min': target_fps, 'max': target_fps}, 0.2, 2))
+
+        self.stationary_detect_threshold_duration_ = self.declare_parameter('stationary_detect_threshold_duration', 1.0).value
+        self.stationary_detect_threshold_velocity_ = self.declare_parameter('stationary_detect_threshold_velocity', 0.1).value
 
     @abstractmethod
     def detected_boxes_cb(self, detected_boxes_msg):
@@ -74,50 +84,102 @@ class AbsTrackPeople(rclpy.node.Node):
             center_bird_eye_global_list.append([bbox.center3d.x, bbox.center3d.y, bbox.center3d.z])
         return np.array(detect_results), center_bird_eye_global_list
 
-    def pub_result(self, detected_boxes_msg, id_list, color_list, tracked_duration):
-        # publish tracked boxes message
-        tracked_boxes_msg = TrackedBoxes()
-        tracked_boxes_msg.header = detected_boxes_msg.header
-        tracked_boxes_msg.camera_id = detected_boxes_msg.camera_id
-        tracked_boxes_msg.pose = detected_boxes_msg.pose
-        for idx_bbox, bbox in enumerate(detected_boxes_msg.tracked_boxes):
-            if tracked_duration[idx_bbox] < self.minimum_valid_track_duration:
-                continue
-            tracked_box = TrackedBox()
-            tracked_box.header = bbox.header
-            tracked_box.track_id = id_list[idx_bbox]
-            tracked_box.color = ColorRGBA(r=color_list[idx_bbox][0], g=color_list[idx_bbox][1], b=color_list[idx_bbox][2], a=0.0)
-            tracked_box.box = bbox.box
-            tracked_box.center3d = bbox.center3d
-            tracked_boxes_msg.tracked_boxes.append(tracked_box)
-        self.tracked_boxes_pub.publish(tracked_boxes_msg)
+    def pub_result(self, msg, track_pos_dict, track_vel_dict, alive_track_id_list, stationary_track_id_list):
+        # init People message
+        people_msg = People()
+        people_msg.header = msg.header
 
-        self.get_logger().info("camera ID = " + detected_boxes_msg.camera_id + ", number of tracked people = " + str(len(tracked_boxes_msg.tracked_boxes)))
+        for track_id in track_pos_dict.keys():
+            past_center3d = Point()
+            past_center3d.x = track_pos_dict[track_id][0]
+            past_center3d.y = track_pos_dict[track_id][1]
+            past_center3d.z = 0.0
 
-    def vis_result(self, detected_boxes_msg, id_list, color_list, tracked_duration):
+            # create Person message
+            person = Person()
+            person.name = str(track_id)
+            person.position = past_center3d
+            person.velocity = Point()
+            person.velocity.x = track_vel_dict[track_id][0]
+            person.velocity.y = track_vel_dict[track_id][1]
+            person.velocity.z = 0.0
+            if track_id in alive_track_id_list:
+                person.reliability = 1.0
+            else:
+                person.reliability = 0.9
+
+            # check if track is in stationary state
+            if track_id in stationary_track_id_list:
+                person.tags.append("stationary")
+
+            people_msg.people.append(person)
+
+        self.people_pub.publish(people_msg)
+
+    def vis_result(self, msg, track_pos_dict, track_vel_dict, alive_track_id_list, stationary_track_id_list):
         # publish visualization marker array for rviz
         marker_array = MarkerArray()
-        for idx_bbox, bbox in enumerate(detected_boxes_msg.tracked_boxes):
-            if tracked_duration[idx_bbox] < self.minimum_valid_track_duration:
-                continue
+        # plot sphere for current position, arrow for current direction
+        for track_id in track_pos_dict.keys():
+            track_color = self.list_colors[track_id % self.n_colors]
+
             marker = Marker()
-            marker.header = bbox.header
-            marker.ns = "track-people"
-            marker.id = id_list[idx_bbox]
-            marker.type = Marker.CUBE
+            marker.header = msg.header
+            marker.ns = "track-origin-position"
+            marker.id = track_id*2
+            if track_id in stationary_track_id_list:
+                marker.type = Marker.CUBE
+            else:
+                marker.type = Marker.SPHERE
             marker.action = Marker.ADD
-            marker.lifetime = Duration(nanoseconds=500000000).to_msg()
+            marker.lifetime = Duration(nanoseconds=1e8).to_msg()
             marker.scale.x = 0.5
             marker.scale.y = 0.5
-            marker.scale.z = 0.2
-            marker.pose.position = bbox.center3d
+            marker.scale.z = 0.1
+            marker.pose.position.x = track_pos_dict[track_id][0]
+            marker.pose.position.y = track_pos_dict[track_id][1]
+            marker.pose.position.z = 0.0
             marker.pose.orientation.x = 0.0
             marker.pose.orientation.y = 0.0
             marker.pose.orientation.z = 0.0
             marker.pose.orientation.w = 1.0
-            marker.color.r = color_list[idx_bbox][0]
-            marker.color.g = color_list[idx_bbox][1]
-            marker.color.b = color_list[idx_bbox][2]
-            marker.color.a = 1.0
+            marker.color.r = track_color[0]
+            marker.color.g = track_color[1]
+            marker.color.b = track_color[2]
+            if track_id in alive_track_id_list:
+                marker.color.a = 1.0
+            else:
+                marker.color.a = 0.5
             marker_array.markers.append(marker)
-        self.visualization_marker_array_pub.publish(marker_array)
+
+            track_velocity = track_vel_dict[track_id]
+            velocity_norm = np.linalg.norm(np.array(track_velocity))
+            velocity_orientation = math.atan2(track_velocity[1], track_velocity[0])
+            velocity_orientation_quat = quaternion_from_euler(0.0, 0.0, velocity_orientation)
+            marker = Marker()
+            marker.header = msg.header
+            marker.ns = "track-origin-direction"
+            marker.id = track_id*2+1
+            marker.type = Marker.ARROW
+            marker.action = Marker.ADD
+            marker.lifetime = Duration(nanoseconds=1e8).to_msg()
+            marker.scale.x = 1.0 * min(velocity_norm, 1.0)
+            marker.scale.y = 0.1
+            marker.scale.z = 0.1
+            marker.pose.position.x = track_pos_dict[track_id][0]
+            marker.pose.position.y = track_pos_dict[track_id][1]
+            marker.pose.position.z = 0.0
+            marker.pose.orientation.x = velocity_orientation_quat[0]
+            marker.pose.orientation.y = velocity_orientation_quat[1]
+            marker.pose.orientation.z = velocity_orientation_quat[2]
+            marker.pose.orientation.w = velocity_orientation_quat[3]
+            marker.color.r = track_color[0]
+            marker.color.g = track_color[1]
+            marker.color.b = track_color[2]
+            if track_id in alive_track_id_list:
+                marker.color.a = 1.0
+            else:
+                marker.color.a = 0.5
+            marker_array.markers.append(marker)
+
+        self.vis_marker_array_pub.publish(marker_array)
