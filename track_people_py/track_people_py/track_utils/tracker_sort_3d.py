@@ -112,7 +112,7 @@ class TrackerSort3D:
             center_circle_list.append([center_pos[0], center_pos[1], self.iou_circle_size])
 
         # prepare output
-        person_id = np.zeros(len(bboxes)).astype(np.uint32)
+        person_id = [0] * len(bboxes)
         if (len(bboxes) == 0) and (len(self.kf_dict) == 0):
             # No new detection and no active tracks
             # Do nothing
@@ -212,9 +212,9 @@ class TrackerSort3D:
 
         # add new trackers
         for id_track in det_to_add:
+            self.kf_last_predict_time_dict[self.tracker_count] = now
             self.kf_expire_time_dict[self.tracker_count] = now + self.duration_inactive_to_remove
             self.kf_since_time_dict[self.tracker_count] = now
-            self.kf_last_predict_time_dict[self.tracker_count] = now
 
             # save active Kalaman Filter
             new_kf_x = center_circle_list[id_track][0]
@@ -227,7 +227,15 @@ class TrackerSort3D:
 
             self.tracker_count += 1
 
-        return [int(x) for x in person_id]
+        # update track input
+        for (id_track, center3d) in zip(person_id, center_pos_list):
+            self.kf_last_input_dict[id_track] = center3d
+            if id_track not in self.kf_input_count_dict:
+                self.kf_input_count_dict[id_track] = 1
+            else:
+                self.kf_input_count_dict[id_track] += 1
+
+        return person_id
 
     def track(self, now, bboxes, center_pos_list):
         # Performs tracking and output valid results
@@ -248,15 +256,8 @@ class TrackerSort3D:
 
         alive_track_id_list = self._track(now, bboxes, center_pos_list)
 
-        # update track input
-        for (track_id, center3d) in zip(alive_track_id_list, center_pos_list):
-            self.kf_last_input_dict[track_id] = center3d
-            if track_id not in self.kf_input_count_dict:
-                self.kf_input_count_dict[track_id] = 1
-            else:
-                self.kf_input_count_dict[track_id] += 1
-
-            # clear missing time
+        # clear missing time
+        for track_id in alive_track_id_list:
             if track_id in self.track_missing_time_dict:
                 del self.track_missing_time_dict[track_id]
 

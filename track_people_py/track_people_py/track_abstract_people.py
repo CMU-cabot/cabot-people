@@ -84,7 +84,7 @@ class AbsTrackPeople(rclpy.node.Node):
             center_bird_eye_global_list.append([bbox.center3d.x, bbox.center3d.y, bbox.center3d.z])
         return np.array(detect_results), center_bird_eye_global_list
 
-    def pub_result(self, msg, alive_track_id_list, stationary_track_id_list, track_pos_dict, track_vel_dict):
+    def pub_result(self, msg, track_pos_dict, track_vel_dict, alive_track_id_list, stationary_track_id_list):
         # init People message
         people_msg = People()
         people_msg.header = msg.header
@@ -116,7 +116,7 @@ class AbsTrackPeople(rclpy.node.Node):
 
         self.people_pub.publish(people_msg)
 
-    def vis_result(self, msg, alive_track_id_list, stationary_track_id_list, track_pos_dict, track_vel_dict):
+    def vis_result(self, msg, track_pos_dict, track_vel_dict, alive_track_id_list, stationary_track_id_list):
         # publish visualization marker array for rviz
         marker_array = MarkerArray()
         # plot sphere for current position, arrow for current direction
