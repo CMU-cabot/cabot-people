@@ -65,23 +65,11 @@ def generate_launch_description():
             namespace='obstacle',
             output=output,
             parameters=[{
+                'duration_inactive_to_stop_publish': 0.2,
+                'stationary_detect_threshold_duration': 1.0,
                 'use_sim_time': use_sim_time,
                 'target_fps': target_fps,
                 'diagnostic_name': 'ObstacleTrack'
-            }]
-        ),
-
-        Node(
-            package="track_people_py",
-            executable="predict_kf_obstacle.py",
-            name="predict_obstacle",
-            namespace='obstacle',
-            output=output,
-            parameters=[{
-                'duration_inactive_to_stop_publish': 0.2,
-                'stationary_detect_threshold_duration': 1.0,
-                'target_fps': target_fps,
-                'diagnostic_name': 'ObstaclePredict'
             }],
             remappings=[('/obstacle/people', '/obstacles')],
             condition=IfCondition(
@@ -89,16 +77,17 @@ def generate_launch_description():
             )
         ),
         Node(
-            package="track_people_py",
-            executable="predict_kf_obstacle.py",
-            name="predict_obstacle",
+            package='track_people_py',
+            executable='track_sort_3d_people.py',
+            name='track_obstacle',
             namespace='obstacle',
             output=output,
             parameters=[{
                 'duration_inactive_to_stop_publish': 0.2,
                 'stationary_detect_threshold_duration': 1.0,
+                'use_sim_time': use_sim_time,
                 'target_fps': target_fps,
-                'diagnostic_name': 'ObstaclePredict'
+                'diagnostic_name': 'ObstacleTrack'
             }],
             remappings=[('/obstacle/people', remap_obstacles_topic)],
             condition=IfCondition(

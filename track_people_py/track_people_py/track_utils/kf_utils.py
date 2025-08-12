@@ -64,7 +64,7 @@ def init_kf(initial_state, dt, init_var, Q_var, R_var):
 
     kf.Q = block_diag(q, q, q_wh)
 
-    return {"kf": kf, "missed": 0}
+    return kf
 
 
 def init_kf_fixed_size(initial_state, dt, init_var, Q_var, R_var):
@@ -104,4 +104,4 @@ def init_kf_fixed_size(initial_state, dt, init_var, Q_var, R_var):
 
     kf.Q = block_diag(q, q)
 
-    return {"kf": kf, "missed": 0}
+    return kf

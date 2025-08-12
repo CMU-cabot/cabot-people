@@ -54,12 +54,10 @@ from .pointcloud_utils import open3d_utils
 class AbsDetectPeople(rclpy.node.Node):
     __metaclass__ = ABCMeta
 
-    def __init__(self, device):
+    def __init__(self):
         # start initialization
         # rospy.init_node('detect_people_py', anonymous=True)
         super().__init__('detect_people_py')
-
-        self.device = device
 
         # constant parameters
         self.lookup_transform_duration = 1

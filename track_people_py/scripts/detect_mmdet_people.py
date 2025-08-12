@@ -34,8 +34,8 @@ from track_people_py import AbsDetectPeople
 class DetectMMDetPeople(AbsDetectPeople):
     __metaclass__ = ABCMeta
 
-    def __init__(self, device):
-        super().__init__(device)
+    def __init__(self):
+        super().__init__()
 
         # load detect model
         detect_model_dir = self.declare_parameter('detect_model_dir', '').value
@@ -80,9 +80,8 @@ class DetectMMDetPeople(AbsDetectPeople):
 
 def main():
     rclpy.init()
-    device = "cuda"
 
-    detect_people = DetectMMDetPeople(device)
+    detect_people = DetectMMDetPeople()
 
     try:
         rclpy.spin(detect_people)
