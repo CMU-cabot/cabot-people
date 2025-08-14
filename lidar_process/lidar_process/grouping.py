@@ -58,6 +58,9 @@ def pedestrian_grouping(position_array, velocity_array, param_pos, param_spd, pa
     num_people = len(position_array)
     if (num_people == 0):
         return []
+    
+    # param ori is in degrees, need to convert
+    param_ori = np.sqrt(np.sin(param_ori) ** 2 + (np.cos(param_ori - 1)) ** 2)
 
     vel_orientation_array = []
     vel_magnitude_array = []
@@ -167,12 +170,12 @@ def vertices_from_edge_pts(robo_pos, edge_pos, edge_vel, increments=16, const=No
                 rel_angle = np.arctan2(pos[1] - robo_pos[1], pos[0] - robo_pos[0])
                 if (i % 3) == 0:
                     # left point
-                    pt_choice = robo_pos + np.array([tang_dist * np.cos(rel_angle - off_angle),
-                                                     tang_dist * np.sin(rel_angle - off_angle)])
-                elif (i % 3) == 2:
-                    # right point
                     pt_choice = robo_pos + np.array([tang_dist * np.cos(rel_angle + off_angle),
                                                      tang_dist * np.sin(rel_angle + off_angle)])
+                elif (i % 3) == 2:
+                    # right point
+                    pt_choice = robo_pos + np.array([tang_dist * np.cos(rel_angle - off_angle),
+                                                     tang_dist * np.sin(rel_angle - off_angle)])
                 else:
                     raise Exception("i mod 3 cannot be 1 here!")
             vertices.append(pt_choice)

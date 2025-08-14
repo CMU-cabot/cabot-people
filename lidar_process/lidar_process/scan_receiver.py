@@ -140,7 +140,7 @@ class ScanReceiver(Node):
         self._high_level_vel_threshold = self.declare_parameter('high_level_vel_threshold', 1.0).value
         self._high_level_ori_threshold = self.declare_parameter('high_level_ori_threshold', 30.0).value
         self._high_level_ori_threshold = self._high_level_ori_threshold / 180 * np.pi
-        self._static_threshold = self.declare_parameter('static_threshold', 0.5).value
+        self._static_threshold = self.declare_parameter('static_threshold', 0.4).value
         # parameters related to tracking of entities
         self._max_tracking_time = self.declare_parameter('max_tracking_time', 0.25).value
         self._max_tracking_dist = self.declare_parameter('max_tracking_dist', 1.0).value
@@ -719,7 +719,8 @@ class ScanReceiver(Node):
                     pcl_prev = pcl["pointcloud"]
                     entity_prev = pcl_prev[pcl_prev[:, 0] == l, :]
                     forward_step = 1
-                    while not (l in pcl_history[time_pointer + forward_step]["pointcloud"][:, 0]):
+                    while not ((len(pcl_history[time_pointer + forward_step]["pointcloud"]) > 0) and 
+                               (l in pcl_history[time_pointer + forward_step]["pointcloud"][:, 0])):
                         # at least current time pointcloud has it so no need to check
                         forward_step += 1
                     pcl_next = pcl_history[time_pointer + forward_step]["pointcloud"]
@@ -769,7 +770,12 @@ class ScanReceiver(Node):
                 entity_history_with_vel.append(entity_with_vel)
                 prev_entity = entity_with_vel
 
-            entities_history.append(entity_history_with_vel)
+            # if the entity is mostly stationary, we don't consider it
+            mean_vel_x = np.mean([entity[2] for entity in entity_history_with_vel])
+            mean_vel_y = np.mean([entity[3] for entity in entity_history_with_vel])
+            mean_spd = np.sqrt(mean_vel_x ** 2 + mean_vel_y ** 2)
+            if (mean_spd > self._static_threshold):
+                entities_history.append(entity_history_with_vel)
 
         return entities_history
     
