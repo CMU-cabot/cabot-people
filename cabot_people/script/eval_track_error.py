@@ -181,6 +181,7 @@ def eval_track_error(input_file, output_dir, anim, tf_buffer, eval_topic):
                             person.velocity.z = transformed_vel_stamped.vector.z
                         except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
                             print('Could not find tf to map')
+                            continue
 
                 data[topic].append((time_sec, msg))
 

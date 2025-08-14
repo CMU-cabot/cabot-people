@@ -41,6 +41,7 @@ except ImportError:
 def generate_launch_description():
     output = {'stderr': {'log'}}
     use_sim_time = LaunchConfiguration('use_sim_time')
+    output_frame = LaunchConfiguration('output_frame')
     iou_threshold = LaunchConfiguration('iou_threshold')
     iou_circle_size = LaunchConfiguration('iou_circle_size')
     kf_init_var = LaunchConfiguration('kf_init_var')
@@ -62,6 +63,7 @@ def generate_launch_description():
         LogInfo(msg=["no cabot_common"]) if workaround else RegisterEventHandler(OnShutdown(on_shutdown=[AppendLogDirPrefix("track_people_cpp-detect_darknet")])),
 
         DeclareLaunchArgument('use_sim_time', default_value='false'),
+        DeclareLaunchArgument('output_frame', default_value='map'),
         DeclareLaunchArgument('iou_threshold', default_value='0.01'),
         DeclareLaunchArgument('iou_circle_size', default_value='0.5'),
         DeclareLaunchArgument('kf_init_var', default_value='1.0'),
@@ -75,6 +77,7 @@ def generate_launch_description():
         DeclareLaunchArgument('jetpack5_workaround', default_value='false'),
 
         # overwrite parameters
+        SetParameter(name='output_frame', value=output_frame),
         SetParameter(name='iou_threshold', value=iou_threshold),
         SetParameter(name='iou_circle_size', value=iou_circle_size),
         SetParameter(name='kf_init_var', value=kf_init_var),

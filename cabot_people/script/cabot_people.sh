@@ -348,7 +348,8 @@ echo "Obstacle      : $obstacle"
 
 
 if [ $publish_tf -eq 1 ]; then
-    eval "$command ros2 run tf2_ros static_transform_publisher 0 0 0 0 0 0 map base_footprint $commandpost"
+    eval "$command ros2 run tf2_ros static_transform_publisher 0 0 0 0 0 0 map odom $commandpost"
+    eval "$command ros2 run tf2_ros static_transform_publisher 0 0 0 0 0 0 odom base_footprint $commandpost"
     eval "$command ros2 run tf2_ros static_transform_publisher 0 0 1 0 0 $roll base_footprint ${camera_link_frame} $commandpost"
     pids+=($!)
 fi
@@ -432,7 +433,7 @@ fi
 
 if [ $detection -eq 1 ]; then
     ### launch people detect
-    map_frame='map'
+    map_frame='odom'
     depth_registered_topic='aligned_depth_to_color/image_raw'
     if [ $gazebo -eq 1 ]; then
         depth_registered_topic='depth/image_raw'

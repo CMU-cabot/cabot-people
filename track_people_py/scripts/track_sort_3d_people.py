@@ -56,9 +56,9 @@ class TrackSort3dPeople(AbsTrackPeople):
 
             track_pos_dict, track_vel_dict, alive_track_id_list, stationary_track_id_list = self.tracker.track(now, detect_results, center_bird_eye_global_list)
 
-            self.pub_result(combined_msg, track_pos_dict, track_vel_dict, alive_track_id_list, stationary_track_id_list)
+            people_msg = self.pub_result(combined_msg, track_pos_dict, track_vel_dict, alive_track_id_list, stationary_track_id_list)
 
-            self.vis_result(combined_msg, track_pos_dict, track_vel_dict, alive_track_id_list, stationary_track_id_list)
+            self.vis_result(people_msg, alive_track_id_list, stationary_track_id_list)
         except Exception as e:
             self.get_logger().error(F"tracking error, {e}")
             self.get_logger().error(traceback.format_exc())

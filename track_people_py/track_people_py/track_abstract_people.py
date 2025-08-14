@@ -27,14 +27,16 @@ import math
 from diagnostic_updater import Updater
 from diagnostic_updater import HeaderlessTopicDiagnostic
 from diagnostic_updater import FrequencyStatusParam
+from geometry_msgs.msg import PointStamped, Vector3Stamped
 import matplotlib.pyplot as plt
 import numpy as np
 import rclpy
 import rclpy.node
 from rclpy.duration import Duration
-from geometry_msgs.msg import Point
 from people_msgs.msg import People, Person
 from tf_transformations import quaternion_from_euler
+from tf2_geometry_msgs import do_transform_point, do_transform_vector3
+import tf2_ros
 from visualization_msgs.msg import Marker, MarkerArray
 
 from track_people_msgs.msg import TrackedBoxes
@@ -50,6 +52,7 @@ class AbsTrackPeople(rclpy.node.Node):
         self.list_colors = plt.cm.hsv(np.linspace(0, 1, n_colors)).tolist()  # list of colors to assign to each track for visualization
         np.random.shuffle(self.list_colors)  # shuffle colors
 
+        self.output_frame = self.declare_parameter('output_frame', 'map').value
         self.iou_threshold = self.declare_parameter('iou_threshold', 0.01).value
         self.iou_circle_size = self.declare_parameter('iou_circle_size', 0.5).value
         self.kf_init_var = self.declare_parameter('kf_init_var', 1.0).value
@@ -76,6 +79,8 @@ class AbsTrackPeople(rclpy.node.Node):
         self.stationary_detect_threshold_velocity_ = self.declare_parameter('stationary_detect_threshold_velocity', 0.1).value
 
         self.detect_buf = {}
+        self.tf2_buffer = tf2_ros.Buffer(node=self)
+        self.tf2_listener = tf2_ros.TransformListener(self.tf2_buffer, self)
 
     @abstractmethod
     def detected_boxes_cb(self, detected_boxes_msg):
@@ -165,24 +170,58 @@ class AbsTrackPeople(rclpy.node.Node):
         return combined_msg, np.array(detect_results), center_bird_eye_global_list
 
     def pub_result(self, msg, track_pos_dict, track_vel_dict, alive_track_id_list, stationary_track_id_list):
+        transform = None
+        if msg.header.frame_id != self.output_frame:
+            try:
+                transform = self.tf2_buffer.lookup_transform(self.output_frame, msg.header.frame_id, rclpy.time.Time(seconds=0, nanoseconds=0, clock_type=self.get_clock().clock_type),
+                                                             Duration(seconds=1.0))
+            except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
+                self.get_logger().error(F"lookup_transform error from {msg.header.frame_id} to {self.output_frame}")
+                return
+
         # init People message
         people_msg = People()
-        people_msg.header = msg.header
+        people_msg.header = copy.deepcopy(msg.header)
+        people_msg.header.frame_id = self.output_frame
 
         for track_id in track_pos_dict.keys():
-            past_center3d = Point()
-            past_center3d.x = track_pos_dict[track_id][0]
-            past_center3d.y = track_pos_dict[track_id][1]
-            past_center3d.z = 0.0
-
             # create Person message
             person = Person()
             person.name = str(track_id)
-            person.position = past_center3d
-            person.velocity = Point()
-            person.velocity.x = track_vel_dict[track_id][0]
-            person.velocity.y = track_vel_dict[track_id][1]
-            person.velocity.z = 0.0
+            if msg.header.frame_id != self.output_frame:
+                if transform is None:
+                    self.get_logger().error("transform is not available")
+                    return
+                pos_stamped = PointStamped()
+                pos_stamped.header = msg.header
+                pos_stamped.point.x = track_pos_dict[track_id][0]
+                pos_stamped.point.y = track_pos_dict[track_id][1]
+                pos_stamped.point.z = 0.0
+
+                vel_stamped = Vector3Stamped()
+                vel_stamped.header = msg.header
+                vel_stamped.vector.x = track_vel_dict[track_id][0]
+                vel_stamped.vector.y = track_vel_dict[track_id][1]
+                vel_stamped.vector.z = 0.0
+
+                try:
+                    transform_pos_stamped = do_transform_point(pos_stamped, transform)
+                    transform_vel_stamped = do_transform_vector3(vel_stamped, transform)
+
+                    person.position = transform_pos_stamped.point
+                    person.velocity.x = transform_vel_stamped.vector.x
+                    person.velocity.y = transform_vel_stamped.vector.y
+                    person.velocity.z = 0.0
+                except RuntimeError as e:
+                    self.get_logger().error(F"transform error, {e}")
+                    return
+            else:
+                person.position.x = track_pos_dict[track_id][0]
+                person.position.y = track_pos_dict[track_id][1]
+                person.position.z = 0.0
+                person.velocity.x = track_vel_dict[track_id][0]
+                person.velocity.y = track_vel_dict[track_id][1]
+                person.velocity.z = 0.0
             if track_id in alive_track_id_list:
                 person.reliability = 1.0
             else:
@@ -196,15 +235,19 @@ class AbsTrackPeople(rclpy.node.Node):
 
         self.people_pub.publish(people_msg)
 
-    def vis_result(self, msg, track_pos_dict, track_vel_dict, alive_track_id_list, stationary_track_id_list):
+        return people_msg
+
+    def vis_result(self, people_msg, alive_track_id_list, stationary_track_id_list):
         # publish visualization marker array for rviz
         marker_array = MarkerArray()
         # plot sphere for current position, arrow for current direction
-        for track_id in track_pos_dict.keys():
+        for person in people_msg.people:
+            track_id = int(person.name)
+
             track_color = self.list_colors[track_id % self.n_colors]
 
             marker = Marker()
-            marker.header = msg.header
+            marker.header = people_msg.header
             marker.ns = "track-origin-position"
             marker.id = track_id*2
             if track_id in stationary_track_id_list:
@@ -216,8 +259,8 @@ class AbsTrackPeople(rclpy.node.Node):
             marker.scale.x = 0.5
             marker.scale.y = 0.5
             marker.scale.z = 0.1
-            marker.pose.position.x = track_pos_dict[track_id][0]
-            marker.pose.position.y = track_pos_dict[track_id][1]
+            marker.pose.position.x = person.position.x
+            marker.pose.position.y = person.position.y
             marker.pose.position.z = 0.0
             marker.pose.orientation.x = 0.0
             marker.pose.orientation.y = 0.0
@@ -232,12 +275,11 @@ class AbsTrackPeople(rclpy.node.Node):
                 marker.color.a = 0.5
             marker_array.markers.append(marker)
 
-            track_velocity = track_vel_dict[track_id]
-            velocity_norm = np.linalg.norm(np.array(track_velocity))
-            velocity_orientation = math.atan2(track_velocity[1], track_velocity[0])
+            velocity_norm = np.linalg.norm([person.velocity.x, person.velocity.y])
+            velocity_orientation = math.atan2(person.velocity.y, person.velocity.x)
             velocity_orientation_quat = quaternion_from_euler(0.0, 0.0, velocity_orientation)
             marker = Marker()
-            marker.header = msg.header
+            marker.header = people_msg.header
             marker.ns = "track-origin-direction"
             marker.id = track_id*2+1
             marker.type = Marker.ARROW
@@ -246,8 +288,8 @@ class AbsTrackPeople(rclpy.node.Node):
             marker.scale.x = 1.0 * min(velocity_norm, 1.0)
             marker.scale.y = 0.1
             marker.scale.z = 0.1
-            marker.pose.position.x = track_pos_dict[track_id][0]
-            marker.pose.position.y = track_pos_dict[track_id][1]
+            marker.pose.position.x = person.position.x
+            marker.pose.position.y = person.position.y
             marker.pose.position.z = 0.0
             marker.pose.orientation.x = velocity_orientation_quat[0]
             marker.pose.orientation.y = velocity_orientation_quat[1]
