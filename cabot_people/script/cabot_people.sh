@@ -567,24 +567,27 @@ fi
 
 ### obstacle detect/track
 if [ $obstacle -eq 1 ]; then
+    map_frame='odom'
     target_fps=10.0
     launch_file="track_people_cpp detect_obstacles.launch.py sensor_id:=velodyne scan_topic:=/scan"
     echo "launch $launch_file"
     com="$command ros2 launch -n $launch_file \
                   sensor_id:=velodyne \
                   scan_topic:=/scan \
+                  map_frame:=$map_frame \
                   $commandpost"
     echo $com
     eval $com
     pids+=($!)
 
     if [ $cabot_low_obstacle_detect_ver -gt 0 ]; then
-	target_fps=20.0
+        target_fps=20.0
         launch_file="track_people_cpp detect_obstacles.launch.py sensor_id:=livox scan_topic:=/livox_scan"
         echo "launch $launch_file"
         com="$command ros2 launch -n $launch_file \
                     sensor_id:=livox \
                     scan_topic:=/livox_scan \
+                    map_frame:=$map_frame \
                     $commandpost"
         echo $com
         eval $com

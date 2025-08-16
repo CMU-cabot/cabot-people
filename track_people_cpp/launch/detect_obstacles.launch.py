@@ -41,6 +41,7 @@ def generate_launch_description():
     output = {'stderr': {'log'}}
     sensor_id = LaunchConfiguration('sensor_id')
     scan_topic = LaunchConfiguration('scan_topic')
+    map_frame = LaunchConfiguration('map_frame')
 
     return LaunchDescription([
         # save all log file in the directory where the launch.log file is saved
@@ -50,10 +51,12 @@ def generate_launch_description():
 
         DeclareLaunchArgument('sensor_id', default_value='velodyne'),
         DeclareLaunchArgument('scan_topic', default_value='/scan'),
+        DeclareLaunchArgument('map_frame', default_value='map'),
 
         # overwrite parameters
         SetParameter(name='sensor_id', value=sensor_id),
         SetParameter(name='scan_topic', value=scan_topic),
+        SetParameter(name='map_frame', value=map_frame),
 
         Node(
             package='track_people_cpp',
