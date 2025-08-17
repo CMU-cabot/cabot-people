@@ -48,6 +48,7 @@ RUN apt update && \
 	ros-$ROS_DISTRO-diagnostic-updater \
 	ros-$ROS_DISTRO-pcl-msgs \
 	ros-$ROS_DISTRO-tf2 \
+        ros-$ROS_DISTRO-tf2-ros \
 	ros-$ROS_DISTRO-tf2-geometry-msgs \
 	ros-$ROS_DISTRO-tf-transformations \
         libfreetype6-dev \
