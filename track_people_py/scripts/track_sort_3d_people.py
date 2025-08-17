@@ -20,7 +20,6 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-import copy
 import signal
 import sys
 import traceback
@@ -43,8 +42,6 @@ class TrackSort3dPeople(AbsTrackPeople):
                                      stationary_detect_threshold_duration=self.stationary_detect_threshold_duration_,
                                      stationary_detect_threshold_velocity=self.stationary_detect_threshold_velocity_)
 
-        self.detect_buf = {}
-
     def detected_boxes_cb(self, detected_boxes_msg):
         self.htd.tick()
         self.get_logger().info("detected_boxes_cb")
@@ -52,40 +49,20 @@ class TrackSort3dPeople(AbsTrackPeople):
         if not hasattr(self, 'tracker'):
             return
 
-        now = self.get_clock().now()
-
-        # To ignore cameras which stop by accidents, remove detecion results for cameras that are not updated longer than threshold to remove track
-        delete_camera_ids = []
-        for key in self.detect_buf:
-            if (now - rclpy.time.Time.from_msg(self.detect_buf[key].header.stamp)) > self.tracker.duration_inactive_to_remove:
-                delete_camera_ids.append(key)
-        for key in delete_camera_ids:
-            self.get_logger().info("delete buffer for the camera which is not updated, camera ID = " + str(key))
-            del self.detect_buf[key]
-
-        self.detect_buf[detected_boxes_msg.camera_id] = detected_boxes_msg
-
-        combined_msg = None
-        for key in self.detect_buf:
-            msg = copy.deepcopy(self.detect_buf[key])
-            if not combined_msg:
-                combined_msg = msg
-            else:
-                combined_msg.tracked_boxes.extend(msg.tracked_boxes)
-        combined_msg.header.stamp = now.to_msg()
-
-        detect_results, center_bird_eye_global_list = self.preprocess_msg(combined_msg)
-
         try:
+            now = self.get_clock().now()
+
+            combined_msg, detect_results, center_bird_eye_global_list = self.preprocess_msg(now, detected_boxes_msg)
+
             track_pos_dict, track_vel_dict, alive_track_id_list, stationary_track_id_list = self.tracker.track(now, detect_results, center_bird_eye_global_list)
+
+            self.pub_result(combined_msg, track_pos_dict, track_vel_dict, alive_track_id_list, stationary_track_id_list)
+
+            self.vis_result(combined_msg, track_pos_dict, track_vel_dict, alive_track_id_list, stationary_track_id_list)
         except Exception as e:
             self.get_logger().error(F"tracking error, {e}")
             self.get_logger().error(traceback.format_exc())
             return
-
-        self.pub_result(combined_msg, track_pos_dict, track_vel_dict, alive_track_id_list, stationary_track_id_list)
-
-        self.vis_result(combined_msg, track_pos_dict, track_vel_dict, alive_track_id_list, stationary_track_id_list)
 
 
 def main():

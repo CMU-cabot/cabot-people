@@ -19,6 +19,9 @@
 # SOFTWARE.
 
 from abc import ABCMeta, abstractmethod
+from collections import defaultdict
+import copy
+import itertools
 import math
 
 from diagnostic_updater import Updater
@@ -72,17 +75,94 @@ class AbsTrackPeople(rclpy.node.Node):
         self.stationary_detect_threshold_duration_ = self.declare_parameter('stationary_detect_threshold_duration', 1.0).value
         self.stationary_detect_threshold_velocity_ = self.declare_parameter('stationary_detect_threshold_velocity', 0.1).value
 
+        self.detect_buf = {}
+
     @abstractmethod
     def detected_boxes_cb(self, detected_boxes_msg):
         pass
 
-    def preprocess_msg(self, detected_boxes_msg):
+    def preprocess_msg(self, now, detected_boxes_msg):
+        # To ignore cameras which stop by accidents, remove detecion results for cameras that are not updated longer than threshold to remove track
+        delete_camera_ids = []
+        for key in self.detect_buf:
+            if (now - rclpy.time.Time.from_msg(self.detect_buf[key].header.stamp)) > self.tracker.duration_inactive_to_remove:
+                delete_camera_ids.append(key)
+        for key in delete_camera_ids:
+            self.get_logger().info("delete buffer for the camera which is not updated, camera ID = " + str(key))
+            del self.detect_buf[key]
+
+        self.detect_buf[detected_boxes_msg.camera_id] = detected_boxes_msg
+
+        combined_msg = None
+        # spatial hash buffers to detect depulicate results that are closer than IOU circle size from different camera messages
+        grid_size = self.iou_circle_size
+        combined_tracked_boxes_grid = defaultdict(set)  # key: (floor(x / grid_size), floor(y / grid_size)), value: {box_index}
+        combined_tracked_boxes_coords = {}  # key: box_index, value: np.array([x, y])
+        combined_tracked_boxes_stamps = {}  # key: box_index, value: rclpy.time.Time
+        duplicate_combined_tracked_boxes_indices = set()
+        for key in self.detect_buf:
+            msg = copy.deepcopy(self.detect_buf[key])
+            msg_stamp = rclpy.time.Time.from_msg(msg.header.stamp)
+
+            # detect duplicate results from different camera messages
+            if combined_msg is not None:
+                for idx_bbox, bbox in enumerate(msg.tracked_boxes):
+                    # check all surrounding grids to avoid digitization errors
+                    grid_bbox_x = math.floor(bbox.center3d.x / grid_size)
+                    grid_bbox_y = math.floor(bbox.center3d.y / grid_size)
+                    for grid_dx, grid_dy in itertools.product((-1, 0, 1), repeat=2):
+                        grid_key = (grid_bbox_x + grid_dx, grid_bbox_y + grid_dy)
+                        if grid_key in combined_tracked_boxes_grid:
+                            close_bbox_indices = combined_tracked_boxes_grid[grid_key]
+                            bbox_coord = np.array([bbox.center3d.x, bbox.center3d.y])
+
+                            duplicate_bbox_dist = None
+                            duplicate_bbox_stamp = None
+                            duplicate_bbox_index = None
+                            for close_bbox_index in close_bbox_indices:
+                                close_bbox_dist = np.linalg.norm(combined_tracked_boxes_coords[close_bbox_index] - bbox_coord)
+                                if (close_bbox_dist < self.iou_circle_size) and ((duplicate_bbox_dist is None) or (close_bbox_dist < duplicate_bbox_dist)):
+                                    duplicate_bbox_dist = close_bbox_dist
+                                    duplicate_bbox_stamp = combined_tracked_boxes_stamps[close_bbox_index]
+                                    duplicate_bbox_index = close_bbox_index
+
+                            if (duplicate_bbox_dist is not None) and (duplicate_bbox_stamp is not None) and (duplicate_bbox_index is not None):
+                                # if duplicate results ard found, remove older bbox
+                                if duplicate_bbox_stamp < msg_stamp:
+                                    duplicate_combined_tracked_boxes_indices.add(duplicate_bbox_index)
+                                else:
+                                    duplicate_combined_tracked_boxes_indices.add(len(combined_msg.tracked_boxes) + idx_bbox)
+
+            # update spatial hash buffers to detect duplicate results from combined message
+            for idx_bbox, bbox in enumerate(msg.tracked_boxes):
+                grid_key = (math.floor(bbox.center3d.x / grid_size), math.floor(bbox.center3d.y / grid_size))
+                if combined_msg is None:
+                    combined_msg_idx_bbox = idx_bbox
+                else:
+                    combined_msg_idx_bbox = len(combined_msg.tracked_boxes) + idx_bbox
+
+                combined_tracked_boxes_grid[grid_key].add(combined_msg_idx_bbox)
+                combined_tracked_boxes_coords[combined_msg_idx_bbox] = np.array([bbox.center3d.x, bbox.center3d.y])
+                combined_tracked_boxes_stamps[combined_msg_idx_bbox] = msg_stamp
+
+            # update combined message
+            if combined_msg is None:
+                combined_msg = msg
+            else:
+                combined_msg.tracked_boxes.extend(msg.tracked_boxes)
+        combined_msg.header.stamp = now.to_msg()
+
+        # remove depulicate results from combined message
+        for duplicate_combined_tracked_box_index in sorted(duplicate_combined_tracked_boxes_indices, reverse=True):
+            del combined_msg.tracked_boxes[duplicate_combined_tracked_box_index]
+
         detect_results = []
         center_bird_eye_global_list = []
-        for idx_bbox, bbox in enumerate(detected_boxes_msg.tracked_boxes):
+        for idx_bbox, bbox in enumerate(combined_msg.tracked_boxes):
             detect_results.append([bbox.box.xmin, bbox.box.ymin, bbox.box.xmax, bbox.box.ymax])
             center_bird_eye_global_list.append([bbox.center3d.x, bbox.center3d.y, bbox.center3d.z])
-        return np.array(detect_results), center_bird_eye_global_list
+
+        return combined_msg, np.array(detect_results), center_bird_eye_global_list
 
     def pub_result(self, msg, track_pos_dict, track_vel_dict, alive_track_id_list, stationary_track_id_list):
         # init People message
