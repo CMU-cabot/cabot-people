@@ -17,7 +17,7 @@ from sensor_msgs.msg import PointCloud2, PointField
 from sensor_msgs_py import point_cloud2
 from visualization_msgs.msg import Marker, MarkerArray
 from cabot_msgs.msg import PoseLog # type: ignore
-from lidar_process_msgs.msg import Group, GroupArray, GroupTimeArray #type: ignore
+from lidar_process_msgs.msg import Group, GroupArray1D #type: ignore
 from lidar_process_msgs.msg import PositionArray, PositionHistoryArray #type: ignore
 
 from . import pcl_to_numpy
@@ -63,7 +63,7 @@ class ScanReceiver(Node):
             callback_group = state_update_callback_group
         )
         self.group_pred_pub = self.create_publisher(
-            GroupTimeArray,
+            GroupArray1D,
             "/group_predictions",
             10,
             callback_group = state_update_callback_group
@@ -140,7 +140,7 @@ class ScanReceiver(Node):
         self._high_level_vel_threshold = self.declare_parameter('high_level_vel_threshold', 1.0).value
         self._high_level_ori_threshold = self.declare_parameter('high_level_ori_threshold', 30.0).value
         self._high_level_ori_threshold = self._high_level_ori_threshold / 180 * np.pi
-        self._static_threshold = self.declare_parameter('static_threshold', 0.4).value
+        self._static_threshold = self.declare_parameter('static_threshold', 0.25).value
         # parameters related to tracking of entities
         self._max_tracking_time = self.declare_parameter('max_tracking_time', 0.25).value
         self._max_tracking_dist = self.declare_parameter('max_tracking_dist', 1.0).value
@@ -611,8 +611,9 @@ class ScanReceiver(Node):
         
         # prepare the inputs to the trjectory prediction model and make predictions
         num_groups = len(group_keypoint_sequences)
-        group_representations = GroupTimeArray()
-        group_representations.group_sequences = []
+        group_representations = GroupArray1D()
+        group_representations.quantity = 0
+        group_representations.groups = []
 
         sub_start_time = time.time()
         if num_groups > 0:
@@ -629,6 +630,8 @@ class ScanReceiver(Node):
             group_complete_futures[:, 1:, :] = group_futures
             group_complete_velocities = (group_complete_futures[:, 1:, :] - group_complete_futures[:, :-1, :]) / self._history_dt
 
+            sub_sub_start_time = time.time()
+            group_size = -1
             for i in range(self._future_window):
                 group_vertices = grouping.vertices_from_edge_pts(
                     curr_robot_pose, 
@@ -637,10 +640,13 @@ class ScanReceiver(Node):
                     increments=self._shape_increments,
                     const=self._shape_scale,
                     offset=self._shape_offset)
-                curr_groups = GroupArray()
-                curr_groups.groups = []
-                for i in range(len(group_vertices)):
-                    group = group_vertices[i]
+                if group_size == -1:
+                    group_size = len(group_vertices)
+                    group_representations.quantity = group_size
+                assert(len(group_vertices) == group_size)
+
+                for j in range(len(group_vertices)):
+                    group = group_vertices[j]
                     group_rep = Group()
                     group_rep.left.x = group['left'][0]
                     group_rep.left.y = group['left'][1]
@@ -652,17 +658,18 @@ class ScanReceiver(Node):
                     group_rep.left_offset.y = group['left_offset'][1]
                     group_rep.right_offset.x = group['right_offset'][0]
                     group_rep.right_offset.y = group['right_offset'][1]
-                    curr_groups.groups.append(group_rep)
-                group_representations.group_sequences.append(curr_groups)
+                    group_representations.groups.append(group_rep)
+            
+            self.get_logger().info("Time gen inputs & pred: {}".format(time.time() - sub_sub_start_time))
 
         self.group_pred_pub.publish(group_representations)
                
-        print("Time gen rep: {}".format(time.time() - sub_start_time))
+        self.get_logger().info("Time gen rep: {}".format(time.time() - sub_start_time))
 
         if (self.debug_visualiation) and (num_groups > 0):
             group_vis_markers = MarkerArray()
             group_markers_list = []
-            curr_groups = group_representations.group_sequences[0].groups
+            curr_groups = group_representations.groups[:group_representations.quantity]
             header = Header()
             header.frame_id = "map"
             header.stamp = self.get_clock().now().to_msg()
