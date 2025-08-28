@@ -67,7 +67,7 @@ def generate_launch_description():
         DeclareLaunchArgument('kf_init_var', default_value='1.0'),
         DeclareLaunchArgument('kf_process_var', default_value='1.0'),
         DeclareLaunchArgument('kf_measure_var', default_value='1.0'),
-        DeclareLaunchArgument('minimum_valid_track_observe', default_value='5'),
+        DeclareLaunchArgument('minimum_valid_track_observe', default_value='2'),
         DeclareLaunchArgument('duration_inactive_to_remove', default_value='2.0'),
         DeclareLaunchArgument('target_fps', default_value=EnvironmentVariable('CABOT_PEOPLE_TRACK_FPS', default_value='15.0')),
         DeclareLaunchArgument('remap_people_topic', default_value=''),
