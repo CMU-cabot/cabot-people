@@ -28,9 +28,11 @@ from .sgan import inference
 
 from rclpy.executors import MultiThreadedExecutor
 from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
-from rclpy.qos import QoSProfile, QoSDurabilityPolicy, qos_profile_sensor_data
+from rclpy.qos import QoSProfile, qos_profile_sensor_data
 
 from cabot_msgs.srv import LookupTransform # type: ignore
+
+GROUP_POINTS = 10
 
 class ScanReceiver(Node):
 
@@ -45,8 +47,12 @@ class ScanReceiver(Node):
         # For very low frequency publish, not used for now
         #transient_local_qos = QoSProfile(depth=1, durability=QoSDurabilityPolicy.TRANSIENT_LOCAL)
         sensor_data_qos = qos_profile_sensor_data
+        fast_qos = QoSProfile(depth=1,
+                              reliability=qos_profile_sensor_data.reliability,
+                              durability=qos_profile_sensor_data.durability,
+                              history=qos_profile_sensor_data.history)
 
-        group_cb_timer_period = 0.05
+        group_cb_timer_period = 0.1
 
         self.scan_sub = self.create_subscription(
             PointCloud2, 
@@ -65,21 +71,21 @@ class ScanReceiver(Node):
         self.group_pred_pub = self.create_publisher(
             GroupArray1D,
             "/group_predictions",
-            10,
+            fast_qos,
             callback_group = state_update_callback_group
         )
 
         self.entity_hist_pub = self.create_publisher(
             PositionHistoryArray,
             "/entity_histories",
-            10,
+            fast_qos,
             callback_group=entity_callback_group
         )
         
         self.pcl_debug_pub = self.create_publisher(
             PointCloud2,
             "/map_velodyne_points",
-            10,
+            sensor_data_qos,
             callback_group = visualization_callback_group
         )
 
@@ -120,8 +126,8 @@ class ScanReceiver(Node):
         self.prev_time = 0
 
         self.namespace = self.declare_parameter('namespace', '').value
-        self._ring_limit = self.declare_parameter('ring_limit', -1).value
-        self._scan_max_range = self.declare_parameter('scan_max_range', 15).value
+        self._ring_limit = self.declare_parameter('ring_limit', 7).value
+        self._scan_max_range = self.declare_parameter('scan_max_range', 10).value
         self._history_window = self.declare_parameter('history_window', 8).value
         self._future_window = self.declare_parameter('future_window', 12).value
         if not (self._history_window == 8):
@@ -630,7 +636,6 @@ class ScanReceiver(Node):
             group_complete_futures[:, 1:, :] = group_futures
             group_complete_velocities = (group_complete_futures[:, 1:, :] - group_complete_futures[:, :-1, :]) / self._history_dt
 
-            sub_sub_start_time = time.time()
             group_size = -1
             for i in range(self._future_window):
                 group_vertices = grouping.vertices_from_edge_pts(
@@ -647,20 +652,14 @@ class ScanReceiver(Node):
 
                 for j in range(len(group_vertices)):
                     group = group_vertices[j]
-                    group_rep = Group()
-                    group_rep.left.x = group['left'][0]
-                    group_rep.left.y = group['left'][1]
-                    group_rep.center.x = group['center'][0]
-                    group_rep.center.y = group['center'][1]
-                    group_rep.right.x = group['right'][0]
-                    group_rep.right.y = group['right'][1]
-                    group_rep.left_offset.x = group['left_offset'][0]
-                    group_rep.left_offset.y = group['left_offset'][1]
-                    group_rep.right_offset.x = group['right_offset'][0]
-                    group_rep.right_offset.y = group['right_offset'][1]
-                    group_representations.groups.append(group_rep)
+                    group_rep = [group['left'][0], group['left'][1],
+                                 group['center'][0], group['center'][1],
+                                 group['right'][0], group['right'][1],
+                                 group['left_offset'][0], group['left_offset'][1],
+                                 group['right_offset'][0], group['right_offset'][1]]
+                    group_representations.groups.extend(group_rep)
             
-            self.get_logger().info("Time gen inputs & pred: {}".format(time.time() - sub_sub_start_time))
+            self.get_logger().info("Time gen inputs & pred: {}".format(time.time() - sub_start_time))
 
         self.group_pred_pub.publish(group_representations)
                
@@ -669,13 +668,24 @@ class ScanReceiver(Node):
         if (self.debug_visualiation) and (num_groups > 0):
             group_vis_markers = MarkerArray()
             group_markers_list = []
-            curr_groups = group_representations.groups[:group_representations.quantity]
+            curr_groups = group_representations.groups[:(group_representations.quantity * GROUP_POINTS)]
             header = Header()
             header.frame_id = "map"
             header.stamp = self.get_clock().now().to_msg()
             ns = self.namespace 
-            for i in range(len(curr_groups)):
-                group = curr_groups[i]
+            for i in range(int(round(len(curr_groups) / GROUP_POINTS))):
+                group_pts = curr_groups[(i * GROUP_POINTS):((i + 1) * GROUP_POINTS)]
+                group = Group()
+                group.left.x = group_pts[0]
+                group.left.y = group_pts[1]
+                group.center.x = group_pts[2]
+                group.center.y = group_pts[3]
+                group.right.x = group_pts[4]
+                group.right.y = group_pts[5]
+                group.left_offset.x = group_pts[6]
+                group.left_offset.y = group_pts[7]
+                group.right_offset.x = group_pts[8]
+                group.right_offset.y = group_pts[9]
                 group_markers_list.extend(visualization.create_group_marker(group, i, header, ns))
             group_vis_markers.markers = group_markers_list
             self.group_vis_pub.publish(group_vis_markers)

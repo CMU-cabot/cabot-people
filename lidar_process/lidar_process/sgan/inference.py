@@ -27,7 +27,7 @@ class SGANInference(object):
         path = model_path
 
         # number of samples to draw to get the final predicted trajectory
-        self.num_samples = 20
+        self.num_samples = 1
 
         self.cuda = torch.device('cuda:0')
         checkpoint = torch.load(path,map_location=torch.device('cpu'))
