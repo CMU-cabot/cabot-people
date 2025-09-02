@@ -85,6 +85,30 @@ class SimpleQueue:
         if self.is_empty():
             raise IndexError("Peek from an empty queue")
         return self._items[0]
+    
+    def peek_last(self):
+        """Return the item at the end of the queue without removing it.
+        
+        Raises:
+            IndexError: If the queue is empty.
+        """
+        if self.is_empty():
+            raise IndexError("Peek from an empty queue")
+        return self._items[-1]
+    
+    def swap_last(self, item):
+        """Replace the last item in the queue with a new item.
+        
+        Raises:
+            IndexError: If the queue is empty.
+        """
+        if self.is_empty():
+            raise IndexError("Swap last in an empty queue")
+        self._items[-1] = item
+    
+    def clear(self):
+        """Clear all items from the queue."""
+        self._items = []
 
     def size(self):
         """Return the number of items in the queue."""

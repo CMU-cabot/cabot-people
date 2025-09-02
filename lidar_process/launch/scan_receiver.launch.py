@@ -30,6 +30,8 @@ def generate_launch_description():
     high_level_pos_threshold = LaunchConfiguration('high_level_pos_threshold')
     high_level_vel_threshold = LaunchConfiguration('high_level_vel_threshold')
     high_level_ori_threshold = LaunchConfiguration('high_level_ori_threshold')
+    smooth_window = LaunchConfiguration('smooth_window')
+    ignore_window = LaunchConfiguration('ignore_window')
     static_threshold = LaunchConfiguration('static_threshold')
     max_tracking_time = LaunchConfiguration('max_tracking_time')
     max_tracking_dist = LaunchConfiguration('max_tracking_dist')
@@ -48,17 +50,19 @@ def generate_launch_description():
 
         DeclareLaunchArgument('namespace', default_value='lidar'),
         DeclareLaunchArgument('ring_limit', default_value='7'),
-        DeclareLaunchArgument('scan_max_range', default_value='10'),
+        DeclareLaunchArgument('scan_max_range', default_value='15'),
         DeclareLaunchArgument('history_window', default_value='8'),
         DeclareLaunchArgument('future_window', default_value='12'),
-        DeclareLaunchArgument('history_dt', default_value='0.25'),
+        DeclareLaunchArgument('history_dt', default_value='0.4'),
         DeclareLaunchArgument('low_level_pos_threshold', default_value='0.5'),
         DeclareLaunchArgument('low_level_core_samples', default_value='5'),
         DeclareLaunchArgument('high_level_pos_threshold', default_value='2.0'),
         DeclareLaunchArgument('high_level_vel_threshold', default_value='1.0'),
         DeclareLaunchArgument('high_level_ori_threshold', default_value='45.0'),
+        DeclareLaunchArgument('smooth_window', default_value='9'),
+        DeclareLaunchArgument('ignore_window', default_value='0'),
         DeclareLaunchArgument('static_threshold', default_value='0.25'),
-        DeclareLaunchArgument('max_tracking_time', default_value='0.25'),
+        DeclareLaunchArgument('max_tracking_time', default_value='0.5'),
         DeclareLaunchArgument('max_tracking_dist', default_value='1.0'),
         DeclareLaunchArgument('large_obs_size', default_value='2.0'),
         DeclareLaunchArgument('max_queue_size', default_value='50'),
@@ -77,6 +81,8 @@ def generate_launch_description():
         SetParameter(name='high_level_pos_threshold', value=high_level_pos_threshold),
         SetParameter(name='high_level_vel_threshold', value=high_level_vel_threshold),
         SetParameter(name='high_level_ori_threshold', value=high_level_ori_threshold),
+        SetParameter(name='smooth_window', value=smooth_window),
+        SetParameter(name='ignore_window', value=ignore_window),
         SetParameter(name='static_threshold', value=static_threshold),
         SetParameter(name='max_tracking_time', value=max_tracking_time),
         SetParameter(name='max_tracking_dist', value=max_tracking_dist),

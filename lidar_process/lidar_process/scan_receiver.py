@@ -58,7 +58,7 @@ class ScanReceiver(Node):
             PointCloud2, 
             '/velodyne_points_cropped',
             self.scan_cb,
-            qos_profile=sensor_data_qos,
+            qos_profile=10,
             callback_group = state_update_callback_group
         )
         self.pose_sub = self.create_subscription(
@@ -71,14 +71,14 @@ class ScanReceiver(Node):
         self.group_pred_pub = self.create_publisher(
             GroupArray1D,
             "/group_predictions",
-            fast_qos,
+            qos_profile=sensor_data_qos,
             callback_group = state_update_callback_group
         )
 
         self.entity_hist_pub = self.create_publisher(
             PositionHistoryArray,
             "/entity_histories",
-            fast_qos,
+            qos_profile=sensor_data_qos,
             callback_group=entity_callback_group
         )
         
@@ -127,7 +127,7 @@ class ScanReceiver(Node):
 
         self.namespace = self.declare_parameter('namespace', '').value
         self._ring_limit = self.declare_parameter('ring_limit', 7).value
-        self._scan_max_range = self.declare_parameter('scan_max_range', 10).value
+        self._scan_max_range = self.declare_parameter('scan_max_range', 15).value
         self._history_window = self.declare_parameter('history_window', 8).value
         self._future_window = self.declare_parameter('future_window', 12).value
         if not (self._history_window == 8):
@@ -146,9 +146,11 @@ class ScanReceiver(Node):
         self._high_level_vel_threshold = self.declare_parameter('high_level_vel_threshold', 1.0).value
         self._high_level_ori_threshold = self.declare_parameter('high_level_ori_threshold', 30.0).value
         self._high_level_ori_threshold = self._high_level_ori_threshold / 180 * np.pi
+        self._smooth_window = self.declare_parameter('smooth_window', 9).value
+        self._ignore_window = self.declare_parameter('ignore_window', 0).value
         self._static_threshold = self.declare_parameter('static_threshold', 0.25).value
         # parameters related to tracking of entities
-        self._max_tracking_time = self.declare_parameter('max_tracking_time', 0.25).value
+        self._max_tracking_time = self.declare_parameter('max_tracking_time', 0.5).value
         self._max_tracking_dist = self.declare_parameter('max_tracking_dist', 1.0).value
         self._large_obs_size = self.declare_parameter('large_obs_size', 2.0).value
         # parameters related to the inputs to the prediction model
@@ -169,47 +171,47 @@ class ScanReceiver(Node):
         self.debug_visualiation = True
 
         return
-    
+        
     def lookup_transform(self, source, target):
         # Look up and return tf transformation from source frame to target frame
 
         req = LookupTransform.Request()
         req.target_frame = target
         req.source_frame = source
-        req.time = self.pointcloud_header.stamp
+        
+        # Try current time first, then fall back to latest available transform
+        current_time = self.pointcloud_header.stamp
+        latest_time = rclpy.time.Time().to_msg()  # Time 0 = latest available
+        
         if not self.lookup_transform_service.wait_for_service(timeout_sec=1.0):
             raise Exception("lookup transform service is not available")
         
-        while True:
-            # Borrowed from BufferProxy in cabot-navigation/cabot_ui/cabot_ui/navigation.py
-            future = self.lookup_transform_service.call_async(req)
+        for attempt_time in [current_time, latest_time]:
+            req.time = attempt_time
             
+            future = self.lookup_transform_service.call_async(req)
             event = threading.Event()
 
             def unblock(future):
                 nonlocal event
                 event.set()
             future.add_done_callback(unblock)
-            # Check future.done() before waiting on the event.
-            # The callback might have been added after the future is completed,
-            # resulting in the event never being set.
-            if not future.done():
-                if not event.wait(10.0):
-                    # Timed out. remove_pending_request() to free resources
-                    self.lookup_transform_service.remove_pending_request(future)
-                    raise Exception("timeout")
-            if future.exception() is not None:
-                raise future.exception()
             
-            # sync call end here
-            result = future.result()
-            if result.error.error > 0:
-                # If transform data is not available yet (error 3)
-                if result.error.error == 3:
+            if not future.done():
+                if not event.wait(0.05):  # 50ms timeout
+                    self.lookup_transform_service.remove_pending_request(future)
                     continue
-                raise Exception(result.error.error_string)
-            else:
+                    
+            if future.exception() is not None:
+                continue
+            
+            result = future.result()
+            if result.error.error == 0:
                 return result.transform
+            elif result.error.error != 3:  # Serious error other than "not available"
+                raise Exception(result.error.error_string)
+        
+        raise Exception("Transform lookup failed for both current and latest time")
 
     def scan_cb(self, msg):
         # Processes and stores pointcloud when the node receives one.
@@ -228,6 +230,10 @@ class ScanReceiver(Node):
         self.prev_time = self.curr_time
         if dt <= 0:
             return
+        
+        print(msg.header.stamp)
+        print(self.curr_time)
+        print("dt: {}".format(dt))
 
         # Pointcloud format
         # (x, y, z, intensity, ring number [e.g. 0-15])
@@ -260,11 +266,12 @@ class ScanReceiver(Node):
         lidar_to_map = self.lookup_transform('velodyne', 'map')
         transformed_cloud = self._do_transform(self.pointcloud, lidar_to_map)
 
+        id_switched = False
         if len(self.pointcloud) > 0:
-            self.pointcloud_complete = self._generate_track_entities(
-                                                self.pointcloud_prev, 
-                                                transformed_cloud, 
-                                                dt)
+            self.pointcloud_complete, id_switched = self._generate_track_entities(
+                                                                self.pointcloud_prev, 
+                                                                transformed_cloud, 
+                                                                dt)
         else:
             self.pointcloud_complete = []
         self.pointcloud_prev = self.pointcloud_complete 
@@ -273,8 +280,14 @@ class ScanReceiver(Node):
             self.is_history_complete = True
             # pop the oldest point cloud from the queue
             tmp = self.pointcloud_history.dequeue()
-        pointcloud_dict = {"time": self.curr_time, "pointcloud": self.pointcloud_complete}
+        pointcloud_dict = {"time": self.curr_time, "pointcloud": self.pointcloud_complete, "id_switched": False}
+        if id_switched and (not self.pointcloud_history.is_empty()):
+            last_ptcloud = self.pointcloud_history.peek_last()
+            last_ptcloud["id_switched"] = True
+            self.pointcloud_history.swap_last(last_ptcloud)
         self.pointcloud_history.enqueue(pointcloud_dict)
+
+        # self._smooth_pointcloud_history()
 
         self.get_logger().info("Lidar scan callback runs: {} seconds".format(time.time() - start_time))
         
@@ -382,6 +395,7 @@ class ScanReceiver(Node):
         max_tracking_time = self._max_tracking_time
 
         num_prev = len(prev_ptcloud)
+        id_switched = False
         #If no prior pointclouds are available then leave the velocity columns 8 and 9 to be 0
         if (num_prev > 0) and (dt < max_tracking_time):
             # estimate velocities for low level groups and use that as velocities of pointclouds
@@ -431,8 +445,10 @@ class ScanReceiver(Node):
                         complete_ptcloud[gp_mask, 5] = np.max(unique_group_prev) + gp_index + 1
         elif (dt > max_tracking_time):
             self.get_logger().info("Too much time has passed since last velodyne message received!")
+            id_switched = True
         elif (num_prev == 0):
             self.get_logger().info("Previous pointcloud is empty!")
+            id_switched = True
 
         # delete noise and large obstacles
         complete_ptcloud = complete_ptcloud[complete_ptcloud[:, 5] != -1]
@@ -442,7 +458,9 @@ class ScanReceiver(Node):
         num_gp_overall = len(gp_overall)
         if num_gp_overall == 0:
             self.get_logger().warn("No groups found in pointcloud.")
-            return np.array([])
+            return np.array([]), False
+        
+        # idx, x, y, timestamp
         gp_complete_ptcloud = np.zeros((num_gp_overall, 4))
         for i, gp in enumerate(gp_overall):
             condition = (complete_ptcloud[:, 5] == gp)
@@ -473,7 +491,47 @@ class ScanReceiver(Node):
             marker_array.markers = marker_list
             self.entity_vis_pub.publish(marker_array)
 
-        return gp_complete_ptcloud
+        return gp_complete_ptcloud, id_switched
+    
+    def _smooth_pointcloud_history(self):
+        # Smooth the pointcloud history by averaging the positions of entities
+        # over a few frames. This is to reduce the noise in the pointclouds 
+        # and make the prediction more stable.
+
+        if self.pointcloud_history.is_empty():
+            return
+        pcl_history = copy.deepcopy(self.pointcloud_history._items)
+        num_pcl = len(pcl_history)
+        smooth_step = (self._smooth_window - 1) // 2
+        for i in range(num_pcl):
+            curr_pointcloud = pcl_history[i]["pointcloud"]
+            num_pts = len(curr_pointcloud)
+            for j in range(num_pts):
+                gp_id = curr_pointcloud[j, 0]
+                gp_x = curr_pointcloud[j, 1]
+                gp_y = curr_pointcloud[j, 2]
+                count = 1
+                sum_x = gp_x
+                sum_y = gp_y
+                for k in range(smooth_step):
+                    idx_prev = i - (k + 1)
+                    idx_next = i + (k + 1)
+                    if (idx_prev < 0) or (idx_next >= num_pcl):
+                        break
+                    prev_pointcloud = pcl_history[idx_prev]["pointcloud"]
+                    next_pointcloud = pcl_history[idx_next]["pointcloud"]
+                    condition_prev = (prev_pointcloud[:, 0] == gp_id)
+                    condition_next = (next_pointcloud[:, 0] == gp_id)
+                    if not (np.any(condition_prev) and np.any(condition_next)):
+                        break
+                    sum_x += prev_pointcloud[condition_prev, 1][0] + next_pointcloud[condition_next, 1][0]
+                    sum_y += prev_pointcloud[condition_prev, 2][0] + next_pointcloud[condition_next, 2][0]
+                    count += 2
+                curr_pointcloud[j, 1] = sum_x / count
+                curr_pointcloud[j, 2] = sum_y / count
+            pcl_history[i]["pointcloud"] = curr_pointcloud
+        self.pointcloud_history._items = pcl_history
+        return
     
     def _get_groups_and_centers(self, ptcloud):
         # performs low level clustering to obtains small clusters around objects/pedestrians
@@ -558,6 +616,7 @@ class ScanReceiver(Node):
         if (len(pcl_history[-1]["pointcloud"]) == 0):
             self.get_logger().warn("No pointclouds at current time.")
             return
+        
         entities_history = self._align_pointclouds(pcl_history)
 
         # concatenate all entities at the current time
@@ -659,11 +718,11 @@ class ScanReceiver(Node):
                                  group['right_offset'][0], group['right_offset'][1]]
                     group_representations.groups.extend(group_rep)
             
-            self.get_logger().info("Time gen inputs & pred: {}".format(time.time() - sub_start_time))
+            # self.get_logger().info("Time gen inputs & pred: {}".format(time.time() - sub_start_time))
 
         self.group_pred_pub.publish(group_representations)
                
-        self.get_logger().info("Time gen rep: {}".format(time.time() - sub_start_time))
+        # self.get_logger().info("Time gen rep: {}".format(time.time() - sub_start_time))
 
         if (self.debug_visualiation) and (num_groups > 0):
             group_vis_markers = MarkerArray()
@@ -673,7 +732,7 @@ class ScanReceiver(Node):
             header.frame_id = "map"
             header.stamp = self.get_clock().now().to_msg()
             ns = self.namespace 
-            for i in range(int(round(len(curr_groups) / GROUP_POINTS))):
+            for i in range(group_representations.quantity):
                 group_pts = curr_groups[(i * GROUP_POINTS):((i + 1) * GROUP_POINTS)]
                 group = Group()
                 group.left.x = group_pts[0]
@@ -692,7 +751,7 @@ class ScanReceiver(Node):
 
         # Publish group_representations
 
-        self.get_logger().info("Group prediction callback runs: {} seconds".format(time.time() - start_time))
+        # self.get_logger().info("Group prediction callback runs: {} seconds".format(time.time() - start_time))
 
         return
     
@@ -723,27 +782,37 @@ class ScanReceiver(Node):
             for j in range(self._history_window):
                 time_target = current_time - (j + 1) * self._history_dt
                 pcl = pcl_history[time_pointer]
+                is_complete = True
                 while (time_pointer > 0) and (pcl["time"] > time_target):
+                    if (len(pcl["pointcloud"]) == 0) or (pcl["id_switched"]) or (not l in pcl["pointcloud"][:, 0]):
+                        is_complete = False
+                        break
                     time_pointer -= 1
                     pcl = pcl_history[time_pointer]
+                if (len(pcl["pointcloud"]) == 0) or (pcl["id_switched"]) or (not l in pcl["pointcloud"][:, 0]):
+                    is_complete = False
                 # if (out of queue) or (entity not there) then not found and propogation needed
-                if (((time_pointer == 0) and (pcl["time"] > time_target))
-                    or (len(pcl["pointcloud"]) == 0) or (not l in pcl["pointcloud"][:, 0])): 
+                if ((not is_complete) or ((time_pointer == 0) and (pcl["time"] > time_target))): 
                     propogation_step = self._history_window - j
                     break
                 else: 
                     #interpolation
                     pcl_prev = pcl["pointcloud"]
                     entity_prev = pcl_prev[pcl_prev[:, 0] == l, :]
-                    forward_step = 1
-                    while not ((len(pcl_history[time_pointer + forward_step]["pointcloud"]) > 0) and 
-                               (l in pcl_history[time_pointer + forward_step]["pointcloud"][:, 0])):
-                        # at least current time pointcloud has it so no need to check
-                        forward_step += 1
-                    pcl_next = pcl_history[time_pointer + forward_step]["pointcloud"]
+                    # forward_step = 1
+                    # while not ((len(pcl_history[time_pointer + forward_step]["pointcloud"]) > 0) and 
+                    #            (l in pcl_history[time_pointer + forward_step]["pointcloud"][:, 0])):
+                    #     # at least current time pointcloud has it so no need to check
+                    #     forward_step += 1
+                    # pcl_next = pcl_history[time_pointer + forward_step]["pointcloud"]
+                    pcl_next = pcl_history[time_pointer + 1]["pointcloud"]
                     entity_next = pcl_next[pcl_next[:, 0] == l, :]
                     entity_interp = self._interpolate_pointclouds(entity_prev, entity_next, time_target)
                     entity_history.append(entity_interp)
+
+            if (propogation_step >= (self._history_window - self._ignore_window)):
+                # if too much propogation is needed, we ignore this entity
+                continue
             
             # calculate velocities and propogation
             # in final form, each entity will have (x, y, vx, vy, o, id)
@@ -812,8 +881,7 @@ class ScanReceiver(Node):
         time_1 = pcl_1[3]
         time_2 = pcl_2[3]
         if time_1 == time_2:
-            self.get_logger().error("Cannot interpolate pointclouds with same timestamp")
-            sys.exit(0)
+            return pcl_1
 
         ratio = (curr_time - time_1) / (time_2 - time_1)
         pcl_interp[0] = pcl_1[0]
