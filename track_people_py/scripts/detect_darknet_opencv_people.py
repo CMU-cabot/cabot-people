@@ -92,7 +92,8 @@ class DetectDarknetPeople(AbsDetectPeople):
 
         if len(detect_results) > 0:
             # delete small detections
-            small_detection = np.where(detect_results[:, 3]-detect_results[:, 1] < self.minimum_detection_size_threshold)[0]
+            small_detection = np.where((detect_results[:, 2]-detect_results[:, 0] < self.minimum_detection_size_threshold)
+                                       | (detect_results[:, 3]-detect_results[:, 1] < self.minimum_detection_size_threshold))[0]
             detect_results = np.delete(detect_results, small_detection, axis=0)
 
         return detect_results, None

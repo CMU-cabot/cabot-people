@@ -437,7 +437,7 @@ if [ $detection -eq 1 ]; then
     if [ $gazebo -eq 1 ]; then
         depth_registered_topic='depth/image_raw'
     fi
-    min_bbox_size=50.0
+    min_bbox_size=20.0
 
     # overwrite mmdeploy model by environment variables
     mmdeploy_model_option=''
