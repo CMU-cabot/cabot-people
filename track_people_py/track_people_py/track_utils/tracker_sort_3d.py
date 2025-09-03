@@ -31,7 +31,7 @@ from . import kf_utils
 
 class TrackerSort3D:
     def __init__(self, iou_threshold=0.01, iou_circle_size=0.5, kf_init_var=1.0, kf_process_var=1.0, kf_measure_var=1.0,
-                 minimum_valid_track_observe=5, duration_inactive_to_remove=2.0, duration_inactive_to_stop_publish=0.2,
+                 minimum_valid_track_observe=2, duration_inactive_to_remove=2.0, duration_inactive_to_stop_publish=0.2,
                  stationary_detect_threshold_duration=1.0, stationary_detect_threshold_velocity=0.1):
         # Initialization
         #

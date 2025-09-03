@@ -56,7 +56,7 @@ class AbsTrackPeople(rclpy.node.Node):
         self.kf_process_var = self.declare_parameter('kf_process_var', 1.0).value
         self.kf_measure_var = self.declare_parameter('kf_measure_var', 1.0).value
         # number of frames to start publish people topic
-        self.minimum_valid_track_observe = self.declare_parameter('minimum_valid_track_observe', 5).value
+        self.minimum_valid_track_observe = self.declare_parameter('minimum_valid_track_observe', 2).value
         # duration (seconds) to remove an inactive track
         self.duration_inactive_to_remove = self.declare_parameter('duration_inactive_to_remove', 2.0).value
         # duration (seconds) to stop publishing an inactive track in people topic
