@@ -58,7 +58,7 @@ class ScanReceiver(Node):
             PointCloud2, 
             '/velodyne_points_cropped',
             self.scan_cb,
-            qos_profile=10,
+            qos_profile=sensor_data_qos,
             callback_group = state_update_callback_group
         )
         self.pose_sub = self.create_subscription(
@@ -78,14 +78,14 @@ class ScanReceiver(Node):
         self.entity_hist_pub = self.create_publisher(
             PositionHistoryArray,
             "/entity_histories",
-            qos_profile=sensor_data_qos,
+            qos_profile=10,
             callback_group=entity_callback_group
         )
         
         self.pcl_debug_pub = self.create_publisher(
             PointCloud2,
             "/map_velodyne_points",
-            sensor_data_qos,
+            10,
             callback_group = visualization_callback_group
         )
 
@@ -126,7 +126,8 @@ class ScanReceiver(Node):
         self.prev_time = 0
 
         self.namespace = self.declare_parameter('namespace', '').value
-        self._ring_limit = self.declare_parameter('ring_limit', 7).value
+        self._ring_lower_limit = self.declare_parameter('ring_lower_limit', 7).value
+        self._ring_upper_limit = self.declare_parameter('ring_upper_limit', 8).value
         self._scan_max_range = self.declare_parameter('scan_max_range', 15).value
         self._history_window = self.declare_parameter('history_window', 8).value
         self._future_window = self.declare_parameter('future_window', 12).value
@@ -146,11 +147,11 @@ class ScanReceiver(Node):
         self._high_level_vel_threshold = self.declare_parameter('high_level_vel_threshold', 1.0).value
         self._high_level_ori_threshold = self.declare_parameter('high_level_ori_threshold', 30.0).value
         self._high_level_ori_threshold = self._high_level_ori_threshold / 180 * np.pi
-        self._smooth_window = self.declare_parameter('smooth_window', 9).value
+        self._smooth_window = self.declare_parameter('smooth_window', 5).value
         self._ignore_window = self.declare_parameter('ignore_window', 0).value
         self._static_threshold = self.declare_parameter('static_threshold', 0.25).value
         # parameters related to tracking of entities
-        self._max_tracking_time = self.declare_parameter('max_tracking_time', 0.5).value
+        self._max_tracking_time = self.declare_parameter('max_tracking_time', 0.4).value
         self._max_tracking_dist = self.declare_parameter('max_tracking_dist', 1.0).value
         self._large_obs_size = self.declare_parameter('large_obs_size', 2.0).value
         # parameters related to the inputs to the prediction model
@@ -266,6 +267,8 @@ class ScanReceiver(Node):
         lidar_to_map = self.lookup_transform('velodyne', 'map')
         transformed_cloud = self._do_transform(self.pointcloud, lidar_to_map)
 
+        transformed_cloud = self.pointcloud
+
         id_switched = False
         if len(self.pointcloud) > 0:
             self.pointcloud_complete, id_switched = self._generate_track_entities(
@@ -297,8 +300,11 @@ class ScanReceiver(Node):
         # This function prefilters pointclouds that do not meet the requirements
         condition = np.isnan(pointcloud[:, 0])
         pointcloud = pointcloud[condition == False]
-        if not (self._ring_limit == -1):
-            condition = (pointcloud[:, 4] == self._ring_limit)
+        if not (self._ring_lower_limit == -1):
+            condition = (pointcloud[:, 4] >= self._ring_lower_limit)
+            pointcloud = pointcloud[condition == True]
+        if not (self._ring_upper_limit == -1):
+            condition = (pointcloud[:, 4] <= self._ring_upper_limit)
             pointcloud = pointcloud[condition == True]
         if self._scan_max_range < 100:
             condition = (np.linalg.norm(pointcloud[:, :2], axis=1) < self._scan_max_range)
@@ -689,7 +695,9 @@ class ScanReceiver(Node):
                 group_pred_inputs[(i*3):((i+1)*3), :, :] = np.transpose(np.array(group), (1, 0, 2))
             
             # predictions made here
+            # print(group_pred_inputs)
             group_futures = self.group_pred_model.evaluate(group_pred_inputs)
+            # print(group_futures)
             group_complete_futures = np.zeros((num_groups * 3, self._future_window + 1, 2))
             group_complete_futures[:, 0, :] = group_pred_inputs[:, -1, :]
             group_complete_futures[:, 1:, :] = group_futures

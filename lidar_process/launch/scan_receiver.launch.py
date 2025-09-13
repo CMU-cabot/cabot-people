@@ -21,7 +21,8 @@ except ImportError:
 
 def generate_launch_description():
     namespace = LaunchConfiguration('namespace')
-    ring_limit = LaunchConfiguration('ring_limit')
+    ring_lower_limit = LaunchConfiguration('ring_lower_limit')
+    ring_upper_limit = LaunchConfiguration('ring_upper_limit')
     scan_max_range = LaunchConfiguration('scan_max_range')
     history_window = LaunchConfiguration('history_window')
     future_window = LaunchConfiguration('future_window')
@@ -49,7 +50,8 @@ def generate_launch_description():
         LogInfo(msg=["no cabot_common"]) if workaround else RegisterEventHandler(OnShutdown(on_shutdown=[AppendLogDirPrefix("lidar_process")])),
 
         DeclareLaunchArgument('namespace', default_value='lidar'),
-        DeclareLaunchArgument('ring_limit', default_value='7'),
+        DeclareLaunchArgument('ring_lower_limit', default_value='7'),
+        DeclareLaunchArgument('ring_upper_limit', default_value='8'),
         DeclareLaunchArgument('scan_max_range', default_value='15'),
         DeclareLaunchArgument('history_window', default_value='8'),
         DeclareLaunchArgument('future_window', default_value='12'),
@@ -59,10 +61,10 @@ def generate_launch_description():
         DeclareLaunchArgument('high_level_pos_threshold', default_value='2.0'),
         DeclareLaunchArgument('high_level_vel_threshold', default_value='1.0'),
         DeclareLaunchArgument('high_level_ori_threshold', default_value='45.0'),
-        DeclareLaunchArgument('smooth_window', default_value='9'),
+        DeclareLaunchArgument('smooth_window', default_value='5'),
         DeclareLaunchArgument('ignore_window', default_value='0'),
         DeclareLaunchArgument('static_threshold', default_value='0.25'),
-        DeclareLaunchArgument('max_tracking_time', default_value='0.5'),
+        DeclareLaunchArgument('max_tracking_time', default_value='0.4'),
         DeclareLaunchArgument('max_tracking_dist', default_value='1.0'),
         DeclareLaunchArgument('large_obs_size', default_value='2.0'),
         DeclareLaunchArgument('max_queue_size', default_value='50'),
@@ -72,7 +74,8 @@ def generate_launch_description():
 
         # overwrite parameters
         SetParameter(name='namespace', value=namespace),
-        SetParameter(name='ring_limit', value=ring_limit),
+        SetParameter(name='ring_lower_limit', value=ring_lower_limit),
+        SetParameter(name='ring_upper_limit', value=ring_upper_limit),
         SetParameter(name='scan_max_range', value=scan_max_range),
         SetParameter(name='history_window', value=history_window),
         SetParameter(name='future_window', value=future_window),
@@ -93,15 +96,15 @@ def generate_launch_description():
         SetParameter(name='shape_scale', value=shape_scale),
         SetParameter(name='shape_offset', value=shape_offset),
 
-        Node(
-            package="lidar_process",
-            executable="scan_receiver",
-            name="scan_receiver",
-            namespace=namespace,
-            output="both",
-            emulate_tty=True,
-            #arguments=["--ros-args", "--log-level", "debug"]
-        ),
+        # Node(
+        #     package="lidar_process",
+        #     executable="scan_receiver",
+        #     name="scan_receiver",
+        #     namespace=namespace,
+        #     output="both",
+        #     emulate_tty=True,
+        #     #arguments=["--ros-args", "--log-level", "debug"]
+        # ),
 
         Node(
             package="lidar_process",

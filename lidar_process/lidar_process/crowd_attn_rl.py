@@ -15,6 +15,7 @@ class CrowdAttnRL(object):
 
     def __init__(self, sgan_model_path, model_dir, ckpt='41665.pt'):
         self.robot_speed = 1.0
+        self.max_ang_speed = 1.0
         self.predict_steps = 5
         self.human_num = 20
 
@@ -62,7 +63,7 @@ class CrowdAttnRL(object):
         self.eval_recurrent_hidden_states['human_human_edge_rnn'] = torch.zeros(self.num_processes, edge_num,
                                                                            self.actor_critic.base.human_human_edge_rnn_size,
                                                                            device=self.device)
-        self.eval_masks = torch.zeros(self.num_processes, 1, device=self.device)
+        self.eval_masks = torch.zeros(self.num_processes, 1, device=self.device) + 1.0
 
         self.state_time = []
         self.eval_time = []
@@ -152,8 +153,8 @@ class CrowdAttnRL(object):
         obs_rl['spatial_edges'] = torch.tensor(spatial_edges, dtype=torch.float32, device=self.device)
 
         temporal_edges = torch.zeros((1, 1, 2), dtype=torch.float32, device=self.device)
-        temporal_edges[0, 0, 0] = float(robot_vel[0])
-        temporal_edges[0, 0, 1] = float(robot_vel[1])
+        temporal_edges[0, 0, 0] = float(robot_vel[0]) * np.cos(float(robot_theta))
+        temporal_edges[0, 0, 1] = float(robot_vel[0]) * np.sin(float(robot_theta))
         obs_rl['temporal_edges'] = temporal_edges
 
         visibile_masks = torch.zeros((1, self.human_num), dtype=torch.float32, device=self.device)
@@ -180,7 +181,7 @@ class CrowdAttnRL(object):
             action = np.zeros(2)
             action[0] = robot_speed
             action[1] = desired_th - robot_th
-            return action
+            return action, robot_goal
         state_time_end = time()
 
         eval_time_start = time()
@@ -190,22 +191,29 @@ class CrowdAttnRL(object):
                 self.eval_recurrent_hidden_states,
                 self.eval_masks,
                 deterministic=True)
-        action = action.squeeze().cpu().numpy()
+        holo_action = action.squeeze().cpu().numpy()
 
-        # cnvret to polar
-        v = np.linalg.norm(action)
-        w = np.arctan2(action[1], action[0])
-        action = np.array([v, w - robot_th])
+        # print("Action before:", action)
+
+        # convert to polar
+        v = np.linalg.norm(holo_action)
+        w = np.arctan2(holo_action[1], holo_action[0])
+        if abs(w - robot_th) > (np.pi / 2):
+            action = np.array([0.0, 0.0])
+        else:  
+            action = np.array([v, w - robot_th])
+
+        # print("Action after:", v, w, action)
 
         v_pref = self.robot_speed
         if action[0]> v_pref:
             action[0] = v_pref
         if action[0] < 0.0:
             action[0] = 0.0
-        if action[1] > 1.0:
-            action[1] = 1.0
-        if action[1] < -1.0:
-            action[1] = -1.0
+        if action[1] > self.max_ang_speed:
+            action[1] = self.max_ang_speed
+        if action[1] < -self.max_ang_speed:
+            action[1] = -self.max_ang_speed
         eval_time_end = time()
 
         done = [done]
@@ -216,7 +224,16 @@ class CrowdAttnRL(object):
         
         self.state_time.append(state_time_end - state_time_start)
         self.eval_time.append(eval_time_end - eval_time_start)
-        return action
+        return action, holo_action + robot_pos
+    
+    def reset(self):
+        # Reset the model for a new episode
+        self.eval_recurrent_hidden_states['human_node_rnn'].zero_()
+        self.eval_recurrent_hidden_states['human_human_edge_rnn'].zero_()
+        self.eval_masks = torch.zeros(self.num_processes, 1, device=self.device) + 1.0
+        self.state_time = []
+        self.eval_time = []
+        return
     
     def get_processing_time(self):
         # Get processing time for MPC
