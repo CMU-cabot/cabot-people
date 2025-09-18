@@ -34,7 +34,7 @@ def iou_circles(circle1, circle2):
     r2_2 = math.pow(r2, 2)
 
     if dist < r1 + r2:
-        if dist < abs(r1-r2):
+        if dist <= abs(r1-r2):
             # completely overlap
             intersection = math.pi * min(r1_2, r2_2)
         else:
@@ -61,6 +61,6 @@ def compute_circle_pairwise_iou(circles1, circles2):
     for c1 in range(len(circles1)):
         for c2 in range(len(circles2)):
             iou[c1, c2] = iou_circles(circles1[c1], circles2[c2])
-            assert iou[c1, c2] >= 0, "{} {} {}".format(iou[c1, c2], c1, c2)
+            assert iou[c1, c2] >= 0, "{} {} {} {} {}".format(iou[c1, c2], c1, c2, circles1[c1], circles2[c2])
 
     return iou

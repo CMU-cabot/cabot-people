@@ -35,8 +35,8 @@ from track_people_py import AbsDetectPeople
 class DetectMMDetSegPeople(AbsDetectPeople):
     __metaclass__ = ABCMeta
 
-    def __init__(self, device):
-        super().__init__(device)
+    def __init__(self):
+        super().__init__()
 
         # load detect model
         self.model_input_width = self.declare_parameter('model_input_width', 512).value
@@ -97,7 +97,8 @@ class DetectMMDetSegPeople(AbsDetectPeople):
 
         if len(detect_results) > 0:
             # delete small detections
-            small_detection = np.where(detect_results[:, 3]-detect_results[:, 1] < self.minimum_detection_size_threshold)[0]
+            small_detection = np.where((detect_results[:, 2]-detect_results[:, 0] < self.minimum_detection_size_threshold)
+                                       | (detect_results[:, 3]-detect_results[:, 1] < self.minimum_detection_size_threshold))[0]
             detect_results = np.delete(detect_results, small_detection, axis=0)
             mask_results = np.delete(mask_results, small_detection, axis=0)
 
@@ -106,9 +107,8 @@ class DetectMMDetSegPeople(AbsDetectPeople):
 
 def main():
     rclpy.init()
-    device = "cuda"
 
-    detect_people = DetectMMDetSegPeople(device)
+    detect_people = DetectMMDetSegPeople()
 
     try:
         rclpy.spin(detect_people)

@@ -84,6 +84,7 @@ RUN if [ "${TARGETARCH}" = "amd64" ]; then \
         ros-$ROS_DISTRO-rviz2 \
         # ros-$ROS_DISTRO-rviz \
         ros-$ROS_DISTRO-tf2 \
+        ros-$ROS_DISTRO-tf2-ros \
         ros-$ROS_DISTRO-tf2-geometry-msgs \
         ros-$ROS_DISTRO-tf-transformations \
         ros-$ROS_DISTRO-rmw-cyclonedds-cpp \

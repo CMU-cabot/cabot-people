@@ -430,8 +430,6 @@ if [ $realsense_camera -eq 1 ]; then
     fi
 fi
 
-opt_predict=''
-
 if [ $detection -eq 1 ]; then
     ### launch people detect
     map_frame='map'
@@ -439,7 +437,7 @@ if [ $detection -eq 1 ]; then
     if [ $gazebo -eq 1 ]; then
         depth_registered_topic='depth/image_raw'
     fi
-    min_bbox_size=50.0
+    min_bbox_size=20.0
 
     # overwrite mmdeploy model by environment variables
     mmdeploy_model_option=''
@@ -551,28 +549,15 @@ fi
 
 if [ $tracking -eq 1 ]; then
     ### launch people track
+    opt_track=''
+    if [ $run_test -eq 1 ]; then
+        opt_track+=' remap_people_topic:=/test/people'
+    fi
     launch_file="track_people_py track_sort_3d.launch.py"
     echo "launch $launch_file"
-    com="$command ros2 launch -n $launch_file \
+    com="$command ros2 launch -n $launch_file $opt_track \
                   jetpack5_workaround:=$jetpack5_workaround \
                   use_sim_time:=$use_sim_time \
-                  $commandpost"
-    echo $com
-    eval $com
-    pids+=($!)
-
-    ### launch people predict
-    opt_predict=''
-    if [ $gazebo -eq 1 ] && [ $publish_sim_people -eq 1 ]; then
-        opt_predict+=' publish_simulator_people:=true'
-    fi
-    if [ $run_test -eq 1 ]; then
-        opt_predict+=' remap_people_topic:=/test/people'
-    fi
-    launch_file="track_people_py predict_kf.launch.py"
-    echo "launch $launch_file"
-    com="$command ros2 launch -n $launch_file $opt_predict \
-                  jetpack5_workaround:=$jetpack5_workaround \
                   $commandpost"
     echo $com
     eval $com
@@ -605,13 +590,13 @@ if [ $obstacle -eq 1 ]; then
         pids+=($!)
     fi
 
-    opt_predict=''
+    opt_track=''
     if [ $run_test -eq 1 ]; then
-        opt_predict+=' remap_obstacles_topic:=/test/obstacles'
+        opt_track+=' remap_obstacles_topic:=/test/obstacles'
     fi
     launch_file="track_people_cpp track_obstacles.launch.py"
     echo "launch $launch_file"
-    com="$command ros2 launch -n $launch_file $opt_predict \
+    com="$command ros2 launch -n $launch_file $opt_track \
                   jetpack5_workaround:=$jetpack5_workaround \
                   target_fps:=$target_fps \
                   use_sim_time:=$use_sim_time \

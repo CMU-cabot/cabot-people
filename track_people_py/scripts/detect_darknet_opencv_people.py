@@ -55,8 +55,8 @@ class DetectDarknetPeople(AbsDetectPeople):
         except:  # noqa: E722
             self.get_logger().error("cannot load model file \n{}\n{}\n{}".format(cfg_file, weight_file, names_file))
 
-    def __init__(self, device):
-        super().__init__(device)
+    def __init__(self):
+        super().__init__()
 
         # load detect model
         detect_config_filename = self.declare_parameter('detect_config_file', '').value
@@ -92,7 +92,8 @@ class DetectDarknetPeople(AbsDetectPeople):
 
         if len(detect_results) > 0:
             # delete small detections
-            small_detection = np.where(detect_results[:, 3]-detect_results[:, 1] < self.minimum_detection_size_threshold)[0]
+            small_detection = np.where((detect_results[:, 2]-detect_results[:, 0] < self.minimum_detection_size_threshold)
+                                       | (detect_results[:, 3]-detect_results[:, 1] < self.minimum_detection_size_threshold))[0]
             detect_results = np.delete(detect_results, small_detection, axis=0)
 
         return detect_results, None
@@ -100,9 +101,8 @@ class DetectDarknetPeople(AbsDetectPeople):
 
 def main():
     rclpy.init()
-    device = "cuda"
 
-    detect_people = DetectDarknetPeople(device)
+    detect_people = DetectDarknetPeople()
 
     try:
         rclpy.spin(detect_people)
