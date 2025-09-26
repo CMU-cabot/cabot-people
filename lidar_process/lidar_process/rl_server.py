@@ -112,9 +112,11 @@ class RLServer(Node):
                                             "crowdattn-trained-models")
             self.agent = crowd_attn_rl.CrowdAttnRL(sgan_model_path, rl_model_path, "41665.pt")
         else:
+            # n_samples_0100000.zip
+            # spd_1_omega_0785.zip
             rl_model_fpath = os.path.join(get_package_share_directory('lidar_process'),  # this package name
                                             "group-rl-models",
-                                            "n_samples_0100000.zip")
+                                            "spd_1_omega_0785.zip")
             rl_config_path = os.path.join(get_package_share_directory('lidar_process'),  # this package name
                                             "group-rl-configs",
                                             "rl_config.yaml")
@@ -261,10 +263,11 @@ class RLServer(Node):
         for i in range(self.history_length - 1):
             target_time = current_time - self.dt * (self.history_length - 1 - i)
             history_time = self.people_history_queue._items[history_idx]["time"]
-            if history_time > target_time:
-                self.get_logger().error("Not enough history length, please increase history length")
-                return
-            while history_time <= target_time:
+            if (history_time > target_time) or (abs(history_time - target_time) < 1e-5):
+                # self.get_logger().warn("Not enough history length!")
+                history_idx_array.append(history_idx - 1)
+                continue
+            while history_time < target_time:
                 history_idx += 1
                 if history_idx >= len(self.people_history_queue._items):
                     self.get_logger().error("History resolution too slow. Could be due to large dt or small queue size. Please check.")

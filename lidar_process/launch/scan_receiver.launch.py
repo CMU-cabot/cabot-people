@@ -96,24 +96,24 @@ def generate_launch_description():
         SetParameter(name='shape_scale', value=shape_scale),
         SetParameter(name='shape_offset', value=shape_offset),
 
-        # Node(
-        #     package="lidar_process",
-        #     executable="scan_receiver",
-        #     name="scan_receiver",
-        #     namespace=namespace,
-        #     output="both",
-        #     emulate_tty=True,
-        #     #arguments=["--ros-args", "--log-level", "debug"]
-        # ),
-
         Node(
             package="lidar_process",
-            executable="rl_server",
-            name="rl_server",
+            executable="scan_receiver",
+            name="scan_receiver",
             namespace=namespace,
             output="both",
+            emulate_tty=True,
             #arguments=["--ros-args", "--log-level", "debug"]
         ),
+
+        # Node(
+        #     package="lidar_process",
+        #     executable="rl_server",
+        #     name="rl_server",
+        #     namespace=namespace,
+        #     output="both",
+        #     #arguments=["--ros-args", "--log-level", "debug"]
+        # ),
 
         Node(
             package="cabot_common",

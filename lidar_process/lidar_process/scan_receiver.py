@@ -267,7 +267,7 @@ class ScanReceiver(Node):
         lidar_to_map = self.lookup_transform('velodyne', 'map')
         transformed_cloud = self._do_transform(self.pointcloud, lidar_to_map)
 
-        transformed_cloud = self.pointcloud
+        # transformed_cloud = self.pointcloud
 
         id_switched = False
         if len(self.pointcloud) > 0:

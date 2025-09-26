@@ -32,7 +32,7 @@ class GroupRLMPC(object):
             mpc_config_path: Path to MPC configuration file
         """
 
-        self.robot_speed = 1.0
+        self.robot_speed = 1.0 
         # self.human_num = 20
         
         # Device setup
@@ -66,8 +66,8 @@ class GroupRLMPC(object):
         
         # MPC steps counter
         self.mpc_steps_counter = 0
-        self.mpc_steps_per_follow_state = 25
-        self.max_ang_speed = 1.0
+        self.mpc_steps_per_follow_state = 10
+        self.max_ang_speed = 0.785
         
         # Store current follow state
         self.current_follow_state = None

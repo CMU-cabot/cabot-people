@@ -15,7 +15,7 @@ class CrowdAttnRL(object):
 
     def __init__(self, sgan_model_path, model_dir, ckpt='41665.pt'):
         self.robot_speed = 1.0
-        self.max_ang_speed = 1.0
+        self.max_ang_speed = 0.785
         self.predict_steps = 5
         self.human_num = 20
 
