@@ -1,3 +1,4 @@
+Cython
 filterpy==1.4.5
 matplotlib==3.6.3
 numpy==1.24.1
@@ -5,3 +6,22 @@ scikit-learn==1.2.1
 scipy==1.10.0
 pandas==1.5.3
 transforms3d==0.4.1
+
+#Pytorch with CUDA11.7
+#torch
+#torchvision
+#torchaudio
+
+# AgentFormer
+tensorboard
+glob2
+#six
+#pyyaml
+easydict
+
+# SocialGAN
+attrdict
+#Pillow
+gym
+tensorflow
+opencv-python==4.5.5.64

@@ -12,6 +12,8 @@ services:
 # CaBot
       - CABOT_GAZEBO=${CABOT_GAZEBO:-1}
       - CABOT_SITE
+      - CABOT_ENABLE_LIDAR_PROCESSING
+      - CABOT_DISABLE_PEOPLE
       - CABOT_SHOW_PEOPLE_RVIZ=${CABOT_SHOW_PEOPLE_RVIZ:-0}
       - CABOT_PUBLISH_DETECT_IMAGE=${CABOT_PUBLISH_DETECT_IMAGE:-0}
       - CABOT_USE_REALSENSE=${CABOT_USE_REALSENSE:-0}
@@ -91,6 +93,8 @@ services:
       - ./track_people_py:/home/developer/people_nuc_ws/src/track_people_py
       - ./track_people_msgs:/home/developer/people_nuc_ws/src/track_people_msgs
       - ./track_people_cpp:/home/developer/people_nuc_ws/src/track_people_cpp
+      - ./lidar_process:/home/developer/people_ws/src/lidar_process
+      - ./lidar_process_msgs:/home/developer/people_ws/src/lidar_process_msgs
 
   people-nuc-dev:
     extends:
@@ -153,6 +157,8 @@ services:
       - ./track_people_py:/home/developer/people_ws/src/track_people_py
       - ./track_people_msgs:/home/developer/people_ws/src/track_people_msgs
       - ./track_people_cpp:/home/developer/people_ws/src/track_people_cpp
+      - ./lidar_process:/home/developer/people_ws/src/lidar_process
+      - ./lidar_process_msgs:/home/developer/people_ws/src/lidar_process_msgs
 
   people-all-dev:
     extends:
@@ -198,6 +204,8 @@ services:
       - ./track_people_py:/home/developer/people_ws/src/track_people_py
       - ./track_people_msgs:/home/developer/people_ws/src/track_people_msgs
       - ./track_people_cpp:/home/developer/people_ws/src/track_people_cpp
+      - ./lidar_process:/home/developer/people_ws/src/lidar_process
+      - ./lidar_process_msgs:/home/developer/people_ws/src/lidar_process_msgs
 
   people-detection-prod-base:
     extends:
@@ -225,6 +233,8 @@ services:
       - ./track_people_py:/home/developer/people_ws/src/track_people_py
       - ./track_people_msgs:/home/developer/people_ws/src/track_people_msgs
       - ./track_people_cpp:/home/developer/people_ws/src/track_people_cpp
+      - ./lidar_process:/home/developer/people_ws/src/lidar_process
+      - ./lidar_process_msgs:/home/developer/people_ws/src/lidar_process_msgs
 
   people-track-prod-base:
     extends:
@@ -259,6 +269,8 @@ services:
       - ./track_people_py:/home/developer/people_framos_ws/src/track_people_py
       - ./track_people_msgs:/home/developer/people_framos_ws/src/track_people_msgs
       - ./track_people_cpp:/home/developer/people_framos_ws/src/track_people_cpp
+      - ./lidar_process:/home/developer/people_ws/src/lidar_process
+      - ./lidar_process_msgs:/home/developer/people_ws/src/lidar_process_msgs
 
   people-framos-all-dev:
     extends:
@@ -297,6 +309,8 @@ services:
       - ./track_people_py:/home/developer/people_framos_ws/src/track_people_py
       - ./track_people_msgs:/home/developer/people_framos_ws/src/track_people_msgs
       - ./track_people_cpp:/home/developer/people_framos_ws/src/track_people_cpp
+      - ./lidar_process:/home/developer/people_ws/src/lidar_process
+      - ./lidar_process_msgs:/home/developer/people_ws/src/lidar_process_msgs
 
   people-framos-camera-prod-base:
     extends:
@@ -332,6 +346,8 @@ services:
       - ./track_people_py:/home/developer/people_framos_ws/src/track_people_py
       - ./track_people_msgs:/home/developer/people_framos_ws/src/track_people_msgs
       - ./track_people_cpp:/home/developer/people_framos_ws/src/track_people_cpp
+      - ./lidar_process:/home/developer/people_ws/src/lidar_process
+      - ./lidar_process_msgs:/home/developer/people_ws/src/lidar_process_msgs
 
   people-framos-detection-prod-base:
     extends:
