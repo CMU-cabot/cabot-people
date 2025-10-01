@@ -13,6 +13,7 @@ services:
       - "-t"
       - "0"
       - "-c 2"
+      - "-L"                                # force disable lidar process
     cpuset: "11" # assume other processes don't use this cpu by isolcpus kernel option
     profiles:
       - dev
@@ -27,6 +28,7 @@ services:
     command:
       - "/launch.sh"
       - "-D"
+      - "-L"                                # force disable lidar process
     profiles:
       - dev
 
@@ -43,6 +45,7 @@ services:
       - "-t"
       - "0"
       - "-c 2"
+      - "-L"                                # force disable lidar process
     cpuset: "11" # assume other processes don't use this cpu by isolcpus kernel option
     profiles:
       - dev
@@ -57,6 +60,7 @@ services:
     command:
       - "/launch.sh"
       - "-D"
+      - "-L"                                # force disable lidar process
     profiles:
       - dev
 
@@ -73,6 +77,7 @@ services:
       - "-t"
       - "0"
       - "-c 2"
+      - "-L"                                # force disable lidar process
     cpuset: "11" # assume other processes don't use this cpu by isolcpus kernel option
     profiles:
       - dev
@@ -87,6 +92,7 @@ services:
     command:
       - "/launch.sh"
       - "-D"
+      - "-L"                                # force disable lidar process
     profiles:
       - dev
 
@@ -116,6 +122,7 @@ services:
       - "-t"
       - "0"
       - "-c 2"
+      - "-L"                                # force disable lidar process
     cpuset: "11" # assume other processes don't use this cpu by isolcpus kernel option
     profiles:
       - prod
@@ -130,6 +137,7 @@ services:
     command:
       - "/launch.sh"
       - "-D"
+      - "-L"                                # force disable lidar process
     profiles:
       - prod
 
@@ -146,6 +154,7 @@ services:
       - "-t"
       - "0"
       - "-c 2"
+      - "-L"                                # force disable lidar process
     cpuset: "11" # assume other processes don't use this cpu by isolcpus kernel option
     profiles:
       - prod
@@ -160,6 +169,7 @@ services:
     command:
       - "/launch.sh"
       - "-D"
+      - "-L"                                # force disable lidar process
     profiles:
       - prod
 
@@ -176,6 +186,7 @@ services:
       - "-t"
       - "0"
       - "-c 2"
+      - "-L"                                # force disable lidar process
     cpuset: "11" # assume other processes don't use this cpu by isolcpus kernel option
     profiles:
       - prod
@@ -190,6 +201,7 @@ services:
     command:
       - "/launch.sh"
       - "-D"
+      - "-L"                                # force disable lidar process
     profiles:
       - prod
 

@@ -188,6 +188,7 @@ function usage {
     echo "-O                       obstacle detection/tracking"
     echo "-a                       no resetrs each"
     echo "-T                       run in test mode (remap /people and /obstacles topic for accuracy test)"
+    echo "-L                       force disable lidar processing"
     exit
 }
 
@@ -271,6 +272,9 @@ while getopts "hdm:n:w:srVCt:pWc:v:N:f:KDF:P:S:R:OaT" arg; do
         ;;
     T)
         run_test=1
+        ;;
+    L)
+        process_lidar=0
         ;;
     esac
 done

@@ -108,9 +108,9 @@ COPY requirements.txt /
 RUN pip3 install --no-cache-dir \
         -r /requirements.txt
 RUN git clone https://github.com/openai/baselines.git
-WORKDIR $HOME/baselines      
+WORKDIR baselines      
 RUN pip install -e .     
-WORKDIR $HOME   
+WORKDIR ..  
 RUN pip3 install --no-cache-dir numpy==1.23.1
 
 # install gazebo
@@ -165,6 +165,8 @@ COPY --from=src ./cabot_people src/cabot_people
 COPY --from=src ./track_people_py src/track_people_py
 COPY --from=src ./track_people_msgs src/track_people_msgs
 COPY --from=src ./track_people_cpp src/track_people_cpp
+COPY --from=src ./lidar_process src/lidar_process
+COPY --from=src ./lidar_process_msgs src/lidar_process_msgs
 
 RUN /ros_entrypoint.sh /launch.sh build -m
 

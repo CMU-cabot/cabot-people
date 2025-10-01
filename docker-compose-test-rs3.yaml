@@ -13,6 +13,7 @@ services:
       - "-t"
       - "0"
       - "-D"
+      - "-L"                                # force disable lidar process
     profiles:
       - dev
 
@@ -25,6 +26,7 @@ services:
     command:
       - "/launch.sh"
       - "-D"
+      - "-L"                                # force disable lidar process
 
   rs2-dev:
     extends:
@@ -39,6 +41,7 @@ services:
       - "-t"
       - "0"
       - "-D"
+      - "-L"                                # force disable lidar process
     profiles:
       - dev
 
@@ -51,6 +54,7 @@ services:
     command:
       - "/launch.sh"
       - "-D"
+      - "-L"                                # force disable lidar process
 
   rs3-dev:
     extends:
@@ -65,6 +69,7 @@ services:
       - "-t"
       - "0"
       - "-D"
+      - "-L"                                # force disable lidar process
     profiles:
       - dev
 
@@ -77,6 +82,7 @@ services:
     command:
       - "/launch.sh"
       - "-D"
+      - "-L"                                # force disable lidar process
 
   track-dev:
     extends:
@@ -132,6 +138,7 @@ services:
       - "-t"
       - "0"
       - "-D"
+      - "-L"                                # force disable lidar process
     profiles:
       - prod
 
@@ -144,6 +151,7 @@ services:
     command:
       - "/launch.sh"
       - "-D"
+      - "-L"                                # force disable lidar process
     profiles:
       - prod
 
@@ -160,6 +168,7 @@ services:
       - "-t"
       - "0"
       - "-D"
+      - "-L"                                # force disable lidar process
     profiles:
       - prod
 
@@ -172,6 +181,7 @@ services:
     command:
       - "/launch.sh"
       - "-D"
+      - "-L"                                # force disable lidar process
     profiles:
       - prod
 
@@ -188,6 +198,7 @@ services:
       - "-t"
       - "0"
       - "-D"
+      - "-L"                                # force disable lidar process
     profiles:
       - prod
 
@@ -200,6 +211,7 @@ services:
     command:
       - "/launch.sh"
       - "-D"
+      - "-L"                                # force disable lidar process
     profiles:
       - prod
 
