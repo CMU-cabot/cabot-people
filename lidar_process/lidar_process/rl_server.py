@@ -24,7 +24,7 @@ from . import utils
 from . import grouping
 from . import visualization
 
-from rclpy.executors import MultiThreadedExecutor
+from rclpy.executors import MultiThreadedExecutor, SingleThreadedExecutor
 from rclpy.callback_groups import MutuallyExclusiveCallbackGroup, ReentrantCallbackGroup
 from rclpy.qos import QoSProfile, QoSDurabilityPolicy, qos_profile_sensor_data
 
@@ -171,13 +171,13 @@ class RLServer(Node):
 
         self.robot_observation = observation
         #print("Robot obs;", self.robot_observation)
-        print("Robot pos:", robot_pos_np, "Goal:", robot_goal_np, "Num ped:", observation["num_pedestrians"])
+        self.get_logger().debug("Robot pos: {}, Goal: {}, Num ped: {}".format(robot_pos_np, robot_goal_np, observation["num_pedestrians"]))
         return
     
     def robot_timer_cb(self):
         msg = Twist()
         action, sub_goal = self.agent.act(self.robot_observation)
-        print("Action:", action)
+        self.get_logger().info("Action: {}".format(action))
         msg.linear.x = float(action[0])
         msg.angular.z = float(action[1])
         self.robot_pub.publish(msg)
@@ -320,7 +320,7 @@ def main():
     rclpy.init()
     rl_server = RLServer()
     try:
-        executor = MultiThreadedExecutor()
+        executor = SingleThreadedExecutor()
         rclpy.spin(rl_server, executor)
     except KeyboardInterrupt:
         #process_thread.join()

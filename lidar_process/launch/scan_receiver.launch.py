@@ -20,6 +20,7 @@ except ImportError:
     workaround = True
 
 def generate_launch_description():
+    output = {'stdout': 'log', 'stderr': 'log'}
     namespace = LaunchConfiguration('namespace')
     ring_lower_limit = LaunchConfiguration('ring_lower_limit')
     ring_upper_limit = LaunchConfiguration('ring_upper_limit')
@@ -96,24 +97,24 @@ def generate_launch_description():
         SetParameter(name='shape_scale', value=shape_scale),
         SetParameter(name='shape_offset', value=shape_offset),
 
-        Node(
-            package="lidar_process",
-            executable="scan_receiver",
-            name="scan_receiver",
-            namespace=namespace,
-            output="both",
-            emulate_tty=True,
-            #arguments=["--ros-args", "--log-level", "debug"]
-        ),
-
         # Node(
         #     package="lidar_process",
-        #     executable="rl_server",
-        #     name="rl_server",
+        #     executable="scan_receiver",
+        #     name="scan_receiver",
         #     namespace=namespace,
-        #     output="both",
+        #     output=output,
+        #     emulate_tty=True,
         #     #arguments=["--ros-args", "--log-level", "debug"]
         # ),
+
+        Node(
+            package="lidar_process",
+            executable="rl_server",
+            name="rl_server",
+            namespace=namespace,
+            output=output,
+            #arguments=["--ros-args", "--log-level", "debug"]
+        ),
 
         Node(
             package="cabot_common",

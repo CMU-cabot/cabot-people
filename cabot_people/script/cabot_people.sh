@@ -192,7 +192,7 @@ function usage {
     exit
 }
 
-while getopts "hdm:n:w:srVCt:pWc:v:N:f:KDF:P:S:R:OaT" arg; do
+while getopts "hdm:n:w:srVCt:pWc:v:N:f:KDF:P:S:R:OaTL" arg; do
     case $arg in
     h)
         usage
@@ -355,10 +355,10 @@ echo "Resolution    : $width x $height"
 echo "Obstacle      : $obstacle"
 
 if [ $process_lidar -eq 1 ]; then
-    green "LiDAR processing enabled!"
+    blue "LiDAR processing enabled!"
 fi
 if [ $disable_people -eq 1 ]; then
-    green "People module disabled! But cameras are still on!"
+    blue "People module disabled! But cameras are still on!"
 fi
 
 if [ $publish_tf -eq 1 ]; then
