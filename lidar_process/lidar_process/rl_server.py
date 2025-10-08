@@ -232,22 +232,35 @@ class RLServer(Node):
         sub_goal_msg.x = float(sub_goal[0])
         sub_goal_msg.y = float(sub_goal[1])
         self.rl_subgoal_pub.publish(sub_goal_msg)
+        self.get_logger().info("Point published")
 
-        people_array_msg = PositionHistoryArray()
-        num_people = people_array.shape[0]
-        num_timesteps = people_array.shape[1]
-        people_array_msg.horizon = num_timesteps
-        for i in range(num_timesteps):
-            pos_array_msg = PositionArray()
-            for j in range(num_people):
-                pos_msg = Point()
-                pos_msg.x = float(people_array[j, i, 0])
-                pos_msg.y = float(people_array[j, i, 1])
-                pos_array_msg.positions.append(pos_msg)
-                pos_array_msg.ids.append(Int32(data=j))
-                pos_array_msg.quantity = num_people
-            people_array_msg.positions_history.append(pos_array_msg)
-        self.people_pub.publish(people_array_msg)
+        try:
+            people_array_msg = PositionHistoryArray()
+            if people_array is None:
+                people_array_msg.horizon = 0
+                people_array_msg.positions_history = []
+            else:
+                num_people = len(people_array)
+                if num_people == 0:
+                    num_timesteps = 0
+                else:
+                    num_timesteps = people_array.shape[1]
+                people_array_msg.horizon = num_timesteps
+                for i in range(num_timesteps):
+                    pos_array_msg = PositionArray()
+                    for j in range(num_people):
+                        pos_msg = Point()
+                        pos_msg.x = float(people_array[j, i, 0])
+                        pos_msg.y = float(people_array[j, i, 1])
+                        pos_array_msg.positions.append(pos_msg)
+                        pos_array_msg.ids.append(Int32(data=j))
+                        pos_array_msg.quantity = num_people
+                    people_array_msg.positions_history.append(pos_array_msg)
+            self.people_pub.publish(people_array_msg)
+        except Exception as e:
+            self.get_logger().error("Error publishing people_array: {}".format(e))
+            return
+        self.get_logger().info("People array poublished")
         if self.vis_debug:
             marker, _ = visualization.create_entity_marker(
                 float(sub_goal[0]), float(sub_goal[1]), 9999, Header(frame_id="map"), "rl_subgoal_vis", marker_size=0.5, text_marker_needed=False)
