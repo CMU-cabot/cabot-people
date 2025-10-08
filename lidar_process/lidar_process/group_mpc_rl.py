@@ -66,7 +66,7 @@ class GroupRLMPC(object):
         
         # MPC steps counter
         self.mpc_steps_counter = 0
-        self.mpc_steps_per_follow_state = 10
+        self.mpc_steps_per_follow_state = 2
         self.max_ang_speed = 0.785
         
         # Store current follow state
@@ -199,6 +199,29 @@ class GroupRLMPC(object):
         self.mpc_steps_counter += 1
         
         return action, self.current_follow_state[0][:2]
+    
+    def act_rl(self, obs):
+        """
+        Given an observation, return people array and sub-goal using RL only
+        
+        Args:
+            obs: Observation dictionary containing robot and environment state
+            
+        Returns:
+            people_array: PeopleArray message for cabot-people
+            sub_goal: Sub-goal position from RL
+        """
+        robot_goal = obs['robot_goal']
+        if obs['num_pedestrians'] == 0:
+            return [], robot_goal
+
+        # Use RL to generate follow state
+        self.current_follow_state, target = self.get_rl_follow_state(obs)
+        sub_goal = self.current_follow_state[0][:2]
+
+        people_array = self.mpc.get_people_array(obs)
+        
+        return people_array, sub_goal
     
     def reset(self):
         """

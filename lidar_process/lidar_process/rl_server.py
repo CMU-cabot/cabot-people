@@ -30,6 +30,7 @@ from rclpy.qos import QoSProfile, QoSDurabilityPolicy, qos_profile_sensor_data
 
 USE_PED_TRACKER = True
 USE_GROUP_RL = True
+USE_CPP_MPC = True
 
 class RLServer(Node):
 
@@ -72,23 +73,49 @@ class RLServer(Node):
             callback_group = entity_callback_group
         )
 
-        self.robot_pub = self.create_publisher(
-            Twist,
-            '/rl_robot_cmd',
-            10,
-            callback_group = entity_callback_group
-        )
+        if not USE_CPP_MPC:
+            self.robot_pub = self.create_publisher(
+                Twist,
+                '/rl_robot_cmd',
+                10,
+                callback_group = entity_callback_group
+            )
+        else:
+            self.rl_subgoal_pub = self.create_publisher(
+                Point,
+                '/rl_subgoal',
+                10,
+                callback_group = entity_callback_group
+            )
+            self.people_pub = self.create_publisher(
+                PositionHistoryArray,
+                '/rl_people',
+                10,
+                callback_group = entity_callback_group
+            )
 
         self.vis_pub = self.create_publisher(
             Marker,
-            '/rl_sub_goal',
+            '/rl_subgoal_vis',
             10,
             callback_group = entity_callback_group
         )
 
+        self._high_level_pos_threshold = self.declare_parameter('high_level_pos_threshold', 1.5).value
+        self._high_level_vel_threshold = self.declare_parameter('high_level_vel_threshold', 0.5).value
+        self._high_level_ori_threshold = self.declare_parameter('high_level_ori_threshold', 15.0).value
+        self._high_level_ori_threshold = self._high_level_ori_threshold / 180 * np.pi
+        self._static_threshold = self.declare_parameter('static_threshold', 0.3).value
+
         self.vis_debug = True
         timer_period = 0.05  # seconds
-        self.pub_timer = self.create_timer(timer_period, self.robot_timer_cb)
+        if USE_GROUP_RL:
+            if not USE_CPP_MPC:
+                self.pub_timer = self.create_timer(timer_period, self.robot_hybrid_cb)
+            else:
+                self.pub_timer = self.create_timer(timer_period, self.robot_rl_cb)
+        else:
+            self.pub_timer = self.create_timer(timer_period, self.robot_hybrid_cb)
 
         self.positions_history = []
         self.velocities_history = []
@@ -132,6 +159,7 @@ class RLServer(Node):
         return
     
     def robot_cb(self, msg):
+        # collect observation information from the robot controller
         robot_pos = msg.robot_pos
         robot_vel = msg.robot_vel
         robot_th = msg.robot_th
@@ -163,7 +191,13 @@ class RLServer(Node):
                 pedestrians_vel.append(velocities_history[i][-1])
             observation["pedestrians_pos"] = np.array(pedestrians_pos)
             observation["pedestrians_vel"] = np.array(pedestrians_vel)
-            observation["group_labels"] = grouping.pedestrian_grouping(pedestrians_pos, pedestrians_vel, 2.0, 1.0, np.pi / 6, 0.3)
+            observation["group_labels"] = grouping.pedestrian_grouping(
+                pedestrians_pos, 
+                pedestrians_vel, 
+                self._high_level_pos_threshold, 
+                self._high_level_vel_threshold, 
+                self._high_level_ori_threshold,
+                self._static_threshold)
 
         if not(abs(robot_goal.x - self.robot_observation["robot_goal"][0]) < 1e-6 and
                abs(robot_goal.y - self.robot_observation["robot_goal"][1]) < 1e-6):
@@ -174,7 +208,8 @@ class RLServer(Node):
         self.get_logger().debug("Robot pos: {}, Goal: {}, Num ped: {}".format(robot_pos_np, robot_goal_np, observation["num_pedestrians"]))
         return
     
-    def robot_timer_cb(self):
+    def robot_hybrid_cb(self):
+        # public command for full stack RL
         msg = Twist()
         action, sub_goal = self.agent.act(self.robot_observation)
         self.get_logger().info("Action: {}".format(action))
@@ -183,11 +218,45 @@ class RLServer(Node):
         self.robot_pub.publish(msg)
         if self.vis_debug:
             marker, _ = visualization.create_entity_marker(
-                float(sub_goal[0]), float(sub_goal[1]), 9999, Header(frame_id="map"), "rl_sub_goal", marker_size=0.5, text_marker_needed=False)
+                float(sub_goal[0]), float(sub_goal[1]), 9999, Header(frame_id="map"), "rl_subgoal_vis", marker_size=0.5, text_marker_needed=False)
             self.vis_pub.publish(marker)
         return
+
+    def robot_rl_cb(self):
+        # public info for controller from RL
+        
+        # people_array is a NxTx2 array
+        people_array, sub_goal = self.agent.act_rl(self.robot_observation)
+        self.get_logger().info("RL Sub-goal: {}".format(sub_goal))
+        sub_goal_msg = Point()
+        sub_goal_msg.x = float(sub_goal[0])
+        sub_goal_msg.y = float(sub_goal[1])
+        self.rl_subgoal_pub.publish(sub_goal_msg)
+
+        people_array_msg = PositionHistoryArray()
+        num_people = people_array.shape[0]
+        num_timesteps = people_array.shape[1]
+        people_array_msg.horizon = num_timesteps
+        for i in range(num_timesteps):
+            pos_array_msg = PositionArray()
+            for j in range(num_people):
+                pos_msg = Point()
+                pos_msg.x = float(people_array[j, i, 0])
+                pos_msg.y = float(people_array[j, i, 1])
+                pos_array_msg.positions.append(pos_msg)
+                pos_array_msg.ids.append(Int32(data=j))
+                pos_array_msg.quantity = num_people
+            people_array_msg.positions_history.append(pos_array_msg)
+        self.people_pub.publish(people_array_msg)
+        if self.vis_debug:
+            marker, _ = visualization.create_entity_marker(
+                float(sub_goal[0]), float(sub_goal[1]), 9999, Header(frame_id="map"), "rl_subgoal_vis", marker_size=0.5, text_marker_needed=False)
+            self.vis_pub.publish(marker)
+        return
+
     
     def entity_cb(self, msg):
+        # If using pure lidar tracking-based entities
         self.positions_history = []
         self.velocities_history = []
 
@@ -223,6 +292,7 @@ class RLServer(Node):
         return
     
     def people_cb(self, msg):
+        # If using cabot-people tracker
         self.positions_history = []
         self.velocities_history = []
 
