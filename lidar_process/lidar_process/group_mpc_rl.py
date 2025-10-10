@@ -2,6 +2,7 @@ import os
 import numpy as np
 import torch
 import yaml
+import math
 from time import time
 
 # Import through group_rl
@@ -99,6 +100,30 @@ class GroupRLMPC(object):
         obs = obs.reshape(1, -1)
         obs = np.concatenate([goal_pos, goal_vx_vy, obs], axis=1)
         return obs
+
+    def transform_action_to_follow_pos(self, goal_pos, follow_pos, current_state, r_min=0.5, deg_max=60.0):
+
+        d = goal_pos - current_state[:2]
+        dist = np.linalg.norm(d)
+        if dist < 1e-4:
+            dist = 1e-4
+        d_hat = d / dist
+
+        # Map angle in [-1, 1] to [-phi_max, phi_max]
+        phi_max = deg_max * math.pi / 180.0
+        theta = follow_pos[1] * phi_max
+
+        # Map action to radius within [r_min, min(max_follow_pos_delta, dist)]
+        r_max = min(self.max_follow_pos_delta, dist)
+        rho = r_min + 0.5 * (follow_pos[0] + 1.0) * (r_max - r_min)
+
+        c, s = np.cos(theta), np.sin(theta)
+        u = np.array([c * d_hat[0] - s * d_hat[1],
+                    s * d_hat[0] + c * d_hat[1]])
+
+        follow_pos = current_state[:2] + rho * u
+        
+        return follow_pos
     
     def get_rl_follow_state(self, obs):
         """
@@ -130,9 +155,10 @@ class GroupRLMPC(object):
         
         # Rescale actions
         follow_pos = rl_actions[0, :2].copy()
-        follow_pos = follow_pos * self.max_follow_pos_delta
-        # Convert relative pos to global pos
-        follow_pos = follow_pos + current_state[:2]
+        # follow_pos = follow_pos * self.max_follow_pos_delta
+        # # Convert relative pos to global pos
+        # follow_pos = follow_pos + current_state[:2]
+        follow_pos = self.transform_action_to_follow_pos(goal_pos, follow_pos, current_state)
         
         follow_state = np.array([follow_pos[0], follow_pos[1], 0.0, 0.0])
         follow_state = follow_state.reshape(1, -1)

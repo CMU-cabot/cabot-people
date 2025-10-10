@@ -101,9 +101,9 @@ class RLServer(Node):
             callback_group = entity_callback_group
         )
 
-        self._high_level_pos_threshold = self.declare_parameter('high_level_pos_threshold', 1.5).value
-        self._high_level_vel_threshold = self.declare_parameter('high_level_vel_threshold', 0.5).value
-        self._high_level_ori_threshold = self.declare_parameter('high_level_ori_threshold', 15.0).value
+        self._high_level_pos_threshold = self.declare_parameter('high_level_pos_threshold', 2.0).value
+        self._high_level_vel_threshold = self.declare_parameter('high_level_vel_threshold', 1.0).value
+        self._high_level_ori_threshold = self.declare_parameter('high_level_ori_threshold', 30.0).value
         self._high_level_ori_threshold = self._high_level_ori_threshold / 180 * np.pi
         self._static_threshold = self.declare_parameter('static_threshold', 0.3).value
 
@@ -143,7 +143,7 @@ class RLServer(Node):
             # spd_1_omega_0785.zip
             rl_model_fpath = os.path.join(get_package_share_directory('lidar_process'),  # this package name
                                             "group-rl-models",
-                                            "spd_1_omega_0785.zip")
+                                            "expo_noreact_20human.zip")
             rl_config_path = os.path.join(get_package_share_directory('lidar_process'),  # this package name
                                             "group-rl-configs",
                                             "rl_config.yaml")
@@ -226,15 +226,15 @@ class RLServer(Node):
         # public info for controller from RL
         
         # people_array is a NxTx2 array
-        people_array, sub_goal = self.agent.act_rl(self.robot_observation)
-        self.get_logger().info("RL Sub-goal: {}".format(sub_goal))
-        sub_goal_msg = Point()
-        sub_goal_msg.x = float(sub_goal[0])
-        sub_goal_msg.y = float(sub_goal[1])
-        self.rl_subgoal_pub.publish(sub_goal_msg)
-        self.get_logger().info("Point published")
-
         try:
+            people_array, sub_goal = self.agent.act_rl(self.robot_observation)
+            self.get_logger().info("RL Sub-goal: {}".format(sub_goal))
+            sub_goal_msg = Point()
+            sub_goal_msg.x = float(sub_goal[0])
+            sub_goal_msg.y = float(sub_goal[1])
+            self.rl_subgoal_pub.publish(sub_goal_msg)
+            self.get_logger().info("Point published")
+
             people_array_msg = PositionHistoryArray()
             if people_array is None:
                 people_array_msg.horizon = 0
