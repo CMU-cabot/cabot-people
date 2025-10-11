@@ -143,7 +143,7 @@ class RLServer(Node):
             # spd_1_omega_0785.zip
             rl_model_fpath = os.path.join(get_package_share_directory('lidar_process'),  # this package name
                                             "group-rl-models",
-                                            "expo_noreact_20human.zip")
+                                            "expo_orca_90deg.zip")
             rl_config_path = os.path.join(get_package_share_directory('lidar_process'),  # this package name
                                             "group-rl-configs",
                                             "rl_config.yaml")

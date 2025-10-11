@@ -101,7 +101,7 @@ class GroupRLMPC(object):
         obs = np.concatenate([goal_pos, goal_vx_vy, obs], axis=1)
         return obs
 
-    def transform_action_to_follow_pos(self, goal_pos, follow_pos, current_state, r_min=0.5, deg_max=60.0):
+    def transform_action_to_follow_pos(self, goal_pos, follow_pos, current_state, r_min=0.5, deg_max=45.0):
 
         d = goal_pos - current_state[:2]
         dist = np.linalg.norm(d)
