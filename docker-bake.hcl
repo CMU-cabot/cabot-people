@@ -28,13 +28,12 @@ variable "REGISTRY" {
 }
 
 variable "L4T_V" {
-  default = "35.3.1"
-#  default = "36.2.0"
+#  default = "35.3.1"
+  default = "r36.2.0"
 }
 
 variable "L4T_IMAGE" {
   default = "nvcr.io/nvidia/l4t-base:${L4T_V}"
-#  default = "nvcr.io/nvidia/l4t-base:${L4T_V}"
 }
 
 variable "L4T_MAJOR_MINOR_V" {
