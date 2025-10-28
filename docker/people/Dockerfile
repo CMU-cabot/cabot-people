@@ -104,6 +104,14 @@ RUN if [ "${TARGETARCH}" = "amd64" ]; then \
         rm -rf /var/lib/apt/lists/* ; \
     fi
 
+# on jetson, remove transforms3d deb package to downgrade
+RUN if [ "${TARGETARCH}" = "arm64" ]; then \
+        apt-get update && \
+        apt-get remove -y --purge python3-transforms3d \
+        && \
+        apt-get clean && \
+        rm -rf /var/lib/apt/lists/* ; \
+    fi
 COPY requirements.txt /
 RUN pip3 install --no-cache-dir \
         -r /requirements.txt

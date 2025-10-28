@@ -188,6 +188,4 @@ COPY --from=cache /usr/local/lib/python3.10/dist-packages/mmdet-3.3.0.dist-info 
 # clone mmdeploy, mmdetection repository which is used when deploying models
 RUN cd /opt && \
 	git clone -b cabot-main https://github.com/CMU-cabot/mmdeploy.git --recursive && \
-	cd mmdeploy && \
-	cd /opt && \
 	git clone -b v3.3.0 https://github.com/open-mmlab/mmdetection.git
