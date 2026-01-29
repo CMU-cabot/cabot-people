@@ -49,6 +49,7 @@ def generate_launch_description():
     map_frame = LaunchConfiguration('map_frame')
     robot_footprint_frame = LaunchConfiguration('robot_footprint_frame')
     namespace = LaunchConfiguration('namespace')
+    camera_id = LaunchConfiguration('camera_id')
     camera_link_frame = LaunchConfiguration('camera_link_frame')
     camera_info_topic = LaunchConfiguration('camera_info_topic')
     image_rect_topic = LaunchConfiguration('image_rect_topic')
@@ -77,7 +78,7 @@ def generate_launch_description():
         SetEnvironmentVariable('ROS_LOG_DIR', launch_config.log_dir),
         # append prefix name to the log directory for convenience
         LogInfo(msg=["no cabot_common"]) if workaround else RegisterEventHandler(OnShutdown(on_shutdown=[AppendLogDirPrefix("track_people_cpp-detect_mmdet_seg")])),
-
+        DeclareLaunchArgument('camera_id', default_value=namespace),
         DeclareLaunchArgument('map_frame', default_value='map'),
         DeclareLaunchArgument('robot_footprint_frame', default_value='base_footprint'),
         DeclareLaunchArgument('namespace', default_value='camera'),
@@ -104,7 +105,7 @@ def generate_launch_description():
         # overwrite parameters
         SetParameter(name='map_frame', value=map_frame),
         SetParameter(name='robot_footprint_frame', value=robot_footprint_frame),
-        SetParameter(name='camera_id', value=namespace),
+        SetParameter(name='camera_id', value=camera_id),
         SetParameter(name='camera_link_frame', value=camera_link_frame),
         SetParameter(name='camera_info_topic', value=camera_info_topic),
         SetParameter(name='image_rect_topic', value=image_rect_topic),

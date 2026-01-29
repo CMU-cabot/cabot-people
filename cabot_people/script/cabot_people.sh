@@ -500,11 +500,17 @@ if [ $detection -eq 1 ]; then
         exit
     fi
 
+    camera_id_option=""
+    if [ -n "$serial_no" ]; then
+        camera_id_option="camera_id:=$serial_no"
+    fi
+
     if [ $cabot_detect_ver -eq 1 ] || [ $cabot_detect_ver -eq 4 ] || [ $cabot_detect_ver -eq 7 ]; then
         # python
         echo "launch track_people_py $launch_file"
         com="$command ros2 launch -n track_people_py $launch_file \
                       namespace:=$namespace \
+                      $camera_id_option \
                       map_frame:=$map_frame \
                       camera_link_frame:=$camera_link_frame \
                       depth_registered_topic:=$depth_registered_topic \
@@ -530,6 +536,7 @@ if [ $detection -eq 1 ]; then
         echo "launch track_people_cpp $launch_file"
         com="$command ros2 launch -n track_people_cpp $launch_file \
                       namespace:=$namespace \
+                      $camera_id_option \
                       map_frame:=$map_frame \
                       camera_link_frame:=$camera_link_frame \
                       use_composite:=$use_composite \

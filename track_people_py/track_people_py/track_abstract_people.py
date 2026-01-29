@@ -192,6 +192,10 @@ class AbsTrackPeople(rclpy.node.Node):
             if track_id in stationary_track_id_list:
                 person.tags.append("stationary")
 
+            if hasattr(msg, "camera_id") and msg.camera_id:
+                person.tagnames.append("camera_id")
+                person.tags.append(msg.camera_id)
+
             people_msg.people.append(person)
 
         self.people_pub.publish(people_msg)

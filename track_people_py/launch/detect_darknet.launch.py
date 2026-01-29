@@ -73,6 +73,7 @@ def generate_launch_description():
         DeclareLaunchArgument('map_frame', default_value='map'),
         DeclareLaunchArgument('robot_footprint_frame', default_value='base_footprint'),
         DeclareLaunchArgument('namespace', default_value='camera'),
+        DeclareLaunchArgument('camera_id', default_value=namespace),
         DeclareLaunchArgument('camera_link_frame', default_value='camera_link'),
         DeclareLaunchArgument('camera_info_topic', default_value='color/camera_info'),
         DeclareLaunchArgument('image_rect_topic', default_value='color/image_raw'),
@@ -92,7 +93,7 @@ def generate_launch_description():
         # overwrite parameters
         SetParameter(name='map_frame', value=map_frame),
         SetParameter(name='robot_footprint_frame', value=robot_footprint_frame),
-        SetParameter(name='camera_id', value=namespace),
+        SetParameter(name='camera_id', value=LaunchConfiguration('camera_id')),
         SetParameter(name='camera_link_frame', value=camera_link_frame),
         SetParameter(name='camera_info_topic', value=camera_info_topic),
         SetParameter(name='image_rect_topic', value=image_rect_topic),
