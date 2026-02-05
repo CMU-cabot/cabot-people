@@ -29,8 +29,8 @@ from rclpy.callback_groups import MutuallyExclusiveCallbackGroup, ReentrantCallb
 from rclpy.qos import QoSProfile, QoSDurabilityPolicy, qos_profile_sensor_data
 
 USE_PED_TRACKER = True
-USE_GROUP_RL = True
-USE_CPP_MPC = True
+USE_GROUP_RL = False
+USE_CPP_MPC = False
 
 class RLServer(Node):
 
@@ -205,7 +205,7 @@ class RLServer(Node):
 
         self.robot_observation = observation
         #print("Robot obs;", self.robot_observation)
-        self.get_logger().debug("Robot pos: {}, Goal: {}, Num ped: {}".format(robot_pos_np, robot_goal_np, observation["num_pedestrians"]))
+        self.get_logger().info("Robot pos: {}, Goal: {}, Num ped: {}".format(robot_pos_np, robot_goal_np, observation["num_pedestrians"]))
         return
     
     def robot_hybrid_cb(self):
@@ -213,6 +213,7 @@ class RLServer(Node):
         msg = Twist()
         action, sub_goal = self.agent.act(self.robot_observation)
         self.get_logger().info("Action: {}".format(action))
+        self.get_logger().info("Sub-goal: {}".format(sub_goal))
         msg.linear.x = float(action[0])
         msg.angular.z = float(action[1])
         self.robot_pub.publish(msg)

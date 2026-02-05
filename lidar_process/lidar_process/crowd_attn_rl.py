@@ -180,8 +180,23 @@ class CrowdAttnRL(object):
             desired_th = np.arctan2(robot_goal[1] - robot_pos[1], robot_goal[0] - robot_pos[0])
             action = np.zeros(2)
             action[0] = robot_speed
-            action[1] = desired_th - robot_th
+            robot_th = robot_th % (2 * np.pi)
+            if robot_th > np.pi:
+                robot_th = robot_th - 2 * np.pi
+            desired_w = desired_th - robot_th
+            if desired_w > np.pi:
+                desired_w = desired_w - 2 * np.pi
+            if desired_w < -np.pi:
+                desired_w = desired_w + 2 * np.pi
+            if abs(desired_w) > self.max_ang_speed:
+                if desired_w > 0:
+                    action[1] = self.max_ang_speed
+                else:
+                    action[1] = -self.max_ang_speed
+            else:
+                action[1] = desired_w
             return action, robot_goal
+        
         state_time_end = time()
 
         eval_time_start = time()
@@ -198,10 +213,18 @@ class CrowdAttnRL(object):
         # convert to polar
         v = np.linalg.norm(holo_action)
         w = np.arctan2(holo_action[1], holo_action[0])
-        if abs(w - robot_th) > (np.pi / 2):
-            action = np.array([0.0, 0.0])
-        else:  
-            action = np.array([v, w - robot_th])
+        # if abs(w - robot_th) > (np.pi / 2):
+        #     action = np.array([0.0, 0.0])
+        # else:  
+        #     action = np.array([v, w - robot_th])
+        robot_th = robot_th % (2 * np.pi)
+        w = w % (2 * np.pi)
+        if abs(w - robot_th) > np.pi:
+            if w > robot_th:
+                w = w - 2 * np.pi
+            else:
+                w = w + 2 * np.pi
+        action = np.array([v, w - robot_th])
 
         # print("Action after:", v, w, action)
 
