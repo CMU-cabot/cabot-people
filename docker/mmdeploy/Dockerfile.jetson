@@ -91,14 +91,17 @@ RUN apt update && \
 
 # install for torch
 RUN pip3 install --no-cache-dir filelock fsspec jinja2 networkx sympy typing-extensions==4.8.0
-# install torch by setting USE_DISTRIBUTED option to use torch.distributed package for mmdeploy
-# https://forums.developer.nvidia.com/t/pytorch-for-jetson/72048
+# build torch, torchvision only for Jetson Orin (TORCH_CUDA_ARCH_LIST=8.7)
+# currently do not support for Xavier (TORCH_CUDA_ARCH_LIST=7.2), Thor (TORCH_CUDA_ARCH_LIST=11.0)
+#
+# build torch by setting USE_DISTRIBUTED option to use torch.distributed package for mmdeploy
+# (https://forums.developer.nvidia.com/t/pytorch-for-jetson/72048)
 RUN git clone --recursive --branch v2.1.1 http://github.com/pytorch/pytorch && \
         cd pytorch && \
         pip3 install --no-cache-dir -r requirements.txt && \
         pip3 install --no-cache-dir scikit-build && \
         pip3 install --no-cache-dir ninja && \
-        USE_NCCL=0 USE_DISTRIBUTED=1 USE_QNNPACK=0 USE_PYTORCH_QNNPACK=0 USE_NATIVE_ARCH=1 TORCH_CUDA_ARCH_LIST="7.2;8.7" PYTORCH_BUILD_VERSION=2.1.1 PYTORCH_BUILD_NUMBER=1 \
+        USE_NCCL=0 USE_DISTRIBUTED=1 USE_QNNPACK=0 USE_PYTORCH_QNNPACK=0 USE_NATIVE_ARCH=1 TORCH_CUDA_ARCH_LIST="8.7" PYTORCH_BUILD_VERSION=2.1.1 PYTORCH_BUILD_NUMBER=1 \
         python3 setup.py bdist_wheel -d /tmp/wheelhouse && \
         pip3 install --no-cache-dir --no-deps /tmp/wheelhouse/torch-*.whl && \
         cd ../ && \
@@ -109,7 +112,7 @@ RUN pip3 install --no-cache-dir numpy pillow requests
 # install torchvision
 RUN git clone --branch v0.16.1 https://github.com/pytorch/vision torchvision && \
         cd torchvision && \
-        FORCE_CUDA=1 TORCH_CUDA_ARCH_LIST="7.2;8.7" BUILD_VERSION=0.16.1 python3 setup.py bdist_wheel -d /tmp/wheelhouse && \
+        FORCE_CUDA=1 TORCH_CUDA_ARCH_LIST="8.7" BUILD_VERSION=0.16.1 python3 setup.py bdist_wheel -d /tmp/wheelhouse && \
         pip3 install --no-cache-dir --no-deps /tmp/wheelhouse/torchvision-*.whl && \
         cd ../ && \
         rm -rf torchvision
