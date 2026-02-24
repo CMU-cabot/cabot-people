@@ -91,6 +91,7 @@ debug=0
 command=''
 commandpost='&'
 
+: ${CABOT_NAVIGATION_METHOD:=0}
 : ${CABOT_GAZEBO:=0}
 : ${CABOT_USE_REALSENSE:=0}
 : ${CABOT_SHOW_PEOPLE_RVIZ:=0}
@@ -599,6 +600,42 @@ if [ $obstacle -eq 1 ]; then
     com="$command ros2 launch -n $launch_file $opt_track \
                   jetpack5_workaround:=$jetpack5_workaround \
                   target_fps:=$target_fps \
+                  use_sim_time:=$use_sim_time \
+                  $commandpost"
+    echo $com
+    eval $com
+    pids+=($!)
+fi
+
+### VLM-SocialNav
+if [ $CABOT_NAVIGATION_METHOD -eq 1 ]; then
+    launch_file="social_nav_py social_nav.launch.py"
+    echo "launch $launch_file"
+    com="$command ros2 launch -n $launch_file \
+                  people_topic:=/people/detected_boxes \
+                  $commandpost"
+    echo $com
+    eval $com
+    pids+=($!)
+fi
+
+### SNGNN
+if [ $CABOT_NAVIGATION_METHOD -eq 2 ]; then
+    launch_file="sngnn_py sngnn.launch.py"
+    echo "launch $launch_file"
+    com="$command ros2 launch -n $launch_file \
+                  $commandpost"
+    echo $com
+    eval $com
+    pids+=($!)
+fi
+
+### VLM-RankNav
+if [ $CABOT_NAVIGATION_METHOD -eq 3 ]; then
+    launch_file="rank_nav_py rank_nav.launch.py"
+    echo "launch $launch_file"
+    com="$command ros2 launch -n $launch_file \
+                  publish_rank_nav_image:=$publish_detect_image \
                   use_sim_time:=$use_sim_time \
                   $commandpost"
     echo $com

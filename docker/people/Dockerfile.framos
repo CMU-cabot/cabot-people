@@ -160,6 +160,11 @@ COPY --from=src ./cabot_people src/cabot_people
 COPY --from=src ./track_people_py src/track_people_py
 COPY --from=src ./track_people_msgs src/track_people_msgs
 COPY --from=src ./track_people_cpp src/track_people_cpp
+COPY --from=src ./social_nav_py src/social_nav_py
+COPY --from=src ./social_nav_msgs src/social_nav_msgs
+COPY --from=src ./rank_nav_msgs src/rank_nav_msgs
+COPY --from=src ./rank_nav_py src/rank_nav_py
+COPY --from=src ./sngnn_py src/sngnn_py
 
 RUN /ros_entrypoint.sh /launch.sh build -m
 

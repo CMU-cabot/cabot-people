@@ -108,6 +108,19 @@ COPY requirements.txt /
 RUN pip3 install --no-cache-dir \
         -r /requirements.txt
 
+# install transformers for RankNav
+RUN pip3 install --no-cache-dir transformers==4.36.2
+RUN pip3 install --no-cache-dir openai "numpy<2.0"
+RUN if [ "${TARGETARCH}" = "amd64" ]; then \
+        wget https://data.dgl.ai/wheels-test/dgl_cu113-1.0a230116-cp310-cp310-manylinux1_x86_64.whl && \
+        pip3 install dgl_cu113-1.0a230116-cp310-cp310-manylinux1_x86_64.whl && \
+        rm dgl_cu113-1.0a230116-cp310-cp310-manylinux1_x86_64.whl; \
+    elif [ "${TARGETARCH}" = "arm64" ]; then \
+        wget https://data.dgl.ai/wheels-test/dgl-0.8.2-cp38-cp38-manylinux2014_aarch64.whl && \
+        pip3 install dgl-0.8.2-cp38-cp38-manylinux2014_aarch64.whl && \
+        rm dgl-0.8.2-cp38-cp38-manylinux2014_aarch64.whl; \
+    fi
+RUN pip3 install --no-cache-dir dglgo==0.0.2
 # install gazebo
 #RUN sh -c 'echo "deb http://packages.osrfoundation.org/gazebo/ubuntu-stable $UBUNTU_DISTRO main" > /etc/apt/sources.list.d/gazebo-stable.list' && \
 #	wget http://packages.osrfoundation.org/gazebo.key -O - | sudo apt-key add - && \
@@ -158,6 +171,11 @@ COPY --from=src ./cabot_people src/cabot_people
 COPY --from=src ./track_people_py src/track_people_py
 COPY --from=src ./track_people_msgs src/track_people_msgs
 COPY --from=src ./track_people_cpp src/track_people_cpp
+COPY --from=src ./social_nav_py src/social_nav_py
+COPY --from=src ./social_nav_msgs src/social_nav_msgs
+COPY --from=src ./rank_nav_msgs src/rank_nav_msgs
+COPY --from=src ./rank_nav_py src/rank_nav_py
+COPY --from=src ./sngnn_py src/sngnn_py
 
 RUN /ros_entrypoint.sh /launch.sh build -m
 

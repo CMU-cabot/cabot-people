@@ -10,6 +10,11 @@ services:
       - HOST_GID
       - HOST_TZ
 # CaBot
+      - CABOT_NAVIGATION_METHOD
+      - AZURE_OPENAI_API_KEY
+      - AZURE_OPENAI_BASEURL
+      - VLM_SOCIAL_NAV_MODEL
+      - RANKNAV_ALPHA
       - CABOT_GAZEBO=${CABOT_GAZEBO:-1}
       - CABOT_SITE
       - CABOT_SHOW_PEOPLE_RVIZ=${CABOT_SHOW_PEOPLE_RVIZ:-0}
@@ -38,6 +43,7 @@ services:
       - CYCLONEDDS_NETWORK_INTERFACE_NAME
       - CYCLONEDDS_NETWORK_INTERFACE_AUTODETERMINE # set automatically by launch.sh
       - OVERRIDE_LAUNCH_PROCESS_OUTPUT
+      - XDG_RUNTIME_DIR=/tmp/runtime-developer
     volumes:
       - /dev:/dev
       - /sys/devices:/sys/devices
@@ -91,6 +97,11 @@ services:
       - ./track_people_py:/home/developer/people_nuc_ws/src/track_people_py
       - ./track_people_msgs:/home/developer/people_nuc_ws/src/track_people_msgs
       - ./track_people_cpp:/home/developer/people_nuc_ws/src/track_people_cpp
+      - ./social_nav_py:/home/developer/people_ws/src/social_nav_py
+      - ./social_nav_msgs:/home/developer/people_ws/src/social_nav_msgs
+      - ./rank_nav_msgs:/home/developer/people_ws/src/rank_nav_msgs
+      - ./rank_nav_py:/home/developer/people_ws/src/rank_nav_py
+      - ./sngnn_py:/home/developer/people_ws/src/sngnn_py
 
   people-nuc-dev:
     extends:
@@ -153,6 +164,12 @@ services:
       - ./track_people_py:/home/developer/people_ws/src/track_people_py
       - ./track_people_msgs:/home/developer/people_ws/src/track_people_msgs
       - ./track_people_cpp:/home/developer/people_ws/src/track_people_cpp
+      - ./social_nav_py:/home/developer/people_ws/src/social_nav_py
+      - ./social_nav_msgs:/home/developer/people_ws/src/social_nav_msgs
+      - ./rank_nav_msgs:/home/developer/people_ws/src/rank_nav_msgs
+      - ./rank_nav_py:/home/developer/people_ws/src/rank_nav_py
+      - ./sngnn_py:/home/developer/people_ws/src/sngnn_py
+
 
   people-all-dev:
     extends:
@@ -198,6 +215,11 @@ services:
       - ./track_people_py:/home/developer/people_ws/src/track_people_py
       - ./track_people_msgs:/home/developer/people_ws/src/track_people_msgs
       - ./track_people_cpp:/home/developer/people_ws/src/track_people_cpp
+      - ./social_nav_py:/home/developer/people_ws/src/social_nav_py
+      - ./social_nav_msgs:/home/developer/people_ws/src/social_nav_msgs
+      - ./rank_nav_msgs:/home/developer/people_ws/src/rank_nav_msgs
+      - ./rank_nav_py:/home/developer/people_ws/src/rank_nav_py
+      - ./sngnn_py:/home/developer/people_nuc_ws/src/sngnn_py
 
   people-detection-prod-base:
     extends:
@@ -225,6 +247,11 @@ services:
       - ./track_people_py:/home/developer/people_ws/src/track_people_py
       - ./track_people_msgs:/home/developer/people_ws/src/track_people_msgs
       - ./track_people_cpp:/home/developer/people_ws/src/track_people_cpp
+      - ./social_nav_py:/home/developer/people_ws/src/social_nav_py
+      - ./social_nav_msgs:/home/developer/people_ws/src/social_nav_msgs
+      - ./rank_nav_msgs:/home/developer/people_ws/src/rank_nav_msgs
+      - ./rank_nav_py:/home/developer/people_ws/src/rank_nav_py
+      - ./sngnn_py:/home/developer/people_nuc_ws/src/sngnn_py
 
   people-track-prod-base:
     extends:
@@ -259,6 +286,11 @@ services:
       - ./track_people_py:/home/developer/people_framos_ws/src/track_people_py
       - ./track_people_msgs:/home/developer/people_framos_ws/src/track_people_msgs
       - ./track_people_cpp:/home/developer/people_framos_ws/src/track_people_cpp
+      - ./social_nav_py:/home/developer/people_ws/src/social_nav_py
+      - ./social_nav_msgs:/home/developer/people_ws/src/social_nav_msgs
+      - ./rank_nav_msgs:/home/developer/people_ws/src/rank_nav_msgs
+      - ./rank_nav_py:/home/developer/people_ws/src/rank_nav_py
+      - ./sngnn_py:/home/developer/people_ws/src/sngnn_py
 
   people-framos-all-dev:
     extends:
@@ -297,6 +329,11 @@ services:
       - ./track_people_py:/home/developer/people_framos_ws/src/track_people_py
       - ./track_people_msgs:/home/developer/people_framos_ws/src/track_people_msgs
       - ./track_people_cpp:/home/developer/people_framos_ws/src/track_people_cpp
+      - ./social_nav_py:/home/developer/people_ws/src/social_nav_py
+      - ./social_nav_msgs:/home/developer/people_ws/src/social_nav_msgs
+      - ./rank_nav_msgs:/home/developer/people_ws/src/rank_nav_msgs
+      - ./rank_nav_py:/home/developer/people_ws/src/rank_nav_py
+      - ./sngnn_py:/home/developer/people_ws/src/sngnn_py
 
   people-framos-camera-prod-base:
     extends:
@@ -332,6 +369,11 @@ services:
       - ./track_people_py:/home/developer/people_framos_ws/src/track_people_py
       - ./track_people_msgs:/home/developer/people_framos_ws/src/track_people_msgs
       - ./track_people_cpp:/home/developer/people_framos_ws/src/track_people_cpp
+      - ./social_nav_py:/home/developer/people_ws/src/social_nav_py
+      - ./social_nav_msgs:/home/developer/people_ws/src/social_nav_msgs
+      - ./rank_nav_msgs:/home/developer/people_ws/src/rank_nav_msgs
+      - ./rank_nav_py:/home/developer/people_ws/src/rank_nav_py
+      - ./sngnn_py:/home/developer/people_ws/src/sngnn_py
 
   people-framos-detection-prod-base:
     extends:
