@@ -43,7 +43,7 @@ RUN TENSORRT_DEB_V="8.6.1.6-1+cuda11.8" && \
 	rm -rf /var/lib/apt/lists/*
 
 # install mmdeploy requirements
-RUN pip3 install --no-cache-dir torch==2.1.1 torchvision==0.16.1 --index-url https://download.pytorch.org/whl/cu118 && \
+RUN pip3 install --no-cache-dir torch==2.6.0 torchvision==0.21.0 --index-url https://download.pytorch.org/whl/cu118 && \
 	pip3 install --no-cache-dir openmim==0.3.9 && \
 	# install all requirements for mmengine except opencv-python
 	pip3 install --no-cache-dir addict termcolor pyyaml matplotlib yapf numpy rich && \
@@ -52,9 +52,19 @@ RUN pip3 install --no-cache-dir torch==2.1.1 torchvision==0.16.1 --index-url htt
 	# install all requirements for mmcv except opencv-python, mmengine
 	pip3 install --no-cache-dir yapf addict pyyaml Pillow numpy packaging termcolor matplotlib rich platformdirs>=3.5.1 \
 		importlib-metadata>=6.6.0 tomli>=2.0.1 zipp>=0.5 "pygments<3.0.0,>=2.13.0" markdown-it-py>=2.2.0 mdurl~=0.1 && \
-	# install mmcv without opencv-python to use opencv-python built from source
-	pip3 install --no-cache-dir --no-deps mmcv==2.1.0 -f https://download.openmmlab.com/mmcv/dist/cu118/torch2.0/index.html && \
+	# install build dependencies for mmcv
+	pip3 install --no-cache-dir psutil==5.9.6 ninja==1.11.1.1 && \
 	pip3 install --no-cache-dir pycuda==2023.1
+
+# install mmcv
+RUN cd /opt && \
+	git clone --branch v2.1.0 https://github.com/open-mmlab/mmcv.git && \
+	cd mmcv && \
+	MMCV_WITH_OPS=1 python3 setup.py bdist_wheel -d /tmp/wheelhouse && \
+	# install mmcv without opencv-python to use opencv-python built from source
+	pip3 install --no-cache-dir --no-deps /tmp/wheelhouse/mmcv-*.whl && \
+	cd /opt && \
+	rm -rf mmcv
 
 # workaround to to find TensorRT directory when building mmdeploy
 # https://github.com/open-mmlab/mmdeploy/issues/2514
@@ -145,7 +155,7 @@ RUN TENSORRT_DEB_V="8.6.1.6-1+cuda11.8" && \
 	rm -rf /var/lib/apt/lists/*
 
 # install mmdeploy requirements
-RUN pip3 install --no-cache-dir torch==2.1.1 torchvision==0.16.1 --index-url https://download.pytorch.org/whl/cu118 && \
+RUN pip3 install --no-cache-dir torch==2.6.0 torchvision==0.21.0 --index-url https://download.pytorch.org/whl/cu118 && \
 	pip3 install --no-cache-dir openmim==0.3.9 && \
 	# install all requirements for mmengine except opencv-python
 	pip3 install --no-cache-dir addict termcolor pyyaml matplotlib yapf numpy rich && \
@@ -154,9 +164,11 @@ RUN pip3 install --no-cache-dir torch==2.1.1 torchvision==0.16.1 --index-url htt
 	# install all requirements for mmcv except opencv-python, mmengine
 	pip3 install --no-cache-dir yapf addict pyyaml Pillow numpy packaging termcolor matplotlib rich platformdirs>=3.5.1 \
 		importlib-metadata>=6.6.0 tomli>=2.0.1 zipp>=0.5 "pygments<3.0.0,>=2.13.0" markdown-it-py>=2.2.0 mdurl~=0.1 && \
-	# install mmcv without opencv-python to use opencv-python built from source
-	pip3 install --no-cache-dir --no-deps mmcv==2.1.0 -f https://download.openmmlab.com/mmcv/dist/cu118/torch2.1/index.html && \
 	pip3 install --no-cache-dir pycuda==2023.1
+
+# install mmcv built against the same PyTorch and CUDA versions in the cache stage
+COPY --from=cache /usr/local/lib/python3.10/dist-packages/mmcv /usr/local/lib/python3.10/dist-packages/mmcv
+COPY --from=cache /usr/local/lib/python3.10/dist-packages/mmcv-2.1.0.dist-info /usr/local/lib/python3.10/dist-packages/mmcv-2.1.0.dist-info
 
 # workaround to to find TensorRT directory when running mmdeploy
 # https://github.com/open-mmlab/mmdeploy/issues/2514

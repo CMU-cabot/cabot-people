@@ -24,15 +24,13 @@ ARG FROM_IMAGE
 FROM $FROM_IMAGE AS cache
 
 ARG CMAKE_V=3.19.3 \
-    CUDA_V=12-2 \
-    L4T_V=36.2 \
+    CUDA_V=12-6 \
+    L4T_V=36.4 \
     TEGRA_V=t234
 
 # if nvidia runtime is not used for build, install l4t packages in cache image
 RUN if [ -z "$(ldconfig -p | grep libcuda.so)" ]; then \
-        apt-key adv --fetch-keys https://repo.download.nvidia.com/jetson/jetson-ota-public.asc && \
         apt-key adv --fetch-keys http://l4t-repo.nvidia.com/jetson-ota-internal.key && \
-        echo "deb https://repo.download.nvidia.com/jetson/common r${L4T_V} main" > /etc/apt/sources.list.d/nvidia-l4t-apt-source.list && \
         echo "deb https://repo.download.nvidia.com/jetson/${TEGRA_V} r${L4T_V} main" >> /etc/apt/sources.list.d/nvidia-l4t-apt-source.list && \
         # workaround to install nvidia-l4t-core in docker container
         # https://forums.balena.io/t/getting-linux-for-tegra-into-a-container-on-balena-os/179421/20
@@ -59,10 +57,9 @@ RUN apt update && \
         apt-get install -y --no-install-recommends \
         libnvinfer-dev \
         libnvinfer-plugin-dev \
-        libnvinfer-plugin8 \
-        libnvinfer8 \
-        libnvonnxparsers8 \ 
-        libnvparsers8 \
+        libnvinfer-plugin10 \
+        libnvinfer10 \
+        libnvonnxparsers10 \ 
         python3-libnvinfer \
         && \
         apt clean && \
@@ -87,6 +84,7 @@ RUN apt update && \
         libnvjitlink-dev-${CUDA_V} \
         libopenblas-dev \
         libopenmpi-dev \
+        nvidia-cudnn9-dev \
         && \
         apt-get clean && \
         rm -rf /var/lib/apt/lists/*
@@ -98,12 +96,14 @@ RUN pip3 install --no-cache-dir filelock fsspec jinja2 networkx sympy typing-ext
 #
 # build torch by setting USE_DISTRIBUTED option to use torch.distributed package for mmdeploy
 # (https://forums.developer.nvidia.com/t/pytorch-for-jetson/72048)
-RUN git clone --recursive --branch v2.1.1 http://github.com/pytorch/pytorch && \
+RUN git clone --recursive --branch v2.6.0 http://github.com/pytorch/pytorch && \
         cd pytorch && \
+        # use the specified CMake version instead of the latest version from pip
+        sed -i '/^cmake$/d' requirements.txt && \
         pip3 install --no-cache-dir -r requirements.txt && \
         pip3 install --no-cache-dir scikit-build && \
         pip3 install --no-cache-dir ninja && \
-        USE_NCCL=0 USE_DISTRIBUTED=1 USE_QNNPACK=0 USE_PYTORCH_QNNPACK=0 USE_NATIVE_ARCH=1 TORCH_CUDA_ARCH_LIST="8.7" PYTORCH_BUILD_VERSION=2.1.1 PYTORCH_BUILD_NUMBER=1 \
+        USE_NCCL=0 USE_DISTRIBUTED=1 USE_QNNPACK=0 USE_PYTORCH_QNNPACK=0 USE_NATIVE_ARCH=1 TORCH_CUDA_ARCH_LIST="8.7" PYTORCH_BUILD_VERSION=2.6.0 PYTORCH_BUILD_NUMBER=1 \
         python3 setup.py bdist_wheel -d /tmp/wheelhouse && \
         pip3 install --no-cache-dir --no-deps /tmp/wheelhouse/torch-*.whl && \
         cd ../ && \
@@ -112,9 +112,9 @@ RUN git clone --recursive --branch v2.1.1 http://github.com/pytorch/pytorch && \
 # install for torchvision
 RUN pip3 install --no-cache-dir numpy pillow requests
 # install torchvision
-RUN git clone --branch v0.16.1 https://github.com/pytorch/vision torchvision && \
+RUN git clone --branch v0.21.0 https://github.com/pytorch/vision torchvision && \
         cd torchvision && \
-        FORCE_CUDA=1 TORCH_CUDA_ARCH_LIST="8.7" BUILD_VERSION=0.16.1 python3 setup.py bdist_wheel -d /tmp/wheelhouse && \
+        FORCE_CUDA=1 TORCH_CUDA_ARCH_LIST="8.7" BUILD_VERSION=0.21.0 python3 setup.py bdist_wheel -d /tmp/wheelhouse && \
         pip3 install --no-cache-dir --no-deps /tmp/wheelhouse/torchvision-*.whl && \
         cd ../ && \
         rm -rf torchvision
@@ -229,17 +229,16 @@ RUN cd /opt && \
 # copy mmdeploy, mmdetection from cache image
 FROM $FROM_IMAGE AS build
 
-ARG CUDA_V=12-2
+ARG CUDA_V=12-6
 
 # install TensorRT packages
 RUN apt update && \
         apt-get install -y --no-install-recommends \
         libnvinfer-dev \
         libnvinfer-plugin-dev \
-        libnvinfer-plugin8 \
-        libnvinfer8 \
-        libnvonnxparsers8 \ 
-        libnvparsers8 \
+        libnvinfer-plugin10 \
+        libnvinfer10 \
+        libnvonnxparsers10 \
         python3-libnvinfer \
         && \
         apt clean && \
@@ -264,6 +263,7 @@ RUN apt update && \
         libnvjitlink-${CUDA_V} \
         libopenblas0 \
         libopenmpi3 \
+        nvidia-cudnn9-dev \
         && \
         apt-get clean && \
         rm -rf /var/lib/apt/lists/*
@@ -273,13 +273,13 @@ RUN pip3 install --no-cache-dir filelock fsspec jinja2 networkx sympy typing-ext
 # install torch
 COPY --from=cache /usr/local/lib/python3.10/dist-packages/torch /usr/local/lib/python3.10/dist-packages/torch
 COPY --from=cache /usr/local/lib/python3.10/dist-packages/torchgen /usr/local/lib/python3.10/dist-packages/torchgen
-COPY --from=cache /usr/local/lib/python3.10/dist-packages/torch-2.1.1.dist-info /usr/local/lib/python3.10/dist-packages/torch-2.1.1.dist-info
+COPY --from=cache /usr/local/lib/python3.10/dist-packages/torch-2.6.0.dist-info /usr/local/lib/python3.10/dist-packages/torch-2.6.0.dist-info
 
 # install for torchvision
 RUN pip3 install --no-cache-dir numpy pillow requests
 # install torchvision
 COPY --from=cache /usr/local/lib/python3.10/dist-packages/torchvision /usr/local/lib/python3.10/dist-packages/torchvision
-COPY --from=cache /usr/local/lib/python3.10/dist-packages/torchvision-0.16.1.dist-info /usr/local/lib/python3.10/dist-packages/torchvision-0.16.1.dist-info
+COPY --from=cache /usr/local/lib/python3.10/dist-packages/torchvision-0.21.0.dist-info /usr/local/lib/python3.10/dist-packages/torchvision-0.21.0.dist-info
 
 # install mmdeploy requirements
 # install pyopenssl for openmim
