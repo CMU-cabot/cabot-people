@@ -94,7 +94,7 @@ group "targets-arm64" {
 target "base" {
   context    = "."
   dockerfile-inline = <<EOF
-FROM --platform=linux/amd64 nvidia/cuda:11.8.0-cudnn8-devel-ubuntu22.04 as build-amd64
+FROM --platform=linux/amd64 nvidia/cuda:12.9.2-cudnn-devel-ubuntu22.04 as build-amd64
 FROM --platform=linux/arm64 ${L4T_IMAGE} as build-arm64
 FROM build-$TARGETARCH
 EOF
