@@ -108,8 +108,10 @@ def generate_launch_description():
         #     #arguments=["--ros-args", "--log-level", "debug"]
         # ),
 
-        # CABOT_CONTROLLER=follow uses the nav2 FollowPath controller only, so do not
-        # start rl_server (it would load torch and the RL models for nothing)
+        # follow (DWB) and mpc (CaBotSamplingMPCController) subscribe to nothing from
+        # this package, so do not start rl_server for them: it would load torch and the
+        # RL checkpoints for nothing. Keep this list in sync with CONTROLLER_MODES in
+        # lidar_process/rl_server.py, where those two are the entries mapped to None.
         Node(
             package="lidar_process",
             executable="rl_server",
@@ -117,7 +119,8 @@ def generate_launch_description():
             namespace=namespace,
             output=output,
             condition=IfCondition(PythonExpression(
-                ["'", EnvironmentVariable('CABOT_CONTROLLER', default_value='follow'), "' != 'follow'"])),
+                ["'", EnvironmentVariable('CABOT_CONTROLLER', default_value='follow'),
+                 "' not in ['follow', 'mpc']"])),
             #arguments=["--ros-args", "--log-level", "debug"]
         ),
 

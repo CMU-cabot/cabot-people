@@ -39,6 +39,7 @@ USE_SM_RL = False
 #                 True  -> publish /rl_subgoal and /rl_people, the nav2 controller runs the MPC
 CONTROLLER_MODES = {
     "follow": None,           # nav2 uses FollowPath (DWB), no need for rl_server
+    "mpc": None,              # nav2 uses MPCFollowPath, which subscribes to nothing here
     "rl": (True, False),      # GroupRLMPC       -> CaBotRLController
     "hybrid": (True, True),   # GroupRLMPC       -> CaBotHybridRLController
     "sm": (True, True),       # SocialMomentumRLMPC -> CaBotSocialMomentumController
