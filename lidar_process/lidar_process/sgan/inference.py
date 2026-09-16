@@ -30,7 +30,9 @@ class SGANInference(object):
         self.num_samples = 1
 
         self.cuda = torch.device('cuda:0')
-        checkpoint = torch.load(path,map_location=torch.device('cpu'))
+        # weights_only=False: the checkpoint carries checkpoint['args'] as well as
+        # the weights, and torch 2.6 (JetPack 6.2) defaults to weights_only=True
+        checkpoint = torch.load(path, map_location=torch.device('cpu'), weights_only=False)
         self.generator = self.get_generator(checkpoint)
         self.args = Dict(checkpoint['args'])
         return

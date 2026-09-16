@@ -4,9 +4,13 @@ import gym
 import os
 from time import time
 
+from .torch_compat import patch_torch_load
 from .crowdattn.rl.networks.model import Policy
 from .crowdattn.arguments import get_args
 from .sgan import inference
+
+# crowdattn checkpoints are full pickles; torch 2.6 (JetPack 6.2) would refuse them
+patch_torch_load()
 
 class CrowdAttnRL(object):
     # The baseline model is the crowd attention RL model
@@ -49,7 +53,7 @@ class CrowdAttnRL(object):
 			self.action_space,
 			base_kwargs=algo_args,
 			base='selfAttn_merge_srnn')
-        self.actor_critic.load_state_dict(torch.load(load_path, map_location=self.device))
+        self.actor_critic.load_state_dict(torch.load(load_path, map_location=self.device, weights_only=False))
         self.actor_critic.base.nenv = 1
         self.actor_critic.to(self.device)
 

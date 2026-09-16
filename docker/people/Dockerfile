@@ -29,12 +29,12 @@ ARG TARGETARCH
 # # AMD64
 # FROM --platform=linux/amd64 pytorch/pytorch:2.2.0-cuda11.8-cudnn8-runtime as base_amd64
 
-# # ARM64
-# FROM --platform=linux/arm64 dustynv/l4t-pytorch:2.2-r35.4.1 as base_arm64
+# # ARM64 (JetPack 6.0: r36.3/cu124, JetPack 6.2: r36.4)
+# FROM --platform=linux/arm64 dustynv/l4t-pytorch:r36.3.0-cu124 as base_arm64
 
 # # update pip url
 # ENV INDEX_HOST=jetson-ai-lab.io
-# ENV PIP_INDEX_URL=https://pypi.jetson-ai-lab.io/jp5/cu114
+# ENV PIP_INDEX_URL=https://pypi.jetson-ai-lab.io/jp6/cu126
 # ENV PIP_TRUSTED_HOST=pypi.jetson-ai-lab.io
 
 # FROM base_${TARGETARCH} AS build

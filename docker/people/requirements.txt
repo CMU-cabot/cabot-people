@@ -7,7 +7,8 @@ scipy==1.10.0
 pandas==1.5.3
 transforms3d==0.4.1
 
-#Pytorch with CUDA11.7
+#Pytorch: provided by the base image (CUDA 12.2 / torch 2.1.1 on JetPack 6.0,
+#CUDA 12.6 / torch 2.6.0 on JetPack 6.2)
 #torch
 #torchvision
 #torchaudio
@@ -24,4 +25,11 @@ attrdict
 #Pillow
 gym
 tensorflow
-opencv-python==4.5.5.64
+# NOTE: do not add opencv-python here. Both the amd64 and the arm64 image build
+# OpenCV from source with WITH_CUDA=ON / OPENCV_DNN_CUDA=ON and the python3
+# bindings (4.9.0 on JetPack 6.0, 4.10.0 on JetPack 6.2, see docker-bake.hcl),
+# installed into the very same /usr/local/lib/python3.10/dist-packages the pip
+# wheel would overwrite. That silently disables the CUDA backend in
+# track_people_py/scripts/detect_darknet_opencv_people.py and leaves the python
+# bindings several minor versions behind the C++ libraries track_people_cpp
+# links against. lidar_process itself does not import cv2.

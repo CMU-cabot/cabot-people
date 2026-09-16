@@ -6,6 +6,10 @@ from time import time
 
 from .group_mpc_rl import GroupRLMPC, cabot_speed_limit, load_mpc_config
 
+# group_rl SAC checkpoints are full pickles; torch 2.6 (JetPack 6.2) would refuse them
+from .torch_compat import patch_torch_load
+patch_torch_load()
+
 from .group_rl.config import get_args
 from .group_rl.obs_data_parser import ObsDataParser
 from .group_rl.sim.mpc import mpc_utils

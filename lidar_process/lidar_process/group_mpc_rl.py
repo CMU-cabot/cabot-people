@@ -5,6 +5,10 @@ import yaml
 import math
 from time import time
 
+# group_rl SAC checkpoints are full pickles; torch 2.6 (JetPack 6.2) would refuse them
+from .torch_compat import patch_torch_load
+patch_torch_load()
+
 # Import through group_rl
 from .group_rl.config import get_args, check_args
 from .group_rl.sim.mpc.group_linear_mpc import GroupLinearMPC
