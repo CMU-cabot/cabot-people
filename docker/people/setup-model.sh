@@ -125,7 +125,8 @@ if [ ! -e "rtmdet/$(arch)/deploy.json" ] || [ ! -e "rtmdet/$(arch)/pipeline.json
     sudo cp configs/mmdeploy/$mmdeploy_config_filename /opt/mmdeploy/configs/mmdet/detection/
 
     echo "run model deployment..."
-    python3 /opt/mmdeploy/tools/deploy.py \
+    # PyTorch 2.6+ defaults torch.load() to weights_only=True, so set TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD for MMEngine checkpoint compatibility.
+    TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD=1 python3 /opt/mmdeploy/tools/deploy.py \
         /opt/mmdeploy/configs/mmdet/detection/$mmdeploy_config_filename \
         /opt/mmdetection/configs/rtmdet/$mmdet_config_filename \
         rtmdet/$(arch)/tmp/$model_filename \
@@ -207,7 +208,8 @@ if [ ! -e "rtmdet-ins/$(arch)/deploy.json" ] || [ ! -e "rtmdet-ins/$(arch)/pipel
     sudo cp configs/mmdeploy/$mmdeploy_config_filename /opt/mmdeploy/configs/mmdet/instance-seg/
 
     echo "run model deployment (ignore error because visualize pytorch model will fail if input image size is not 640x640)..."
-    python3 /opt/mmdeploy/tools/deploy.py \
+    # PyTorch 2.6+ defaults torch.load() to weights_only=True, so set TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD for MMEngine checkpoint compatibility.
+    TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD=1 python3 /opt/mmdeploy/tools/deploy.py \
         /opt/mmdeploy/configs/mmdet/instance-seg/$mmdeploy_config_filename \
         /opt/mmdetection/configs/rtmdet/$mmdet_config_filename \
         rtmdet-ins/$(arch)/tmp/$model_filename \

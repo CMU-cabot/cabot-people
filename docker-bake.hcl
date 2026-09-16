@@ -28,17 +28,15 @@ variable "REGISTRY" {
 }
 
 variable "L4T_V" {
-  default = "35.3.1"
-#  default = "36.2.0"
+  default = "r36.2.0"
 }
 
 variable "L4T_IMAGE" {
   default = "nvcr.io/nvidia/l4t-base:${L4T_V}"
-#  default = "nvcr.io/nvidia/l4t-base:${L4T_V}"
 }
 
 variable "L4T_MAJOR_MINOR_V" {
-  default = join(".", slice(split(".", "${L4T_V}"), 0, 2))
+  default = join(".", slice(split(".", trim("${L4T_V}", "r")), 0, 2))
 }
 
 variable "TEGRA_V" {
@@ -46,11 +44,11 @@ variable "TEGRA_V" {
 }
 
 variable "OPENCV_V" {
-  default = "4.5.4"
+  default = "4.9.0"
 }
 
 variable "L4T_CUDA" {
-  default = "11-4"
+  default = "12-2"
 }
 
 group "default" {
@@ -94,7 +92,7 @@ group "targets-arm64" {
 target "base" {
   context    = "."
   dockerfile-inline = <<EOF
-FROM --platform=linux/amd64 nvidia/cuda:11.8.0-cudnn8-devel-ubuntu22.04 as build-amd64
+FROM --platform=linux/amd64 nvidia/cuda:12.9.2-cudnn-devel-ubuntu22.04 as build-amd64
 FROM --platform=linux/arm64 ${L4T_IMAGE} as build-arm64
 FROM build-$TARGETARCH
 EOF

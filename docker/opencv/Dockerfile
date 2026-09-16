@@ -24,8 +24,8 @@ FROM $FROM_IMAGE AS build
 
 # CMake 3.19+ is required to build Open3D
 ARG CMAKE_V=3.19.3 \
-	OPENCV_V=4.5.4 \
-	COMP_CAP=6.1,7.5,8.6
+	OPENCV_V=4.10.0 \
+	COMP_CAP=7.5,8.6,12.0
 
 ENV DEBIAN_FRONTEND="noninteractive"
 
@@ -110,4 +110,3 @@ RUN mkdir -p src/opencv/build && cd src/opencv && \
 	ldconfig && \
 	cd ../../ && \
 	rm -rf opencv
-
