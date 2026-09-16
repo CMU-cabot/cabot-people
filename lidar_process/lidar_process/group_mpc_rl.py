@@ -2,6 +2,7 @@ import os
 import numpy as np
 import torch
 import yaml
+import math
 from time import time
 
 # Import through group_rl
@@ -13,6 +14,33 @@ from .group_rl.obs_data_parser import ObsDataParser
 #### RL model
 from .group_rl.rl.rl_agent import SAC
 from .group_rl.rl.utils import load_config
+
+def cabot_speed_limit(default=None):
+    """Speed (m/s) the robot is allowed to run at, or default if not configured.
+    /cabot/speed_control_node clamps /cmd_vel to CABOT_INIT_SPEED, so planning or
+    commanding a different speed only makes the output diverge from what the robot
+    actually does. CABOT_MAX_SPEED is the fallback when no initial speed is set."""
+    for name in ["CABOT_INIT_SPEED", "CABOT_MAX_SPEED"]:
+        value = os.environ.get(name, "")
+        if value == "":
+            continue
+        try:
+            return float(value)
+        except ValueError:
+            print("cabot_speed_limit: {}='{}' is not a number, ignored".format(name, value))
+    return default
+
+
+def load_mpc_config(mpc_config_path):
+    """Parse the MPC config with its speed aligned to cabot_speed_limit().
+    The config file values are kept when no speed is configured."""
+    config = mpc_utils.parse_config_file(mpc_config_path)
+    speed = cabot_speed_limit()
+    if speed is not None:
+        config.set('mpc_env', 'pref_speed', str(speed))
+        config.set('mpc_env', 'max_speed', str(speed))
+    return config
+
 
 class GroupRLMPC(object):
     """
@@ -32,7 +60,7 @@ class GroupRLMPC(object):
             mpc_config_path: Path to MPC configuration file
         """
 
-        self.robot_speed = 1.0 
+        self.robot_speed = cabot_speed_limit(1.0)
         # self.human_num = 20
         
         # Device setup
@@ -40,7 +68,7 @@ class GroupRLMPC(object):
         
         # Load configurations
         self.rl_config = load_config(rl_config_path)
-        self.mpc_config = mpc_utils.parse_config_file(mpc_config_path)
+        self.mpc_config = load_mpc_config(mpc_config_path)
         
         # Get args from config
         self.args = get_args()
@@ -99,6 +127,30 @@ class GroupRLMPC(object):
         obs = obs.reshape(1, -1)
         obs = np.concatenate([goal_pos, goal_vx_vy, obs], axis=1)
         return obs
+
+    def transform_action_to_follow_pos(self, goal_pos, follow_pos, current_state, r_min=0.5, deg_max=45.0):
+
+        d = goal_pos - current_state[:2]
+        dist = np.linalg.norm(d)
+        if dist < 1e-4:
+            dist = 1e-4
+        d_hat = d / dist
+
+        # Map angle in [-1, 1] to [-phi_max, phi_max]
+        phi_max = deg_max * math.pi / 180.0
+        theta = follow_pos[1] * phi_max
+
+        # Map action to radius within [r_min, min(max_follow_pos_delta, dist)]
+        r_max = min(self.max_follow_pos_delta, dist)
+        rho = r_min + 0.5 * (follow_pos[0] + 1.0) * (r_max - r_min)
+
+        c, s = np.cos(theta), np.sin(theta)
+        u = np.array([c * d_hat[0] - s * d_hat[1],
+                    s * d_hat[0] + c * d_hat[1]])
+
+        follow_pos = current_state[:2] + rho * u
+        
+        return follow_pos
     
     def get_rl_follow_state(self, obs):
         """
@@ -130,9 +182,10 @@ class GroupRLMPC(object):
         
         # Rescale actions
         follow_pos = rl_actions[0, :2].copy()
-        follow_pos = follow_pos * self.max_follow_pos_delta
-        # Convert relative pos to global pos
-        follow_pos = follow_pos + current_state[:2]
+        # follow_pos = follow_pos * self.max_follow_pos_delta
+        # # Convert relative pos to global pos
+        # follow_pos = follow_pos + current_state[:2]
+        follow_pos = self.transform_action_to_follow_pos(goal_pos, follow_pos, current_state)
         
         follow_state = np.array([follow_pos[0], follow_pos[1], 0.0, 0.0])
         follow_state = follow_state.reshape(1, -1)

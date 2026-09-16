@@ -9,6 +9,7 @@ from launch.conditions import IfCondition
 from launch.event_handlers import OnShutdown
 from launch.substitutions import LaunchConfiguration, EnvironmentVariable
 from launch.substitutions import PathJoinSubstitution
+from launch.substitutions import PythonExpression
 from launch_ros.actions import Node
 from launch_ros.actions import SetParameter
 
@@ -59,9 +60,9 @@ def generate_launch_description():
         DeclareLaunchArgument('history_dt', default_value='0.1'),
         DeclareLaunchArgument('low_level_pos_threshold', default_value='0.5'),
         DeclareLaunchArgument('low_level_core_samples', default_value='5'),
-        DeclareLaunchArgument('high_level_pos_threshold', default_value='1.5'),
-        DeclareLaunchArgument('high_level_vel_threshold', default_value='0.5'),
-        DeclareLaunchArgument('high_level_ori_threshold', default_value='15.0'),
+        DeclareLaunchArgument('high_level_pos_threshold', default_value='2.0'),
+        DeclareLaunchArgument('high_level_vel_threshold', default_value='1.0'),
+        DeclareLaunchArgument('high_level_ori_threshold', default_value='30.0'),
         DeclareLaunchArgument('smooth_window', default_value='5'),
         DeclareLaunchArgument('ignore_window', default_value='0'),
         DeclareLaunchArgument('static_threshold', default_value='0.3'),
@@ -107,12 +108,16 @@ def generate_launch_description():
         #     #arguments=["--ros-args", "--log-level", "debug"]
         # ),
 
+        # CABOT_CONTROLLER=follow uses the nav2 FollowPath controller only, so do not
+        # start rl_server (it would load torch and the RL models for nothing)
         Node(
             package="lidar_process",
             executable="rl_server",
             name="rl_server",
             namespace=namespace,
             output=output,
+            condition=IfCondition(PythonExpression(
+                ["'", EnvironmentVariable('CABOT_CONTROLLER', default_value='follow'), "' != 'follow'"])),
             #arguments=["--ros-args", "--log-level", "debug"]
         ),
 

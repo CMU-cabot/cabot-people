@@ -20,6 +20,7 @@ from lidar_process_msgs.msg import PositionArray, PositionHistoryArray, RobotMes
 from .sgan import inference
 from . import crowd_attn_rl 
 from . import group_mpc_rl
+from . import social_momentum_rl_mpc
 from . import utils
 from . import grouping
 from . import visualization
@@ -29,8 +30,27 @@ from rclpy.callback_groups import MutuallyExclusiveCallbackGroup, ReentrantCallb
 from rclpy.qos import QoSProfile, QoSDurabilityPolicy, qos_profile_sensor_data
 
 USE_PED_TRACKER = True
-USE_GROUP_RL = True
-USE_CPP_MPC = True
+USE_SM_RL = False
+
+# CABOT_CONTROLLER -> (USE_GROUP_RL, USE_CPP_MPC), None means rl_server is not used
+#   USE_GROUP_RL: False -> CrowdAttnRL (end-to-end RL)
+#                 True  -> group based MPC (GroupRLMPC / SocialMomentumRLMPC)
+#   USE_CPP_MPC : False -> publish the command as Twist on /rl_robot_cmd
+#                 True  -> publish /rl_subgoal and /rl_people, the nav2 controller runs the MPC
+CONTROLLER_MODES = {
+    "follow": None,           # nav2 uses FollowPath (DWB), no need for rl_server
+    "rl": (True, False),      # GroupRLMPC       -> CaBotRLController
+    "hybrid": (True, True),   # GroupRLMPC       -> CaBotHybridRLController
+    "sm": (True, True),       # SocialMomentumRLMPC -> CaBotSocialMomentumController
+    "crowdattn": (False, False),  # CrowdAttnRL  -> CaBotRLController
+}
+
+cabot_controller = os.environ.get("CABOT_CONTROLLER", "follow")
+if cabot_controller not in CONTROLLER_MODES:
+    print("rl_server: unknown CABOT_CONTROLLER '{}', falling back to 'follow'".format(cabot_controller))
+    cabot_controller = "follow"
+USE_GROUP_RL, USE_CPP_MPC = CONTROLLER_MODES[cabot_controller] or (False, False)
+
 
 class RLServer(Node):
 
@@ -64,6 +84,15 @@ class RLServer(Node):
                 qos_profile=sensor_data_qos,
                 callback_group = entity_callback_group
             )
+        
+        if cabot_controller == "follow":
+            self.get_logger().info("Controller: FollowPath")
+        elif cabot_controller == "sm":
+            self.get_logger().info("Controller: SocialMomentumFollowPath")
+        elif cabot_controller in ["rl", "crowdattn"]:
+            self.get_logger().info("Controller: RLFollowPath")
+        elif cabot_controller == "hybrid":
+            self.get_logger().info("Controller: HybridRLFollowPath")
 
         self.robot_sub = self.create_subscription(
             RobotMessage , 
@@ -101,9 +130,9 @@ class RLServer(Node):
             callback_group = entity_callback_group
         )
 
-        self._high_level_pos_threshold = self.declare_parameter('high_level_pos_threshold', 1.5).value
-        self._high_level_vel_threshold = self.declare_parameter('high_level_vel_threshold', 0.5).value
-        self._high_level_ori_threshold = self.declare_parameter('high_level_ori_threshold', 15.0).value
+        self._high_level_pos_threshold = self.declare_parameter('high_level_pos_threshold', 2.0).value
+        self._high_level_vel_threshold = self.declare_parameter('high_level_vel_threshold', 1.0).value
+        self._high_level_ori_threshold = self.declare_parameter('high_level_ori_threshold', 30.0).value
         self._high_level_ori_threshold = self._high_level_ori_threshold / 180 * np.pi
         self._static_threshold = self.declare_parameter('static_threshold', 0.3).value
 
@@ -114,8 +143,10 @@ class RLServer(Node):
                 self.pub_timer = self.create_timer(timer_period, self.robot_hybrid_cb)
             else:
                 self.pub_timer = self.create_timer(timer_period, self.robot_rl_cb)
+                self.get_logger().info("Controller: HybridRLFollowPath or SocialMomentumRLMPC, USE_GROUP_RL = True and USE_CPP_MPC = True")
         else:
             self.pub_timer = self.create_timer(timer_period, self.robot_hybrid_cb)
+            self.get_logger().info("Controller: RLFollowPath, USE_GROUP_RL = False and USE_CPP_MPC = False")
 
         self.positions_history = []
         self.velocities_history = []
@@ -143,14 +174,20 @@ class RLServer(Node):
             # spd_1_omega_0785.zip
             rl_model_fpath = os.path.join(get_package_share_directory('lidar_process'),  # this package name
                                             "group-rl-models",
-                                            "spd_1_omega_0785.zip")
+                                            "expo_orca_90deg.zip")
             rl_config_path = os.path.join(get_package_share_directory('lidar_process'),  # this package name
                                             "group-rl-configs",
                                             "rl_config.yaml")
             mpc_config_path = os.path.join(get_package_share_directory('lidar_process'),  # this package name
                                             "group-rl-configs",
                                             "crowd_mpc.config")
-            self.agent = group_mpc_rl.GroupRLMPC(rl_model_fpath, rl_config_path, mpc_config_path)
+            if cabot_controller == "sm":
+                self.agent = social_momentum_rl_mpc.SocialMomentumRLMPC(
+                    rl_model_fpath, rl_config_path, mpc_config_path, use_rl=USE_SM_RL)
+                self.get_logger().info("Controller: SocialMomentumRLMPC, USE_GROUP_RL = True and USE_CPP_MPC = {}, USE_SM_RL = {}".format(USE_CPP_MPC, USE_SM_RL))
+            else:
+                self.agent = group_mpc_rl.GroupRLMPC(rl_model_fpath, rl_config_path, mpc_config_path)
+                self.get_logger().info("Controller: GroupRLMPC, USE_GROUP_RL = True and USE_CPP_MPC = {}".format(USE_CPP_MPC))
 
         self.agent.reset()
 
@@ -205,7 +242,7 @@ class RLServer(Node):
 
         self.robot_observation = observation
         #print("Robot obs;", self.robot_observation)
-        self.get_logger().debug("Robot pos: {}, Goal: {}, Num ped: {}".format(robot_pos_np, robot_goal_np, observation["num_pedestrians"]))
+        self.get_logger().info("Robot pos: {}, Goal: {}, Num ped: {}".format(robot_pos_np, robot_goal_np, observation["num_pedestrians"]))
         return
     
     def robot_hybrid_cb(self):
@@ -213,6 +250,7 @@ class RLServer(Node):
         msg = Twist()
         action, sub_goal = self.agent.act(self.robot_observation)
         self.get_logger().info("Action: {}".format(action))
+        self.get_logger().info("Sub-goal: {}".format(sub_goal))
         msg.linear.x = float(action[0])
         msg.angular.z = float(action[1])
         self.robot_pub.publish(msg)
@@ -226,15 +264,15 @@ class RLServer(Node):
         # public info for controller from RL
         
         # people_array is a NxTx2 array
-        people_array, sub_goal = self.agent.act_rl(self.robot_observation)
-        self.get_logger().info("RL Sub-goal: {}".format(sub_goal))
-        sub_goal_msg = Point()
-        sub_goal_msg.x = float(sub_goal[0])
-        sub_goal_msg.y = float(sub_goal[1])
-        self.rl_subgoal_pub.publish(sub_goal_msg)
-        self.get_logger().info("Point published")
-
         try:
+            people_array, sub_goal = self.agent.act_rl(self.robot_observation)
+            self.get_logger().info("RL Sub-goal: {}".format(sub_goal))
+            sub_goal_msg = Point()
+            sub_goal_msg.x = float(sub_goal[0])
+            sub_goal_msg.y = float(sub_goal[1])
+            self.rl_subgoal_pub.publish(sub_goal_msg)
+            self.get_logger().info("Point published")
+
             people_array_msg = PositionHistoryArray()
             if people_array is None:
                 people_array_msg.horizon = 0
