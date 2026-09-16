@@ -114,10 +114,13 @@ RUN if [ "${TARGETARCH}" = "arm64" ]; then \
 COPY requirements.txt /
 RUN pip3 install --no-cache-dir \
         -r /requirements.txt
-RUN git clone https://github.com/openai/baselines.git
-WORKDIR baselines      
-RUN pip install -e .     
-WORKDIR ..  
+# NOTE: openai/baselines used to be installed here. It is never imported at
+# runtime -- only crowdattn's training code (rl/networks/envs.py,
+# shmem_vec_env.py, dummy_vec_env.py, vec_env/*) uses it, and none of that is
+# reachable from lidar_process' rl_server. Its setup.py lists an unpinned
+# 'opencv-python' in install_requires, so installing it pulled the pip OpenCV
+# wheel in and overwrote the CUDA-enabled cv2 the image builds from source.
+# numpy is pinned back down for gym, which uses np.bool8 (removed in numpy 1.24).
 RUN pip3 install --no-cache-dir numpy==1.23.1
 
 # install gazebo
