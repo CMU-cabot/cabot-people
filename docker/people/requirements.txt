@@ -23,8 +23,11 @@ easydict
 # SocialGAN
 attrdict
 #Pillow
-gym
-tensorflow
+gym          # crowd_attn_rl.py imports it (and needs numpy<1.24 for np.bool8)
+# tensorflow was only here to satisfy openai/baselines' setup.py, which asserts a
+# tensorflow >= 1.4 is installed. baselines is no longer installed and nothing in
+# the image imports tensorflow, so it is dropped. In the JetPack 5 image it
+# resolved to the CPU build tensorflow-cpu-aws 2.13.1 and took 990MB.
 # NOTE: do not add opencv-python here. Both the amd64 and the arm64 image build
 # OpenCV from source with WITH_CUDA=ON / OPENCV_DNN_CUDA=ON and the python3
 # bindings (4.9.0 on JetPack 6.0, 4.10.0 on JetPack 6.2, see docker-bake.hcl),
