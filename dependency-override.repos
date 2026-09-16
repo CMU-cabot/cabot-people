@@ -5,7 +5,10 @@
 # 
 
 repositories:
+  # JetPack 6.0 (l4t-base:r36.2.0). 'dev' is still on l4t-base:r35.1.0, i.e.
+  # JetPack 5. This file is applied after cabot/dependency-override.repos, so it
+  # is what decides which cabot-base the arm64 people image is built from.
   cabot-base:
     type: git
     url: https://github.com/CMU-cabot/cabot-base
-    version: dev
+    version: dev-jetpack60
