@@ -24,8 +24,11 @@ setup(
             glob(os.path.join(package_name, 'group_rl', '*.yaml'))),
         (os.path.join('share', package_name, 'group-rl-configs'), 
             glob(os.path.join(package_name, 'group_rl', '*.config'))),
+        # group_rl is checked out from HiCrowd-EXPO, so models we add ourselves live
+        # here instead. rl_server.py looks both up under share/<pkg>/group-rl-models.
         (os.path.join('share', package_name, 'group-rl-models'),
-            glob(os.path.join(package_name, 'group_rl', '*.zip'))),
+            glob(os.path.join(package_name, 'group_rl', '*.zip'))
+            + glob(os.path.join('models', 'group_rl', '*.zip'))),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
