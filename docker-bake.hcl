@@ -27,12 +27,16 @@ variable "REGISTRY" {
   default = "registry"
 }
 
+variable "L4T_CUDA_V" {
+  default = "12.6.11-runtime"
+}
+
 variable "L4T_V" {
-  default = "r36.2.0"
+  default = "r36.4.3"
 }
 
 variable "L4T_IMAGE" {
-  default = "nvcr.io/nvidia/l4t-base:${L4T_V}"
+  default = "nvcr.io/nvidia/l4t-cuda:${L4T_CUDA_V}"
 }
 
 variable "L4T_MAJOR_MINOR_V" {
@@ -44,11 +48,11 @@ variable "TEGRA_V" {
 }
 
 variable "OPENCV_V" {
-  default = "4.9.0"
+  default = "4.10.0"
 }
 
 variable "L4T_CUDA" {
-  default = "12-2"
+  default = "12-6"
 }
 
 group "default" {

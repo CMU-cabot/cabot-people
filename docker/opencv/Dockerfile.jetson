@@ -24,9 +24,10 @@ ARG FROM_IMAGE
 FROM $FROM_IMAGE AS cache
 
 ARG CMAKE_V=3.19.3 \
-    OPENCV_V=4.9.0 \
-    CUDA_V=12-2 \
-    COMP_CAP=7.2,8.7
+    OPENCV_V=4.10.0 \
+	CUDA_V=12-6 \
+    COMP_CAP=7.2,8.7 \
+    L4T_V=36.4
 
 ENV DEBIAN_FRONTEND="noninteractive"
 
@@ -43,7 +44,9 @@ RUN apt update && \
 	rm -rf /var/lib/apt/lists/*
 
 # install cuda/cudnn development library
-RUN apt-get update && \
+RUN apt-key adv --fetch-keys https://repo.download.nvidia.com/jetson/jetson-ota-public.asc && \
+        echo "deb https://repo.download.nvidia.com/jetson/common r${L4T_V} main" >> /etc/apt/sources.list.d/nvidia-l4t-apt-source.list && \
+	apt update && \
 	apt-get install -y --no-install-recommends \
 	cuda-nvcc-${CUDA_V} \
 	libcunit1-dev \
@@ -51,7 +54,7 @@ RUN apt-get update && \
 	libcurand-dev-${CUDA_V} \
 	libnpp-dev-${CUDA_V} \
 	libcufft-dev-${CUDA_V} \
-	nvidia-cudnn8-dev \
+	nvidia-cudnn9-dev \
 	&& rm -rf /var/lib/apt/lists/* \
 	&& apt-get clean
 
@@ -103,11 +106,14 @@ RUN mkdir -p src/opencv/build && cd src/opencv && \
 # copy built opencv from cache and cuda/cudnn runtime library
 FROM $FROM_IMAGE AS build
 
-ARG CUDA_V=12-2
+ARG CUDA_V=12-6 \
+	L4T_V=36.4
 
 COPY --from=cache /usr/opencv /usr/local
 
-RUN apt-get update && \
+RUN apt-key adv --fetch-keys https://repo.download.nvidia.com/jetson/jetson-ota-public.asc && \
+        echo "deb https://repo.download.nvidia.com/jetson/common r${L4T_V} main" >> /etc/apt/sources.list.d/nvidia-l4t-apt-source.list && \
+	apt update && \
 	apt-get install -y --no-install-recommends \
 	cuda-nvcc-${CUDA_V} \
 	libcunit1-dev \
@@ -115,6 +121,6 @@ RUN apt-get update && \
 	libcurand-${CUDA_V} \
 	libnpp-${CUDA_V} \
 	libcufft-${CUDA_V} \
-	nvidia-cudnn8 \
+	nvidia-cudnn9-dev \
 	&& rm -rf /var/lib/apt/lists/* \
 	&& apt-get clean
