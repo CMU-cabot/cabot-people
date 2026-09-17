@@ -108,10 +108,11 @@ def generate_launch_description():
         #     #arguments=["--ros-args", "--log-level", "debug"]
         # ),
 
-        # follow (DWB) and mpc (CaBotSamplingMPCController) subscribe to nothing from
-        # this package, so do not start rl_server for them: it would load torch and the
-        # RL checkpoints for nothing. Keep this list in sync with CONTROLLER_MODES in
-        # lidar_process/rl_server.py, where those two are the entries mapped to None.
+        # follow (DWB), mpc (CaBotSamplingMPCController) and blind
+        # (CaBotBlindController) subscribe to nothing from this package, so do not
+        # start rl_server for them: it would load torch and the RL checkpoints for
+        # nothing. Keep this list in sync with CONTROLLER_MODES in
+        # lidar_process/rl_server.py, where those three are the entries mapped to None.
         Node(
             package="lidar_process",
             executable="rl_server",
@@ -120,7 +121,7 @@ def generate_launch_description():
             output=output,
             condition=IfCondition(PythonExpression(
                 ["'", EnvironmentVariable('CABOT_CONTROLLER', default_value='follow'),
-                 "' not in ['follow', 'mpc']"])),
+                 "' not in ['follow', 'mpc', 'blind']"])),
             #arguments=["--ros-args", "--log-level", "debug"]
         ),
 
