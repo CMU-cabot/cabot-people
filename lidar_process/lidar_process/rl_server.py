@@ -40,6 +40,8 @@ USE_SM_RL = False
 CONTROLLER_MODES = {
     "follow": None,           # nav2 uses FollowPath (DWB), no need for rl_server
     "mpc": None,              # nav2 uses MPCFollowPath, which subscribes to nothing here
+    "blind": None,            # nav2 uses BlindFollowPath: no perception at all, the
+                              # baseline the other controllers are compared against
     "rl": (True, False),      # GroupRLMPC       -> CaBotRLController
     "hybrid": (True, True),   # GroupRLMPC       -> CaBotHybridRLController
     "sm": (True, True),       # SocialMomentumRLMPC -> CaBotSocialMomentumController
