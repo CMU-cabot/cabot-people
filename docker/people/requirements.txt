@@ -23,7 +23,15 @@ easydict
 # SocialGAN
 attrdict
 #Pillow
-gym          # crowd_attn_rl.py imports it (and needs numpy<1.24 for np.bool8)
+# crowd_attn_rl.py imports gym for gym.spaces.Box / gym.spaces.Dict only.
+# Pinned to what the JetPack 5 image actually ran: openai/baselines used to
+# constrain this to 'gym>=0.15.4, <0.16.0' and it resolved to 0.15.7. baselines
+# is no longer installed, so without this pin it would jump to 0.26.x, a
+# different API generation than this code was validated against.
+# 0.15.7 does not use np.bool8; the only numpy 1.24 removal it touches is np.bool
+# in gym/envs/toy_text/cliffwalking.py, which `import gym` does not load (envs are
+# registered by entry-point string and imported lazily).
+gym==0.15.7
 # tensorflow was only here to satisfy openai/baselines' setup.py, which asserts a
 # tensorflow >= 1.4 is installed. baselines is no longer installed and nothing in
 # the image imports tensorflow, so it is dropped. In the JetPack 5 image it
