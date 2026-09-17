@@ -175,9 +175,12 @@ class RLServer(Node):
         else:
             # n_samples_0100000.zip
             # spd_1_omega_0785.zip
+            # expo_orca_90deg.zip (the saitolab choice) takes an 84-dim state, but
+            # group_rl/rl_config.yaml builds a 44-dim model, so it cannot be loaded
+            # until the matching group_rl config comes over too.
             rl_model_fpath = os.path.join(get_package_share_directory('lidar_process'),  # this package name
                                             "group-rl-models",
-                                            "expo_orca_90deg.zip")
+                                            "spd_1_omega_0785.zip")
             rl_config_path = os.path.join(get_package_share_directory('lidar_process'),  # this package name
                                             "group-rl-configs",
                                             "rl_config.yaml")
