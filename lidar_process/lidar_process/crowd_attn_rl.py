@@ -99,9 +99,14 @@ class CrowdAttnRL(object):
 
         # masks for gst pred model
         # whether each human is visible to robot (ordered by human ID, should not be sorted)
+        # np.bool is gone in numpy >= 1.24. It was only ever an alias of the
+        # builtin bool, so the dtype is unchanged by spelling it that way. The
+        # image pins numpy 1.23.5 too, but this keeps rl_server working where it
+        # cannot: a base image with a newer numpy cannot be downgraded without
+        # breaking the packages compiled against it.
         d['visible_masks'] = gym.spaces.Box(low=-np.inf, high=np.inf,
                                             shape=(self.human_num,),
-                                            dtype=np.bool)
+                                            dtype=bool)
 
         # number of humans detected at each timestep
         d['detected_human_num'] = gym.spaces.Box(low=-np.inf, high=np.inf, shape=(1,), dtype=np.float32)
