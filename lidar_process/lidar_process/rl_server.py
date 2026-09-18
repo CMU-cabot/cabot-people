@@ -30,7 +30,14 @@ from rclpy.callback_groups import MutuallyExclusiveCallbackGroup, ReentrantCallb
 from rclpy.qos import QoSProfile, QoSDurabilityPolicy, qos_profile_sensor_data
 
 USE_PED_TRACKER = True
-USE_SM_RL = False
+# 'sm' has to run the RL subgoal path. SocialMomentumRLMPC's MPC-only branch
+# (use_rl=False) leaves self.mpc as None -- the line that would build it is
+# commented out in reset(), and the SocialMomentumMPC class it names does not
+# exist in HiCrowd-EXPO -- so act_rl() raises AttributeError on every cycle where
+# a pedestrian is visible. With use_rl=True the class delegates entirely to
+# GroupRLMPC; the social momentum itself is computed by nav2's
+# CaBotSocialMomentumController from the /rl_subgoal and /rl_people it publishes.
+USE_SM_RL = True
 
 # CABOT_CONTROLLER -> (USE_GROUP_RL, USE_CPP_MPC), None means rl_server is not used
 #   USE_GROUP_RL: False -> CrowdAttnRL (end-to-end RL)

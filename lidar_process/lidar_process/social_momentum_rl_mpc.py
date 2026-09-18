@@ -13,7 +13,7 @@ patch_torch_load()
 from .group_rl.config import get_args
 from .group_rl.obs_data_parser import ObsDataParser
 from .group_rl.sim.mpc import mpc_utils
-# from .group_rl.sim.mpc.social_momentum_mpc import SocialMomentumMPC
+from .social_momentum_mpc import SocialMomentumMPC
 
 
 class SocialMomentumRLMPC(GroupRLMPC):
@@ -67,8 +67,16 @@ class SocialMomentumRLMPC(GroupRLMPC):
             "RL+MPC" if self.use_rl else "MPC-only"))
 
     def reset(self):
+        if self.use_rl:
+            # GroupRLMPC.reset() is what builds self.mpc (a GroupLinearMPC).
+            # Overriding reset() without calling it left self.mpc as the None set
+            # in __init__, so act_rl() raised AttributeError on the first cycle
+            # with a pedestrian in view.
+            super().reset()
+            return
+
         self.mpc_steps_counter = 0
-        # self.mpc = SocialMomentumMPC(self.mpc_config, self.args)
+        self.mpc = SocialMomentumMPC(self.mpc_config, self.args)
 
     def act(self, obs):
         if self.use_rl:
