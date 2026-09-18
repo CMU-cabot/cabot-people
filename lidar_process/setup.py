@@ -24,6 +24,14 @@ setup(
             glob(os.path.join(package_name, 'group_rl', '*.yaml'))),
         (os.path.join('share', package_name, 'group-rl-configs'), 
             glob(os.path.join(package_name, 'group_rl', '*.config'))),
+        # The 20-human variants of the two configs. group_rl is a checkout of
+        # HiCrowd-EXPO and is gitignored here, so edits to its copies do not
+        # travel to another robot -- which is exactly how the expo_orca_90deg
+        # checkpoint ended up paired with a 10-human config. Keep ours in this
+        # repository instead, next to the checkpoints in models/group_rl.
+        (os.path.join('share', package_name, 'group-rl-configs'),
+            glob(os.path.join('config', 'group_rl', '*.yaml'))
+            + glob(os.path.join('config', 'group_rl', '*.config'))),
         # group_rl is checked out from HiCrowd-EXPO, so models we add ourselves live
         # here instead. rl_server.py looks both up under share/<pkg>/group-rl-models.
         (os.path.join('share', package_name, 'group-rl-models'),

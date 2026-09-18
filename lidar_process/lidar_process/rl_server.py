@@ -175,18 +175,23 @@ class RLServer(Node):
         else:
             # n_samples_0100000.zip
             # spd_1_omega_0785.zip
-            # expo_orca_90deg.zip (the saitolab choice) takes an 84-dim state, but
-            # group_rl/rl_config.yaml builds a 44-dim model, so it cannot be loaded
-            # until the matching group_rl config comes over too.
+            #
+            # The state is goal_pos (2) + goal_vx_vy (2) + max_humans * (x, y, vx,
+            # vy), so max_humans in the mpc config and state_shape in the rl config
+            # decide which checkpoints can be loaded at all: 10 humans -> 44, 20 ->
+            # 84. The *_90deg and *_20human checkpoints are the 84-dim ones. Allan
+            # confirmed the EXPO setup raised this to 20, so use the 20-human
+            # configs; the two have to move together or load_state_dict fails with
+            # a size mismatch on actor.fc_layers.0.weight.
             rl_model_fpath = os.path.join(get_package_share_directory('lidar_process'),  # this package name
                                             "group-rl-models",
-                                            "spd_1_omega_0785.zip")
+                                            "expo_orca_90deg.zip")
             rl_config_path = os.path.join(get_package_share_directory('lidar_process'),  # this package name
                                             "group-rl-configs",
-                                            "rl_config.yaml")
+                                            "rl_config_20human.yaml")
             mpc_config_path = os.path.join(get_package_share_directory('lidar_process'),  # this package name
                                             "group-rl-configs",
-                                            "crowd_mpc.config")
+                                            "crowd_mpc_20human.config")
             if cabot_controller == "sm":
                 self.agent = social_momentum_rl_mpc.SocialMomentumRLMPC(
                     rl_model_fpath, rl_config_path, mpc_config_path, use_rl=USE_SM_RL)
