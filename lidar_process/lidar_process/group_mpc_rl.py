@@ -223,7 +223,14 @@ class GroupRLMPC(object):
             desired_th = np.arctan2(robot_goal[1] - robot_pos[1], robot_goal[0] - robot_pos[0])
             action = np.zeros(2)
             action[0] = robot_speed
-            action[1] = desired_th - robot_th
+            # Wrap the heading error into [-pi, pi]. Both angles are in (-pi, pi], so
+            # the raw difference reaches +-2pi when they straddle the +-pi boundary:
+            # robot_th = 3.0, desired_th = -3.0 is a 0.28 rad turn, but the raw
+            # difference asks for -6.0 rad/s the long way round. It only shows when
+            # the goal is close at the start, which is why EXPO -- far goals with
+            # waypoints in between -- never hit it. Not clamped: Allan confirmed
+            # wrapping is the fix, and a clamp would change the tuned behaviour.
+            action[1] = np.arctan2(np.sin(desired_th - robot_th), np.cos(desired_th - robot_th))
             return action, robot_goal
         
         # Use existing follow state and get target
